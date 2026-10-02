@@ -27,6 +27,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -776,16 +777,18 @@ type KVCache struct {
 
 func (m *Model) NewCache() *KVCache { return &KVCache{Model: m, Revision: m.Revision} }
 func (c *KVCache) ensurePage() {
-	if c.Pos/pageTokens < len(c.Pages) {
-		return
+	c.ensurePages(c.Pos + 1)
+}
+func (c *KVCache) ensurePages(end int) {
+	for len(c.Pages) < (end+pageTokens-1)/pageTokens {
+		var p *kvPage
+		if c.pool != nil {
+			p = c.pool.acquire()
+		} else {
+			p = &kvPage{make([]float32, 2*pageTokens*c.Model.Config.KVDim()*c.Model.Config.Layers)}
+		}
+		c.Pages = append(c.Pages, p)
 	}
-	var p *kvPage
-	if c.pool != nil {
-		p = c.pool.acquire()
-	} else {
-		p = &kvPage{make([]float32, 2*pageTokens*c.Model.Config.KVDim()*c.Model.Config.Layers)}
-	}
-	c.Pages = append(c.Pages, p)
 }
 func (c *KVCache) row(layer, pos int) ([]float32, []float32) {
 	kd := c.Model.Config.KVDim()
@@ -830,30 +833,99 @@ func rmsInto(y, x []float32, w *Param, n int, eps float64) {
 // DecodeBatch shares all matrix projections across independent sessions. Each
 // row can have a different position; pages and RoPE offsets remain session-local.
 func (m *Model) DecodeBatch(ctx context.Context, caches []*KVCache, tokens []int) ([]float32, error) {
-	c := m.Config
-	n := len(caches)
-	if n < 1 || n > 256 || len(tokens) != n {
+	if len(tokens) != len(caches) || len(caches) < 1 || len(caches) > 256 {
 		return nil, errors.New("invalid decode batch (1..256)")
 	}
-	seen := make(map[*KVCache]bool, n)
-	maxPos := 0
-	for i, cache := range caches {
-		if cache == nil || cache.Model != m || cache.Revision != m.Revision || cache.released || seen[cache] {
-			return nil, errors.New("foreign, stale, released, or duplicate KV cache")
-		}
-		if cache.Pos >= c.Context {
-			return nil, errors.New("KV cache context exhausted")
-		}
-		if tokens[i] < 0 || tokens[i] >= c.Vocab {
-			return nil, errors.New("token outside vocabulary")
-		}
-		seen[cache] = true
-		maxPos = max(maxPos, cache.Pos+1)
+	chunks := make([][]int, len(tokens))
+	for i := range tokens {
+		chunks[i] = tokens[i : i+1]
+	}
+	return m.PrefillBatch(ctx, caches, chunks)
+}
+
+// PrefillBatch appends one nonempty, causal chunk per session and returns only
+// the last-token logits for each session. Flattened rows share projection work;
+// attention reads each row's own prefix, including earlier rows in its chunk.
+// The caller must exclusively own all caches and their pools for this call.
+// Cancellation may populate future KV rows, but never commits cache positions.
+func (m *Model) PrefillBatch(ctx context.Context, caches []*KVCache, chunks [][]int) ([]float32, error) {
+	c := m.Config
+	sessions := len(caches)
+	if sessions < 1 || sessions > 256 || len(chunks) != sessions {
+		return nil, errors.New("invalid prefill batch (1..256 sessions)")
+	}
+	if ctx == nil {
+		return nil, errors.New("nil inference context")
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	type poolUse struct{ pages, reserved int }
+	pools := make(map[*pagePool]poolUse)
+	seen := make(map[*KVCache]bool, sessions)
+	n, maxPos := 0, 0
+	pageElements := 2 * pageTokens * c.KVDim() * c.Layers
+	for i, cache := range caches {
+		if cache == nil || cache.Model != m || cache.Revision != m.Revision || cache.released || seen[cache] {
+			return nil, errors.New("foreign, stale, released, or duplicate KV cache")
+		}
+		chunk := chunks[i]
+		if len(chunk) < 1 || len(chunk) > 1024-n {
+			return nil, errors.New("prefill requires nonempty chunks totaling at most 1024 tokens")
+		}
+		if cache.Pos < 0 || cache.Pos > c.Context || len(chunk) > c.Context-cache.Pos {
+			return nil, errors.New("KV cache context exhausted or invalid position")
+		}
+		for _, token := range chunk {
+			if token < 0 || token >= c.Vocab {
+				return nil, errors.New("token outside vocabulary")
+			}
+		}
+		end := cache.Pos + len(chunk)
+		pages := (end + pageTokens - 1) / pageTokens
+		if len(cache.Pages) < (cache.Pos+pageTokens-1)/pageTokens || len(cache.Pages) > (c.Context+pageTokens-1)/pageTokens {
+			return nil, errors.New("invalid KV page coverage")
+		}
+		for _, page := range cache.Pages {
+			if page == nil || len(page.Data) != pageElements {
+				return nil, errors.New("invalid KV page storage")
+			}
+		}
+		if p := cache.pool; p != nil {
+			if p.PageElements != pageElements || p.Limit < 1 || p.Allocated < 0 || p.Allocated > p.Limit || len(p.Free) > p.Allocated || p.Reserved > p.Limit || cache.reserved < 1 || pages > cache.reserved || len(cache.Pages) > cache.reserved {
+				return nil, errors.New("invalid KV page reservation")
+			}
+			use := pools[p]
+			use.pages += max(0, pages-len(cache.Pages))
+			use.reserved += cache.reserved
+			pools[p] = use
+		}
+		seen[cache] = true
+		n += len(chunk)
+		maxPos = max(maxPos, end)
+	}
+	for p, use := range pools {
+		if use.reserved > p.Reserved || use.pages > len(p.Free)+p.Limit-p.Allocated {
+			return nil, errors.New("insufficient KV page reservation")
+		}
+		// Validate only the free pages this call will actually acquire.
+		for j := 0; j < min(use.pages, len(p.Free)); j++ {
+			page := p.Free[len(p.Free)-1-j]
+			if page == nil || len(page.Data) != pageElements {
+				return nil, errors.New("invalid free KV page storage")
+			}
+		}
+	}
 	d, kd, hd := c.Dim, c.KVDim(), c.Dim/c.Heads
+	// Five dim-sized, two KV-sized and three hidden-sized row arrays, scores,
+	// and both the pooled logits and caller-owned output must fit the budget.
+	elements := int64(n)*(5*int64(d)+2*int64(kd)+3*int64(c.Hidden)+int64(maxPos)) + 2*int64(sessions)*int64(c.Vocab)
+	if elements > maxActivationElements {
+		return nil, errors.New("inference workspace budget exceeded; reduce prefill tokens or batch size")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	group := c.Heads / c.KVHeads
 	raw := m.decodePool.Get()
 	var w *decodeWorkspace
@@ -863,21 +935,40 @@ func (m *Model) DecodeBatch(ctx context.Context, caches []*KVCache, tokens []int
 		w = raw.(*decodeWorkspace)
 	}
 	defer m.decodePool.Put(w)
-	w.X = resize(w.X, n*d)
-	w.N = resize(w.N, n*d)
-	w.Q = resize(w.Q, n*d)
-	w.K = resize(w.K, n*kd)
-	w.V = resize(w.V, n*kd)
-	w.A = resize(w.A, n*d)
-	w.Tmp = resize(w.Tmp, n*d)
-	w.G = resize(w.G, n*c.Hidden)
-	w.U = resize(w.U, n*c.Hidden)
-	w.H = resize(w.H, n*c.Hidden)
-	w.Logits = resize(w.Logits, n*c.Vocab)
-	w.Scores = resize(w.Scores, n*maxPos)
+	// Mixed prior shapes must not let retained capacities exceed the budget.
+	retained := int64(sessions * c.Vocab)
+	arrays := []struct {
+		x *[]float32
+		n int
+	}{
+		{&w.X, n * d}, {&w.N, n * d}, {&w.Q, n * d},
+		{&w.K, n * kd}, {&w.V, n * kd}, {&w.A, n * d},
+		{&w.Tmp, n * d}, {&w.G, n * c.Hidden},
+		{&w.U, n * c.Hidden}, {&w.H, n * c.Hidden},
+		{&w.Logits, sessions * c.Vocab}, {&w.Scores, n * maxPos},
+	}
+	for _, a := range arrays {
+		retained += int64(max(cap(*a.x), a.n))
+	}
+	if retained > maxActivationElements {
+		*w = decodeWorkspace{}
+	}
+	for _, a := range arrays {
+		*a.x = resize(*a.x, a.n)
+	}
+	// Every session owns consecutive rows, but positions include its prefix.
+	rowCaches := make([]*KVCache, n)
+	positions := make([]int, n)
+	lastRows := make([]int, sessions)
+	r := 0
 	for i, cache := range caches {
-		cache.ensurePage()
-		copy(w.X[i*d:(i+1)*d], m.Emb.Data[tokens[i]*d:(tokens[i]+1)*d])
+		cache.ensurePages(cache.Pos + len(chunks[i]))
+		for j, token := range chunks[i] {
+			rowCaches[r], positions[r] = cache, cache.Pos+j
+			copy(w.X[r*d:(r+1)*d], m.Emb.Data[token*d:(token+1)*d])
+			r++
+		}
+		lastRows[i] = r - 1
 	}
 	for l, b := range m.Blocks {
 		if err := ctx.Err(); err != nil {
@@ -887,16 +978,16 @@ func (m *Model) DecodeBatch(ctx context.Context, caches []*KVCache, tokens []int
 		linearInto(w.Q, w.N, b.Q, n)
 		linearInto(w.K, w.N, b.K, n)
 		linearInto(w.V, w.N, b.V, n)
-		for i, cache := range caches {
-			m.rope(w.Q[i*d:(i+1)*d], 1, 1, c.Heads, cache.Pos, false)
-			m.rope(w.K[i*kd:(i+1)*kd], 1, 1, c.KVHeads, cache.Pos, false)
-			k, v := cache.row(l, cache.Pos)
+		for i, cache := range rowCaches {
+			m.rope(w.Q[i*d:(i+1)*d], 1, 1, c.Heads, positions[i], false)
+			m.rope(w.K[i*kd:(i+1)*kd], 1, 1, c.KVHeads, positions[i], false)
+			k, v := cache.row(l, positions[i])
 			copy(k, w.K[i*kd:(i+1)*kd])
 			copy(v, w.V[i*kd:(i+1)*kd])
 		}
 		parallel(n, n*c.Heads*maxPos*hd, func(lo, hi int) {
 			for i := lo; i < hi; i++ {
-				cache := caches[i]
+				cache := rowCaches[i]
 				scores := w.Scores[i*maxPos : (i+1)*maxPos]
 				for h := 0; h < c.Heads; h++ {
 					kh := h / group
@@ -905,7 +996,7 @@ func (m *Model) DecodeBatch(ctx context.Context, caches []*KVCache, tokens []int
 						k, v := cache.row(l, pos)
 						return k[kh*hd : (kh+1)*hd], v[kh*hd : (kh+1)*hd]
 					}
-					attend(w.Q[qi:qi+hd], w.A[qi:qi+hd], scores, cache.Pos+1, kv)
+					attend(w.Q[qi:qi+hd], w.A[qi:qi+hd], scores, positions[i]+1, kv)
 				}
 			}
 		})
@@ -920,10 +1011,17 @@ func (m *Model) DecodeBatch(ctx context.Context, caches []*KVCache, tokens []int
 		linearInto(w.Tmp, w.H, b.Down, n)
 		addInPlace(w.X, w.Tmp)
 	}
-	rmsInto(w.N, w.X, m.Final, n, c.NormEps)
-	linearInto(w.Logits, w.N, m.Emb, n)
-	for _, cache := range caches {
-		cache.Pos++
+	// Gather only each session's final hidden row before the vocabulary head.
+	for i, row := range lastRows {
+		copy(w.Tmp[i*d:(i+1)*d], w.X[row*d:(row+1)*d])
+	}
+	rmsInto(w.N[:sessions*d], w.Tmp[:sessions*d], m.Final, sessions, c.NormEps)
+	linearInto(w.Logits, w.N[:sessions*d], m.Emb, sessions)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	for i, cache := range caches {
+		cache.Pos += len(chunks[i])
 	}
 	return append([]float32(nil), w.Logits...), nil
 }
@@ -1551,35 +1649,109 @@ func Generate(ctx context.Context, m *Model, tok Tokenizer, prompt string, s Sam
 	return completion(tok, out, len(ids), reason), nil
 }
 
-// Engine is a continuous-batching actor. Only run owns active sessions, cache
-// pages, and reservation accounting. Callers exchange messages over bounded
-// channels. Each scheduling tick advances one token per session, including
-// prefill, so a long prompt cannot monopolize an entire prefill pass.
+// Engine owns sessions and KV pages in one goroutine. Every tick gives each
+// active session progress, with a bounded token budget for chunked prefill.
 var ErrBusy = errors.New("inference capacity exhausted; retry later")
 var ErrClosed = errors.New("inference engine closed")
+var ErrSlowConsumer = errors.New("stream consumer exceeded its buffered token capacity")
 
 type EngineConfig struct {
-	MaxBatch, Queue int
-	CacheBytes      int64
+	MaxBatch, Queue                                            int
+	CacheBytes                                                 int64
+	StreamBuffer, PrefillChunk, MixedPrefillChunk, TokenBudget int
 }
+
+type TokenEvent struct {
+	TokenID int    `json:"token_id"`
+	Text    string `json:"text"`
+}
+
+// incrementalText preserves strings.ToValidUTF8 semantics across token pieces,
+// including one replacement per consecutive invalid-byte run.
+type incrementalText struct {
+	pending []byte
+	invalid bool
+}
+
+func (d *incrementalText) Push(piece []byte, final bool) string {
+	data := append(d.pending, piece...)
+	d.pending = nil
+	var out strings.Builder
+	for len(data) > 0 {
+		if !final && !utf8.FullRune(data) {
+			d.pending = append(d.pending, data...)
+			break
+		}
+		r, n := utf8.DecodeRune(data)
+		if r == utf8.RuneError && n == 1 {
+			if !d.invalid {
+				out.WriteRune(utf8.RuneError)
+			}
+			d.invalid = true
+		} else {
+			out.Write(data[:n])
+			d.invalid = false
+		}
+		data = data[n:]
+	}
+	return out.String()
+}
+
 type engineRequest struct {
-	Ctx      context.Context
-	IDs      []int
-	Sampling Sampling
-	Reply    chan engineReply
+	Ctx               context.Context
+	IDs               []int
+	Sampling          Sampling
+	Reply             chan engineReply
+	Events            chan TokenEvent
+	Cancel            context.CancelFunc
+	release           func()
+	Started, Enqueued time.Time
 }
 type engineReply struct {
 	Completion Completion
 	Err        error
 }
+type CompletionStream struct {
+	Events  <-chan TokenEvent
+	request *engineRequest
+}
+
+func (s *CompletionStream) Close() { s.request.Cancel() }
+
+// Wait returns the terminal result. Call once, after draining Events, unless
+// abandoning the stream. Cancellation never requires draining its event buffer.
+func (s *CompletionStream) Wait() (Completion, error) {
+	select {
+	case r := <-s.request.Reply:
+		return r.Completion, r.Err
+	default:
+	}
+	select {
+	case r := <-s.request.Reply:
+		return r.Completion, r.Err
+	case <-s.request.Ctx.Done():
+		select {
+		case r := <-s.request.Reply:
+			return r.Completion, r.Err
+		default:
+			return Completion{}, s.request.Ctx.Err()
+		}
+	}
+}
+
 type engineSession struct {
 	Request         *engineRequest
 	Cache           *KVCache
 	Cursor          int
 	Output, History []int
 	RNG             RNG
+	Text            incrementalText
+	LastToken       time.Time
 }
-type engineCounters struct{ Submitted, Completed, Canceled, Failed, Rejected, Active, Reserved, Allocated atomic.Int64 }
+type engineCounters struct {
+	Submitted, Completed, Canceled, Failed, Rejected, Active, Reserved, Allocated atomic.Int64
+	InputTokens, GeneratedTokens, Ticks, SlowConsumers, PeakTickTokens            atomic.Int64
+}
 type EngineStats struct {
 	Submitted        int64 `json:"submitted"`
 	Completed        int64 `json:"completed"`
@@ -1590,24 +1762,72 @@ type EngineStats struct {
 	Queue            int   `json:"queue"`
 	KVReservedBytes  int64 `json:"kv_reserved_bytes"`
 	KVAllocatedBytes int64 `json:"kv_allocated_bytes"`
+	InputTokens      int64 `json:"input_tokens"`
+	GeneratedTokens  int64 `json:"generated_tokens"`
+	Ticks            int64 `json:"ticks"`
+	SlowConsumers    int64 `json:"slow_consumers"`
+	PeakTickTokens   int64 `json:"peak_tick_tokens"`
 }
+
+var latencyBounds = [...]float64{.0001, .0005, .001, .005, .01, .05, .1, .5, 1, 5, 30, 120}
+
+type latencyHistogram struct {
+	buckets      [len(latencyBounds)]atomic.Uint64
+	count, nanos atomic.Uint64
+}
+
+func (h *latencyHistogram) observe(d time.Duration) {
+	h.count.Add(1)
+	h.nanos.Add(uint64(max(d, 0)))
+	for i, bound := range latencyBounds {
+		if d.Seconds() <= bound {
+			h.buckets[i].Add(1)
+			break
+		}
+	}
+}
+func (h *latencyHistogram) write(w io.Writer, name string) {
+	fmt.Fprintf(w, "# TYPE %s histogram\n", name)
+	var cumulative uint64
+	for i, bound := range latencyBounds {
+		cumulative += h.buckets[i].Load()
+		fmt.Fprintf(w, "%s_bucket{le=\"%g\"} %d\n", name, bound, cumulative)
+	}
+	fmt.Fprintf(w, "%s_bucket{le=\"+Inf\"} %d\n%s_count %d\n%s_sum %.9f\n", name, h.count.Load(), name, h.count.Load(), name, float64(h.nanos.Load())/1e9)
+}
+
 type Engine struct {
-	Model     *Model
-	Tokenizer Tokenizer
-	Config    EngineConfig
-	queue     chan *engineRequest
-	admission chan struct{}
-	httpSlots chan struct{}
-	ctx       context.Context
-	cancel    context.CancelFunc
-	done      chan struct{}
-	pool      pagePool
-	stats     engineCounters
+	Model                                     *Model
+	Tokenizer                                 Tokenizer
+	Config                                    EngineConfig
+	queue                                     chan *engineRequest
+	admission                                 chan struct{}
+	httpSlots                                 chan struct{}
+	ctx                                       context.Context
+	cancel                                    context.CancelFunc
+	done                                      chan struct{}
+	pool                                      pagePool
+	stats                                     engineCounters
+	pieces                                    [][]byte
+	submitMu                                  sync.Mutex
+	queueLatency, firstTokenLatency, tokenGap latencyHistogram
 }
 
 func NewEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
-	if c.MaxBatch < 1 || c.MaxBatch > 256 || c.Queue < 1 || c.Queue > 65536 || c.CacheBytes < 1 || c.CacheBytes > 1<<40 {
-		return nil, errors.New("invalid engine capacity")
+	if c.StreamBuffer == 0 {
+		c.StreamBuffer = 32
+	}
+	if c.PrefillChunk == 0 {
+		c.PrefillChunk = 16
+	}
+	if c.MixedPrefillChunk == 0 {
+		c.MixedPrefillChunk = 1
+	}
+	if c.TokenBudget == 0 {
+		c.TokenBudget = max(c.MaxBatch, 64)
+	}
+	if c.MaxBatch < 1 || c.MaxBatch > 256 || c.Queue < 1 || c.Queue > 65536 || c.CacheBytes < 1 || c.CacheBytes > 1<<40 || c.StreamBuffer < 1 || c.StreamBuffer > 4096 || c.PrefillChunk < 1 || c.PrefillChunk > 1024 || c.MixedPrefillChunk < 1 || c.MixedPrefillChunk > 1024 || c.TokenBudget < c.MaxBatch || c.TokenBudget > 1024 {
+		return nil, errors.New("invalid engine capacity or token budget")
 	}
 	if err := tok.Validate(); err != nil {
 		return nil, err
@@ -1621,97 +1841,180 @@ func NewEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
 		return nil, errors.New("cache budget cannot hold one KV page")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	e := &Engine{Model: m, Tokenizer: tok, Config: c, queue: make(chan *engineRequest, c.Queue), admission: make(chan struct{}, c.Queue+c.MaxBatch), httpSlots: make(chan struct{}, c.Queue+c.MaxBatch), ctx: ctx, cancel: cancel, done: make(chan struct{}), pool: pagePool{PageElements: elements, Limit: limit}}
+	e := &Engine{Model: m, Tokenizer: tok, Config: c, queue: make(chan *engineRequest, c.Queue), admission: make(chan struct{}, c.Queue+c.MaxBatch), httpSlots: make(chan struct{}, c.Queue+c.MaxBatch), ctx: ctx, cancel: cancel, done: make(chan struct{}), pool: pagePool{PageElements: elements, Limit: limit}, pieces: tok.Pieces()}
 	go e.run()
 	return e, nil
 }
 func (e *Engine) Stats() EngineStats {
 	s := &e.stats
-	return EngineStats{s.Submitted.Load(), s.Completed.Load(), s.Canceled.Load(), s.Failed.Load(), s.Rejected.Load(), s.Active.Load(), len(e.queue), s.Reserved.Load(), s.Allocated.Load()}
+	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load()}
 }
 func (e *Engine) Close() { e.cancel(); <-e.done }
-func (e *Engine) Generate(ctx context.Context, prompt string, s Sampling) (Completion, error) {
+func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streaming bool) (*engineRequest, error) {
+	started := time.Now()
 	if err := ctx.Err(); err != nil {
-		return Completion{}, err
+		return nil, err
 	}
-	// Admission happens before tokenization, bounding preparation memory as well.
 	select {
 	case <-e.done:
-		return Completion{}, ErrClosed
+		return nil, ErrClosed
 	default:
 	}
 	select {
 	case e.admission <- struct{}{}:
-		defer func() { <-e.admission }()
 	default:
 		e.stats.Rejected.Add(1)
-		return Completion{}, ErrBusy
+		return nil, ErrBusy
 	}
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			<-e.admission
+		}
+	}()
 	ids, err := preparePrompt(e.Model, e.Tokenizer, prompt, s)
 	if err != nil {
-		return Completion{}, err
+		return nil, err
 	}
 	pages := (len(ids) + s.MaxTokens + pageTokens - 1) / pageTokens
 	if pages > e.pool.Limit {
-		return Completion{}, errors.New("request exceeds total KV cache budget")
+		return nil, errors.New("request exceeds total KV cache budget")
 	}
-	req := &engineRequest{ctx, ids, s, make(chan engineReply, 1)}
+	ctx, cancel := context.WithCancel(ctx)
+	r := &engineRequest{Ctx: ctx, IDs: ids, Sampling: s, Reply: make(chan engineReply, 1), Cancel: cancel, release: func() { <-e.admission }, Started: started, Enqueued: time.Now()}
+	if streaming {
+		r.Events = make(chan TokenEvent, e.Config.StreamBuffer)
+	}
+	// Serialize submission with the shutdown drain, so no caller can enqueue
+	// after the actor has stopped and strand an admission slot or terminal reply.
+	e.submitMu.Lock()
+	defer e.submitMu.Unlock()
 	select {
 	case <-e.done:
-		return Completion{}, ErrClosed
+		cancel()
+		return nil, ErrClosed
 	default:
 	}
+	if e.ctx != nil && e.ctx.Err() != nil {
+		cancel()
+		return nil, ErrClosed
+	}
+	if err := ctx.Err(); err != nil {
+		cancel()
+		return nil, err
+	}
 	select {
-	case e.queue <- req:
+	case e.queue <- r:
+		handedOff = true
 		e.stats.Submitted.Add(1)
-	case <-ctx.Done():
-		return Completion{}, ctx.Err()
-	case <-e.done:
-		return Completion{}, ErrClosed
+		return r, nil
 	default:
+		cancel()
 		e.stats.Rejected.Add(1)
-		return Completion{}, ErrBusy
+		return nil, ErrBusy
 	}
-	select {
-	case r := <-req.Reply:
-		return r.Completion, r.Err
-	case <-ctx.Done():
-		return Completion{}, ctx.Err()
-	case <-e.done:
-		return Completion{}, ErrClosed
+}
+func (e *Engine) Stream(ctx context.Context, prompt string, s Sampling) (*CompletionStream, error) {
+	r, err := e.enqueue(ctx, prompt, s, true)
+	if err != nil {
+		return nil, err
 	}
+	return &CompletionStream{Events: r.Events, request: r}, nil
+}
+func (e *Engine) Generate(ctx context.Context, prompt string, s Sampling) (Completion, error) {
+	r, err := e.enqueue(ctx, prompt, s, false)
+	if err != nil {
+		return Completion{}, err
+	}
+	defer r.Cancel()
+	return (&CompletionStream{request: r}).Wait()
+}
+
+// scheduleTokens guarantees one row per active session, then distributes extra
+// prefill rows round-robin. While any session is decoding, a smaller chunk
+// limit can protect output cadence. Decoding sessions advance on every tick.
+func scheduleTokens(sessions []*engineSession, counts []int, budget, chunk, mixedChunk, start int) int {
+	for _, s := range sessions {
+		if s.Cursor == len(s.Request.IDs) {
+			chunk = min(chunk, mixedChunk)
+			break
+		}
+	}
+	total := len(sessions)
+	for i := range sessions {
+		counts[i] = 1
+	}
+	for total < budget {
+		progress := false
+		for j := range sessions {
+			i := (start + j) % len(sessions)
+			remaining := len(sessions[i].Request.IDs) - sessions[i].Cursor
+			if counts[i] < min(chunk, remaining) {
+				counts[i]++
+				total++
+				progress = true
+				if total == budget {
+					break
+				}
+			}
+		}
+		if !progress {
+			break
+		}
+	}
+	return total
 }
 func (e *Engine) run() {
 	defer close(e.done)
 	sessions := make([]*engineSession, 0, e.Config.MaxBatch)
+	caches := make([]*KVCache, e.Config.MaxBatch)
+	chunks := make([][]int, e.Config.MaxBatch)
+	counts := make([]int, e.Config.MaxBatch)
+	rotation := 0
 	accounting := func() {
 		e.stats.Reserved.Store(int64(e.pool.Reserved * e.pool.PageElements * 4))
 		e.stats.Allocated.Store(int64(e.pool.Allocated * e.pool.PageElements * 4))
 	}
-	finish := func(s *engineSession, out Completion, err error) {
-		s.Cache.Close()
-		e.stats.Active.Add(-1)
+	finishRequest := func(r *engineRequest, out Completion, err error) {
 		if err == nil {
 			e.stats.Completed.Add(1)
 		} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrClosed) {
 			e.stats.Canceled.Add(1)
+		} else if errors.Is(err, ErrBusy) {
+			e.stats.Rejected.Add(1)
 		} else {
 			e.stats.Failed.Add(1)
 		}
-		s.Request.Reply <- engineReply{out, err}
+		if errors.Is(err, ErrSlowConsumer) {
+			e.stats.SlowConsumers.Add(1)
+		}
+		// The terminal mailbox is independent of the bounded token mailbox.
+		// Neither delivery nor closing it can block the actor on a network reader.
+		r.Reply <- engineReply{out, err}
+		if r.Events != nil {
+			close(r.Events)
+		}
+		r.release()
+		r.Cancel()
+	}
+	finish := func(s *engineSession, out Completion, err error) {
+		s.Cache.Close()
+		e.stats.Active.Add(-1)
 		accounting()
+		finishRequest(s.Request, out, err)
 	}
 	for {
 		if e.ctx.Err() != nil {
+			e.submitMu.Lock()
 			for _, s := range sessions {
 				finish(s, Completion{}, ErrClosed)
 			}
 			for {
 				select {
 				case r := <-e.queue:
-					r.Reply <- engineReply{Err: ErrClosed}
-					e.stats.Canceled.Add(1)
+					finishRequest(r, Completion{}, ErrClosed)
 				default:
+					e.submitMu.Unlock()
 					return
 				}
 			}
@@ -1724,6 +2027,7 @@ func (e *Engine) run() {
 				alive = append(alive, s)
 			}
 		}
+		clear(sessions[len(alive):])
 		sessions = alive
 	fill:
 		for len(sessions) < e.Config.MaxBatch {
@@ -1742,38 +2046,43 @@ func (e *Engine) run() {
 				}
 			}
 			if err := r.Ctx.Err(); err != nil {
-				r.Reply <- engineReply{Err: err}
-				e.stats.Canceled.Add(1)
+				finishRequest(r, Completion{}, err)
 				continue
 			}
 			pages := (len(r.IDs) + r.Sampling.MaxTokens + pageTokens - 1) / pageTokens
 			if e.pool.Reserved+pages > e.pool.Limit {
-				r.Reply <- engineReply{Err: ErrBusy}
-				e.stats.Rejected.Add(1)
+				finishRequest(r, Completion{}, ErrBusy)
 				continue
 			}
 			cache := e.Model.NewCache()
-			cache.pool = &e.pool
-			cache.reserved = pages
+			cache.pool, cache.reserved = &e.pool, pages
 			e.pool.Reserved += pages
 			sessions = append(sessions, &engineSession{Request: r, Cache: cache, History: append([]int(nil), r.IDs...), RNG: RNG{r.Sampling.Seed}})
 			e.stats.Active.Add(1)
+			e.queueLatency.observe(time.Since(r.Enqueued))
 			accounting()
 		}
 		if len(sessions) == 0 {
 			continue
 		}
-		caches := make([]*KVCache, len(sessions))
-		tokens := make([]int, len(sessions))
+		n := len(sessions)
+		total := scheduleTokens(sessions, counts, e.Config.TokenBudget, e.Config.PrefillChunk, e.Config.MixedPrefillChunk, rotation%n)
+		rotation = (rotation + 1) % n
 		for i, s := range sessions {
 			caches[i] = s.Cache
 			if s.Cursor < len(s.Request.IDs) {
-				tokens[i] = s.Request.IDs[s.Cursor]
+				chunks[i] = s.Request.IDs[s.Cursor : s.Cursor+counts[i]]
 			} else {
-				tokens[i] = s.Output[len(s.Output)-1]
+				chunks[i] = s.Output[len(s.Output)-1:]
 			}
 		}
-		logits, err := e.Model.DecodeBatch(e.ctx, caches, tokens)
+		logits, err := e.Model.PrefillBatch(e.ctx, caches[:n], chunks[:n])
+		clear(caches[:n])
+		clear(chunks[:n])
+		e.stats.Ticks.Add(1)
+		if int64(total) > e.stats.PeakTickTokens.Load() {
+			e.stats.PeakTickTokens.Store(int64(total))
+		}
 		accounting()
 		if err != nil {
 			if e.ctx.Err() != nil {
@@ -1782,6 +2091,7 @@ func (e *Engine) run() {
 			for _, s := range sessions {
 				finish(s, Completion{}, err)
 			}
+			clear(sessions)
 			sessions = sessions[:0]
 			continue
 		}
@@ -1792,7 +2102,8 @@ func (e *Engine) run() {
 				continue
 			}
 			if s.Cursor < len(s.Request.IDs) {
-				s.Cursor++
+				s.Cursor += counts[i]
+				e.stats.InputTokens.Add(int64(counts[i]))
 			}
 			if s.Cursor < len(s.Request.IDs) {
 				alive = append(alive, s)
@@ -1803,29 +2114,148 @@ func (e *Engine) run() {
 				finish(s, Completion{}, err)
 				continue
 			}
+			now := time.Now()
+			if s.LastToken.IsZero() {
+				e.firstTokenLatency.observe(now.Sub(s.Request.Started))
+			} else {
+				e.tokenGap.observe(now.Sub(s.LastToken))
+			}
+			s.LastToken = now
+			e.stats.GeneratedTokens.Add(1)
 			s.Output = append(s.Output, id)
 			s.History = append(s.History, id)
+			reason := ""
 			if id == EOS {
-				finish(s, completion(e.Tokenizer, s.Output, len(s.Request.IDs), "eos"), nil)
+				reason = "eos"
 			} else if len(s.Output) == s.Request.Sampling.MaxTokens {
-				finish(s, completion(e.Tokenizer, s.Output, len(s.Request.IDs), "length"), nil)
+				reason = "length"
+			}
+			if s.Request.Events != nil {
+				event := TokenEvent{TokenID: id, Text: s.Text.Push(e.pieces[id], reason != "")}
+				select {
+				case s.Request.Events <- event:
+				default:
+					finish(s, Completion{}, ErrSlowConsumer)
+					continue
+				}
+			}
+			if reason != "" {
+				finish(s, completion(e.Tokenizer, s.Output, len(s.Request.IDs), reason), nil)
 			} else {
 				alive = append(alive, s)
 			}
 		}
+		clear(sessions[len(alive):])
 		sessions = alive
 	}
 }
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
+func inferenceError(err error) (int, string) {
+	switch {
+	case errors.Is(err, ErrBusy):
+		return http.StatusTooManyRequests, "busy"
+	case errors.Is(err, ErrClosed):
+		return http.StatusServiceUnavailable, "closed"
+	case errors.Is(err, ErrSlowConsumer):
+		return http.StatusRequestTimeout, "slow_consumer"
+	case errors.Is(err, context.DeadlineExceeded):
+		return http.StatusRequestTimeout, "timeout"
+	case errors.Is(err, context.Canceled):
+		return http.StatusRequestTimeout, "canceled"
+	default:
+		return http.StatusBadRequest, "invalid_request"
+	}
+}
+func writeInferenceError(w http.ResponseWriter, err error) {
+	status, code := inferenceError(err)
+	if status == http.StatusTooManyRequests {
+		w.Header().Set("Retry-After", "1")
+	}
+	writeJSON(w, status, map[string]string{"error": err.Error(), "code": code})
+}
+func (e *Engine) serveStream(w http.ResponseWriter, r *http.Request, ctx context.Context, prompt string, sampling Sampling) {
+	if _, ok := w.(http.Flusher); !ok {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "response writer does not support streaming"})
+		return
+	}
+	stream, err := e.Stream(ctx, prompt, sampling)
+	if err != nil {
+		writeInferenceError(w, err)
+		return
+	}
+	defer stream.Close()
+	rc := http.NewResponseController(w)
+	write := func(event string, v any) error {
+		if err := rc.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+			return err
+		}
+		// Bound a blocked network write, not idle prefill/queue time. In
+		// HTTP/2 an armed write deadline also resets an otherwise idle stream.
+		defer rc.SetWriteDeadline(time.Time{})
+		if event == "" {
+			if _, err := io.WriteString(w, ": keep-alive\n\n"); err != nil {
+				return err
+			}
+		} else {
+			b, err := json.Marshal(v)
+			if err != nil {
+				return err
+			}
+			if _, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, b); err != nil {
+				return err
+			}
+		}
+		return rc.Flush()
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	if err = write("", nil); err != nil {
+		return
+	}
+	heartbeat := time.NewTicker(10 * time.Second)
+	defer heartbeat.Stop()
+	for {
+		select {
+		case event, ok := <-stream.Events:
+			if !ok {
+				out, err := stream.Wait()
+				if err != nil {
+					_, code := inferenceError(err)
+					_ = write("error", map[string]string{"error": err.Error(), "code": code})
+				} else {
+					_ = write("done", out)
+				}
+				return
+			}
+			if err = write("token", event); err != nil {
+				return
+			}
+		case <-heartbeat.C:
+			if err = write("", nil); err != nil {
+				return
+			}
+		case <-ctx.Done():
+			// Client disconnects terminate delivery; deadlines on connected
+			// requests get a terminal error when the socket is still writable.
+			if r.Context().Err() == nil {
+				_, code := inferenceError(ctx.Err())
+				_ = write("error", map[string]string{"error": ctx.Err().Error(), "code": code})
+			}
+			return
+		}
+	}
+}
 func (e *Engine) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.WriteHeader(405)
 			return
 		}
 		select {
@@ -1843,20 +2273,25 @@ func (e *Engine) Handler() http.Handler {
 		s := e.Stats()
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		fmt.Fprintf(w, "monolith_submitted_total %d\nmonolith_completed_total %d\nmonolith_canceled_total %d\nmonolith_failed_total %d\nmonolith_rejected_total %d\nmonolith_active %d\nmonolith_queue_depth %d\nmonolith_kv_reserved_bytes %d\nmonolith_kv_allocated_bytes %d\n", s.Submitted, s.Completed, s.Canceled, s.Failed, s.Rejected, s.Active, s.Queue, s.KVReservedBytes, s.KVAllocatedBytes)
+		fmt.Fprintf(w, "monolith_input_tokens_total %d\nmonolith_generated_tokens_total %d\nmonolith_ticks_total %d\nmonolith_slow_consumers_total %d\nmonolith_peak_tick_tokens %d\n", s.InputTokens, s.GeneratedTokens, s.Ticks, s.SlowConsumers, s.PeakTickTokens)
+		e.queueLatency.write(w, "monolith_queue_wait_seconds")
+		e.firstTokenLatency.write(w, "monolith_first_token_seconds")
+		e.tokenGap.write(w, "monolith_token_gap_seconds")
+		var mem runtime.MemStats
+		runtime.ReadMemStats(&mem)
+		fmt.Fprintf(w, "monolith_heap_alloc_bytes %d\nmonolith_heap_sys_bytes %d\nmonolith_gc_cycles_total %d\nmonolith_gc_pause_seconds_total %.9f\nmonolith_goroutines %d\n", mem.HeapAlloc, mem.HeapSys, mem.NumGC, float64(mem.PauseTotalNs)/1e9, runtime.NumGoroutine())
 	})
 	mux.HandleFunc("/v1/completions", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(405)
 			return
 		}
-		// Bound body parsing too; overload cannot allocate an unbounded set of bodies.
 		select {
 		case e.httpSlots <- struct{}{}:
 			defer func() { <-e.httpSlots }()
 		default:
 			e.stats.Rejected.Add(1)
-			w.Header().Set("Retry-After", "1")
-			writeJSON(w, 429, map[string]string{"error": ErrBusy.Error()})
+			writeInferenceError(w, ErrBusy)
 			return
 		}
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
@@ -1866,26 +2301,22 @@ func (e *Engine) Handler() http.Handler {
 		}
 		req := struct {
 			Prompt string `json:"prompt"`
+			Stream bool   `json:"stream"`
 			Sampling
 		}{Sampling: defaultSampling()}
 		if err = strictJSON(body, &req); err != nil {
-			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			writeInferenceError(w, err)
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 		defer cancel()
+		if req.Stream {
+			e.serveStream(w, r, ctx, req.Prompt, req.Sampling)
+			return
+		}
 		out, err := e.Generate(ctx, req.Prompt, req.Sampling)
 		if err != nil {
-			status := 400
-			if errors.Is(err, ErrBusy) {
-				status = 429
-				w.Header().Set("Retry-After", "1")
-			} else if errors.Is(err, ErrClosed) {
-				status = 503
-			} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				status = 408
-			}
-			writeJSON(w, status, map[string]string{"error": err.Error()})
+			writeInferenceError(w, err)
 			return
 		}
 		writeJSON(w, 200, out)
@@ -2295,11 +2726,33 @@ func runInspect(args []string) error {
 	enc.SetIndent("", "  ")
 	return enc.Encode(map[string]any{"architecture": architecture, "config": m.Config, "parameters": m.Config.ParameterCount(), "weight_bytes": m.Config.ParameterCount() * 4, "kv_bytes_per_token": 8 * m.Config.Layers * m.Config.KVDim(), "tokenizer_merges": len(tok.Merges), "training": state})
 }
+
+// Stop accepting HTTP work immediately and share one deadline between HTTP
+// draining and engine completion. An in-flight kernel may outlive cancellation;
+// the CLI must still be able to return when its shutdown deadline expires.
+func shutdownInferenceServer(ctx context.Context, server *http.Server, e *Engine) error {
+	e.cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		_ = server.Close()
+		return err
+	}
+	select {
+	case <-e.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func runServe(ctx context.Context, args []string) error {
 	f := flags("serve")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
 	addr := f.String("addr", "127.0.0.1:8080", "HTTP listen address")
-	batch := f.Int("max-batch", 8, "maximum simultaneous sessions per decode tick")
+	batch := f.Int("max-batch", 8, "maximum simultaneous sessions per scheduling tick")
+	chunk := f.Int("prefill-chunk", 16, "maximum prompt tokens per session per tick; 1 is the sequential baseline")
+	mixedChunk := f.Int("mixed-prefill-chunk", 1, "maximum prompt tokens per session when another session is generating")
+	budget := f.Int("token-budget", 0, "total tokens per tick; 0 selects max(max-batch,64)")
+	buffer := f.Int("stream-buffer", 32, "buffered token events per stream before slow-consumer termination")
 	queue := f.Int("queue", 32, "bounded request queue capacity")
 	memory := f.Int64("kv-mib", 256, "hard KV page budget in MiB")
 	threads := threadFlag(f)
@@ -2317,15 +2770,16 @@ func runServe(ctx context.Context, args []string) error {
 		return err
 	}
 	m.DropOptimizer()
-	e, err := NewEngine(m, tok, EngineConfig{*batch, *queue, *memory << 20})
+	e, err := NewEngine(m, tok, EngineConfig{MaxBatch: *batch, Queue: *queue, CacheBytes: *memory << 20, PrefillChunk: *chunk, MixedPrefillChunk: *mixedChunk, TokenBudget: *budget, StreamBuffer: *buffer})
 	if err != nil {
 		return err
 	}
-	defer e.Close()
+	defer e.cancel() // A deferred blocking Close would bypass the shutdown deadline.
 	server := &http.Server{Addr: *addr, Handler: e.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	defer server.Close()
 	result := make(chan error, 1)
 	go func() { result <- server.ListenAndServe() }()
-	fmt.Fprintf(os.Stderr, "serving %s parameters=%d max_batch=%d queue=%d kv_mib=%d workers=%d\n", *addr, m.Config.ParameterCount(), *batch, *queue, *memory, runtime.GOMAXPROCS(0))
+	fmt.Fprintf(os.Stderr, "serving %s parameters=%d max_batch=%d queue=%d kv_mib=%d workers=%d prefill_chunk=%d mixed_prefill_chunk=%d token_budget=%d stream_buffer=%d\n", *addr, m.Config.ParameterCount(), *batch, *queue, *memory, runtime.GOMAXPROCS(0), e.Config.PrefillChunk, e.Config.MixedPrefillChunk, e.Config.TokenBudget, e.Config.StreamBuffer)
 	select {
 	case err = <-result:
 		if !errors.Is(err, http.ErrServerClosed) {
@@ -2335,12 +2789,7 @@ func runServe(ctx context.Context, args []string) error {
 	}
 	shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	e.Close()
-	if err = server.Shutdown(shutdown); err != nil {
-		_ = server.Close()
-		return err
-	}
-	return nil
+	return shutdownInferenceServer(shutdown, server, e)
 }
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {

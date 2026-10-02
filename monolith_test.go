@@ -611,7 +611,7 @@ func TestEngineCancellationShutdownAndBudget(t *testing.T) {
 		t.Fatalf("closed engine accepted request: %v", err)
 	}
 	pageBytes := int64(2 * pageTokens * m.Config.KVDim() * m.Config.Layers * 4)
-	limited, err := NewEngine(m, Tokenizer{}, EngineConfig{1, 1, pageBytes})
+	limited, err := NewEngine(m, Tokenizer{}, EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: pageBytes})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -639,7 +639,7 @@ func TestBoundedQueueRejectsInsteadOfBlocking(t *testing.T) {
 }
 func TestHTTPAPI(t *testing.T) {
 	m := testModel(t)
-	e, err := NewEngine(m, Tokenizer{}, EngineConfig{2, 8, 1 << 20})
+	e, err := NewEngine(m, Tokenizer{}, EngineConfig{MaxBatch: 2, Queue: 8, CacheBytes: 1 << 20})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -859,7 +859,7 @@ type readProbe struct{ Reads int }
 
 func (r *readProbe) Read(p []byte) (int, error) { r.Reads++; return 0, errors.New("unexpected read") }
 func TestHTTPOverloadRejectsBeforeReadingBody(t *testing.T) {
-	e, err := NewEngine(testModel(t), Tokenizer{}, EngineConfig{1, 1, 1 << 20})
+	e, err := NewEngine(testModel(t), Tokenizer{}, EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: 1 << 20})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -926,7 +926,7 @@ func TestShutdownWakesActiveAndQueuedCallers(t *testing.T) {
 	c, _ := preset("demo")
 	c.Context = 2048
 	m, _ := NewModel(c, 7)
-	e, err := NewEngine(m, Tokenizer{}, EngineConfig{2, 8, 2 << 20})
+	e, err := NewEngine(m, Tokenizer{}, EngineConfig{MaxBatch: 2, Queue: 8, CacheBytes: 2 << 20})
 	if err != nil {
 		t.Fatal(err)
 	}
