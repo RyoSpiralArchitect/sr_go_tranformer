@@ -7,7 +7,8 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - RMSNorm, rotary position embeddings (RoPE), grouped-query attention (GQA), SwiGLU, and tied input/output embeddings.
 - Manual backpropagation, AdamW, gradient clipping and accumulation, and a warmup/cosine learning-rate schedule.
 - Byte-level tokenization with optional byte-pair encoding (BPE).
-- Continuous batching through a channel-based inference engine, paged KV caches, bounded queues, and request cancellation.
+- Continuous batching with bounded token budgets, chunked prefill, paged KV caches, and request cancellation.
+- SSE token streaming with bounded per-request buffers and slow-consumer isolation.
 - Greedy, temperature, top-k, and top-p sampling with repetition penalties.
 - Atomic checkpoints containing model weights, optimizer state, tokenizer, and training progress.
 
@@ -88,7 +89,56 @@ curl http://127.0.0.1:8080/v1/completions \
 
 Responses contain `text`, `token_ids`, `prompt_tokens`, `completion_tokens`, and `finish_reason`. Health and Prometheus-format metrics are available at `/healthz` and `/metrics`.
 
-The server uses a project-specific JSON API. It binds to localhost by default and does not provide authentication, TLS, or streaming responses.
+The server uses a project-specific JSON API and binds to localhost by default. Authentication and TLS are not built in.
+
+To receive tokens as they are generated, add `"stream": true`:
+
+```sh
+curl -N http://127.0.0.1:8080/v1/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"the spiral","max_tokens":60,"temperature":0,"repeat_penalty":1,"stream":true}'
+```
+
+The response uses Server-Sent Events (SSE):
+
+- `token`: `{ "token_id": 116, "text": "t" }`, once per generated token. Text may be empty while a UTF-8 character is incomplete, or for a special token.
+- `done`: the complete response with text, token IDs, usage counts, and finish reason. Concatenating all token-event text gives the final text, including replacement characters for invalid bytes.
+- `error`: `{ "error": "...", "code": "..." }` if an accepted stream fails. Check this event even when the HTTP status is 200. Invalid input or immediate overload returns a normal JSON error before streaming begins.
+
+One goroutine owns sessions and KV pages. HTTP handlers drain bounded event channels; if a channel fills, the engine terminates that request with `slow_consumer` and releases its KV reservation. The terminal result uses a separate mailbox, so a slow reader cannot block the engine. A disconnected client cancels its request. Streams have a two-minute request timeout, a five-second limit per network write/flush, and ten-second keep-alive comments during idle periods.
+
+### Scheduling and capacity
+
+```sh
+./monolith serve -model runs/demo.mglm -threads 4 \
+  -max-batch 8 -queue 32 -kv-mib 64 \
+  -prefill-chunk 16 -mixed-prefill-chunk 1 -token-budget 64 -stream-buffer 32
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `-max-batch` | 8 | Maximum active sessions. |
+| `-queue` | 32 | Pending request capacity. |
+| `-kv-mib` | 256 | KV page budget; full request capacity is reserved before execution. |
+| `-prefill-chunk` | 16 | Maximum prompt tokens per session per scheduling tick. Set 1 for sequential prefill. |
+| `-mixed-prefill-chunk` | 1 | Prompt tokens per session when any session is already generating; capped by `prefill-chunk`. |
+| `-token-budget` | `max(max-batch, 64)` | Total tokens processed in a tick, between `max-batch` and 1,024. |
+| `-stream-buffer` | 32 | Pending token events per stream, between 1 and 4,096. |
+
+Each active session receives at least one token of work every tick. Remaining capacity is shared among prompt chunks. By default, prompt chunks shrink to one token while any session is generating, preserving a shorter scheduling tick for ongoing output. Set `-mixed-prefill-chunk` equal to `-prefill-chunk` to favor prompt throughput over output cadence. Chunked prefill batches matrix projections across prompt rows and computes vocabulary logits only for each chunk's final row. The token budget bounds rows of work, not wall-clock latency; attention cost still grows with context length.
+
+### Measurement
+
+The metrics endpoint includes queue-wait, engine first-token, and engine token-gap histograms, processed token counts, KV use, heap allocation, GC counters, and goroutine count. Engine timing ends when a token is sampled; client timing also includes HTTP and delivery. Heap metrics are not process RSS.
+
+A separate standard-library load client checks stream output and measures mixed requests:
+
+```sh
+go run ./tools/loadtest -requests 60 -concurrency 4 -max-tokens 16 \
+  -cancel-every 7 -slow-every 5 -details > runs/loadtest.json
+```
+
+Create `runs/` first if needed. See the [load client documentation](tools/loadtest/README.md) for timing definitions and [serving validation](SERVING_VALIDATION.md) for a measured comparison of sequential and chunked prefill.
 
 ## Development
 
@@ -99,7 +149,7 @@ go vet ./...
 go test -run '^$' -bench . -benchmem -cpu 4
 ```
 
-The tests cover numerical gradients, causal attention, KV-cache equivalence, concurrent inference, cancellation, checkpoint integrity, deterministic resume, and small-model learning. The smoke script exercises the CLI and compares uninterrupted and resumed checkpoints byte for byte.
+The tests cover numerical gradients, causal attention, mixed-length chunked prefill, KV-cache equivalence, streamed output and UTF-8 boundaries, slow consumers, cancellation and shutdown, checkpoint integrity, deterministic resume, and small-model learning. The smoke script exercises the CLI and compares uninterrupted and resumed checkpoints byte for byte.
 
 GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke test with Go 1.22 on Linux and the current stable Go release on Linux and macOS. See [`VALIDATION.md`](VALIDATION.md) for the recorded experiments and their limits.
 
