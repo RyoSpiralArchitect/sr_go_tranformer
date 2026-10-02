@@ -21,8 +21,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        go: ['1.22.x', stable]
+        include:
+          - os: ubuntu-latest
+            go: '1.22.x'
+          - os: ubuntu-latest
+            go: stable
+          # macOS 26 requires Mach-O metadata that Go 1.22 does not emit.
+          - os: macos-latest
+            go: stable
     env:
       GOMAXPROCS: '4'
     steps:

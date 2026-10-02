@@ -13,7 +13,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 
 ## Requirements
 
-- Go 1.22 or later.
+- Go 1.22 or later. On macOS 26, use a current Go release.
 - A 64-bit system.
 
 The project runs on the CPU using FP32 tensors. It does not require cgo, Python, or an external machine-learning library.
@@ -101,7 +101,7 @@ go test -run '^$' -bench . -benchmem -cpu 4
 
 The tests cover numerical gradients, causal attention, KV-cache equivalence, concurrent inference, cancellation, checkpoint integrity, deterministic resume, and small-model learning. The smoke script exercises the CLI and compares uninterrupted and resumed checkpoints byte for byte.
 
-GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke test. See [`VALIDATION.md`](VALIDATION.md) for the recorded experiments and their limits.
+GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke test with Go 1.22 on Linux and the current stable Go release on Linux and macOS. See [`VALIDATION.md`](VALIDATION.md) for the recorded experiments and their limits.
 
 ## Scope and limitations
 
