@@ -2726,6 +2726,24 @@ func runInspect(args []string) error {
 	enc.SetIndent("", "  ")
 	return enc.Encode(map[string]any{"architecture": architecture, "config": m.Config, "parameters": m.Config.ParameterCount(), "weight_bytes": m.Config.ParameterCount() * 4, "kv_bytes_per_token": 8 * m.Config.Layers * m.Config.KVDim(), "tokenizer_merges": len(tok.Merges), "training": state})
 }
+
+// Stop accepting HTTP work immediately and share one deadline between HTTP
+// draining and engine completion. An in-flight kernel may outlive cancellation;
+// the CLI must still be able to return when its shutdown deadline expires.
+func shutdownInferenceServer(ctx context.Context, server *http.Server, e *Engine) error {
+	e.cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		_ = server.Close()
+		return err
+	}
+	select {
+	case <-e.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func runServe(ctx context.Context, args []string) error {
 	f := flags("serve")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
@@ -2756,8 +2774,9 @@ func runServe(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer e.Close()
+	defer e.cancel() // A deferred blocking Close would bypass the shutdown deadline.
 	server := &http.Server{Addr: *addr, Handler: e.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	defer server.Close()
 	result := make(chan error, 1)
 	go func() { result <- server.ListenAndServe() }()
 	fmt.Fprintf(os.Stderr, "serving %s parameters=%d max_batch=%d queue=%d kv_mib=%d workers=%d prefill_chunk=%d mixed_prefill_chunk=%d token_budget=%d stream_buffer=%d\n", *addr, m.Config.ParameterCount(), *batch, *queue, *memory, runtime.GOMAXPROCS(0), e.Config.PrefillChunk, e.Config.MixedPrefillChunk, e.Config.TokenBudget, e.Config.StreamBuffer)
@@ -2770,12 +2789,7 @@ func runServe(ctx context.Context, args []string) error {
 	}
 	shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	e.Close()
-	if err = server.Shutdown(shutdown); err != nil {
-		_ = server.Close()
-		return err
-	}
-	return nil
+	return shutdownInferenceServer(shutdown, server, e)
 }
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
