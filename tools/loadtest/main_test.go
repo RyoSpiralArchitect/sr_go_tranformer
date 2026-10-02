@@ -292,3 +292,32 @@ func TestOptionsValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestServerTerminalOutcomeClassification(t *testing.T) {
+	for _, streaming := range []bool{false, true} {
+		for _, tc := range []struct {
+			code, want string
+			status     int
+		}{
+			{"busy", "overloaded", 429}, {"timeout", "timeout", 408}, {"canceled", "server_canceled", 408},
+		} {
+			t.Run(fmt.Sprintf("%v-%s", streaming, tc.code), func(t *testing.T) {
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if streaming {
+						w.Header().Set("Content-Type", "text/event-stream")
+						fmt.Fprintf(w, "event: error\ndata: {\"error\":\"stopped\",\"code\":%q}\n\n", tc.code)
+					} else {
+						w.WriteHeader(tc.status)
+						fmt.Fprintf(w, "{\"error\":\"stopped\",\"code\":%q}", tc.code)
+					}
+				}))
+				defer srv.Close()
+				o := testOptions(srv.URL)
+				got := executeRequest(context.Background(), srv.Client(), o, planRequest(o, 1))
+				if got.Outcome != tc.want || got.ErrorCode != tc.code {
+					t.Fatalf("outcome %+v want %s/%s", got, tc.want, tc.code)
+				}
+			})
+		}
+	}
+}

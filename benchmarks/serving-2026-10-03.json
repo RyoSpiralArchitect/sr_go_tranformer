@@ -2971,5 +2971,6 @@
         "checkpoint_sha256": "8ead168f150992106dffee750de010ffd30ec5c42df6be0566e7758ede14a11e"
       }
     }
-  ]
+  ],
+  "measured_source_commit": "c3f9debe972289c10f3c1bfb918af3194a3203c1"
 }

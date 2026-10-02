@@ -2163,7 +2163,9 @@ func inferenceError(err error) (int, string) {
 		return http.StatusServiceUnavailable, "closed"
 	case errors.Is(err, ErrSlowConsumer):
 		return http.StatusRequestTimeout, "slow_consumer"
-	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+	case errors.Is(err, context.DeadlineExceeded):
+		return http.StatusRequestTimeout, "timeout"
+	case errors.Is(err, context.Canceled):
 		return http.StatusRequestTimeout, "canceled"
 	default:
 		return http.StatusBadRequest, "invalid_request"

@@ -171,3 +171,19 @@ func TestConcurrentSubmissionAndShutdownDoesNotStrandAdmission(t *testing.T) {
 		}
 	}
 }
+
+func TestHTTPExpiredRequestReportsTimeout(t *testing.T) {
+	e, err := NewEngine(testModel(t), Tokenizer{}, EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: 1 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer e.Close()
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	r := httptest.NewRequest(http.MethodPost, "/v1/completions", strings.NewReader(`{"prompt":"cat","max_tokens":8,"stream":true}`)).WithContext(ctx)
+	w := httptest.NewRecorder()
+	e.Handler().ServeHTTP(w, r)
+	if w.Code != http.StatusRequestTimeout || !strings.Contains(w.Body.String(), `"code":"timeout"`) {
+		t.Fatalf("deadline must be distinguishable from cancellation: %d %s", w.Code, w.Body.String())
+	}
+}

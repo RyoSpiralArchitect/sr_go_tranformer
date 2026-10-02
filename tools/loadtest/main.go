@@ -187,12 +187,27 @@ func classifyHTTP(code int) string {
 	switch {
 	case code == http.StatusTooManyRequests:
 		return "overloaded"
+	case code == http.StatusRequestTimeout:
+		return "timeout"
 	case code == http.StatusRequestTimeout || code == http.StatusGatewayTimeout:
 		return "timeout"
 	case code >= 500:
 		return "server_error"
 	default:
 		return "request_error"
+	}
+}
+
+func classifyServerCode(code, fallback string) string {
+	switch code {
+	case "busy", "overloaded":
+		return "overloaded"
+	case "timeout":
+		return "timeout"
+	case "canceled":
+		return "server_canceled"
+	default:
+		return fallback
 	}
 }
 
@@ -228,6 +243,7 @@ func executeRequest(parent context.Context, client *http.Client, o options, p re
 		}
 		if json.Unmarshal(b, &e) == nil {
 			result.ErrorCode = e.Code
+			result.Outcome = classifyServerCode(e.Code, result.Outcome)
 			if e.Error != "" {
 				result.Error = e.Error
 			}
@@ -313,10 +329,7 @@ func executeRequest(parent context.Context, client *http.Client, o options, p re
 	case errors.Is(err, errPlannedCancel):
 		result.Outcome = "canceled"
 	case errors.Is(err, errServerEvent):
-		result.Outcome = "server_error"
-		if result.ErrorCode == "busy" || result.ErrorCode == "overloaded" {
-			result.Outcome = "overloaded"
-		}
+		result.Outcome = classifyServerCode(result.ErrorCode, "server_error")
 	case ctx.Err() != nil:
 		result.Outcome, result.Error = contextOutcome(ctx), ctx.Err().Error()
 	case err != nil:

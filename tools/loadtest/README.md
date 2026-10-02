@@ -34,7 +34,9 @@ contents and generated text are omitted from the report.
 
 - `outcomes` distinguishes completed requests, planned client cancellations,
   overload responses, request errors, server errors, protocol errors, timeouts,
-  interruptions, and transport failures. SSE errors include their server code.
+  interruptions, server cancellations, and transport failures. Server deadline
+  expiry is classified as a timeout in both JSON and SSE responses. SSE errors
+  include their server code.
 - `workloads` separates short and long prompts, normal and slow readers, and
   planned cancellations. Completed latency distributions include only requests
   that completed and passed stream validation. `all_observed_first_token_event`

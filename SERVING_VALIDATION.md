@@ -118,7 +118,7 @@ long-running RSS plateau.
 
 [Machine-readable receipts](benchmarks/serving-2026-10-03.json) contain per-trial
 summaries, metrics snapshots, sampled RSS, model configuration and SHA-256
-fingerprints. Individual generated text and local machine paths are omitted.
+fingerprints, tied to measured source commit `c3f9deb`. Individual generated text and local machine paths are omitted.
 The JSON's `runs/` fingerprints identify local generated artifacts; those
 binaries and checkpoints are not distributed.
 
