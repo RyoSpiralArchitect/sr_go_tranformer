@@ -1,0 +1,9 @@
+.tools/
+runs/
+monolith
+*.mglm
+*.prof
+coverage.out
+
+.DS_Store
+*.test

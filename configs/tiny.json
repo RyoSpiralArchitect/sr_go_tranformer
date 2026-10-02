@@ -1,0 +1,10 @@
+{
+  "dim": 64,
+  "hidden": 192,
+  "layers": 4,
+  "heads": 4,
+  "kv_heads": 2,
+  "context": 256,
+  "rope_theta": 10000,
+  "norm_eps": 0.00001
+}

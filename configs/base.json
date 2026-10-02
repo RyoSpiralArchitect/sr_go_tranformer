@@ -1,0 +1,10 @@
+{
+  "dim": 768,
+  "hidden": 2048,
+  "layers": 12,
+  "heads": 12,
+  "kv_heads": 4,
+  "context": 2048,
+  "rope_theta": 10000,
+  "norm_eps": 0.00001
+}
