@@ -3423,6 +3423,7 @@ type trainingObserver struct {
 	encoder            *json.Encoder
 	files              []*os.File
 	cpu                bool
+	started            bool
 	cpuWriter          *profileWriter
 	alloc              *os.File
 	start              time.Time
@@ -3551,6 +3552,13 @@ func (o *trainingObserver) close() error {
 	for _, f := range o.files {
 		err = errors.Join(err, f.Close())
 	}
+	if !o.started {
+		// CLI/source settings can still be rejected while constructing the
+		// loop. Those attempts must not reserve the next corrected run's paths.
+		for _, f := range o.files {
+			err = errors.Join(err, os.Remove(f.Name()))
+		}
+	}
 	return err
 }
 func (o *trainingObserver) phase(ctx context.Context, name string, f func() error) error {
@@ -3666,6 +3674,9 @@ func trainingLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, t
 	}
 	if o.StopAfter < 0 || o.SaveEvery < 0 || o.EvalEvery < 0 || o.EvalBatches < 0 || o.LogEvery < 1 {
 		return errors.New("invalid logging/save/evaluation interval")
+	}
+	if o.Observer != nil {
+		o.Observer.started = true
 	}
 	ensureMoments(m)
 	observer := o.Observer

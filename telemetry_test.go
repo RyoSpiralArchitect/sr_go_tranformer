@@ -247,3 +247,32 @@ func TestTelemetryCancellationEnd(t *testing.T) {
 		t.Fatal("missing canceled prefix", err)
 	}
 }
+
+func TestTelemetryStartupFailureAllowsCorrectedRetry(t *testing.T) {
+	manifest, _ := preparedDataset(t, Tokenizer{}, "training line\n", "validation line\n", 32)
+	for _, bad := range [][]string{{"-log-every", "0"}, {"-data-workers", "2", "-prefetch", "1"}} {
+		dir := t.TempDir()
+		config := filepath.Join(dir, "config")
+		b, _ := json.Marshal(testModel(t).Config)
+		if err := os.WriteFile(config, b, 0600); err != nil {
+			t.Fatal(err)
+		}
+		metrics, cpu, alloc := filepath.Join(dir, "events"), filepath.Join(dir, "cpu"), filepath.Join(dir, "alloc")
+		args := []string{"-dataset", manifest, "-config", config, "-steps", "1", "-warmup", "1", "-seq", "4", "-batch", "1", "-out", filepath.Join(dir, "model"), "-metrics", metrics, "-cpu-profile", cpu, "-alloc-profile", alloc}
+		if err := runTrain(context.Background(), append(append([]string{}, args...), bad...)); err == nil {
+			t.Fatal("invalid startup accepted", bad)
+		}
+		for _, path := range []string{metrics, cpu, alloc} {
+			if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("startup reserved telemetry path", path, err)
+			}
+		}
+		if err := runTrain(context.Background(), args); err != nil {
+			t.Fatal("corrected retry failed", err)
+		}
+		events := readTrainingEvents(t, checkpointBytes(t, metrics))
+		if events[len(events)-1].Status != "completed" {
+			t.Fatal("retry did not finish")
+		}
+	}
+}
