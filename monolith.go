@@ -2091,12 +2091,22 @@ func SaveCheckpoint(path string, m *Model, tok Tokenizer, state *TrainState) err
 	return nil
 }
 func LoadCheckpoint(path string) (*Model, Tokenizer, *TrainState, error) {
-	fail := func(err error) (*Model, Tokenizer, *TrainState, error) { return nil, Tokenizer{}, nil, err }
+	m, tok, state, _, err := loadCheckpointIdentity(path)
+	return m, tok, state, err
+}
+func loadCheckpointIdentity(path string) (*Model, Tokenizer, *TrainState, string, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return fail(err)
+		return nil, Tokenizer{}, nil, "", err
 	}
 	defer f.Close()
+	return loadCheckpointFile(f)
+}
+
+// Digest and tensors come from the same open file, even if a trainer atomically
+// replaces the path during evaluation. In-place mutation is not supported.
+func loadCheckpointFile(f *os.File) (*Model, Tokenizer, *TrainState, string, error) {
+	fail := func(err error) (*Model, Tokenizer, *TrainState, string, error) { return nil, Tokenizer{}, nil, "", err }
 	stat, err := f.Stat()
 	if err != nil {
 		return fail(err)
@@ -2157,6 +2167,8 @@ func LoadCheckpoint(path string) (*Model, Tokenizer, *TrainState, error) {
 	if !bytes.Equal(sum[:], hash.Sum(nil)) {
 		return fail(errors.New("checkpoint checksum mismatch"))
 	}
+	hash.Write(sum[:])
+	identity := hex.EncodeToString(hash.Sum(nil))
 	m, err := allocateModel(meta.Config, nil)
 	if err != nil {
 		return fail(err)
@@ -2182,7 +2194,7 @@ func LoadCheckpoint(path string) (*Model, Tokenizer, *TrainState, error) {
 			}
 		}
 	}
-	return m, meta.Tokenizer, meta.Training, nil
+	return m, meta.Tokenizer, meta.Training, identity, nil
 }
 func (m *Model) DropOptimizer() {
 	for _, p := range m.Params {
@@ -2314,15 +2326,18 @@ func trainDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *TokenPr
 }
 
 func evaluateDataset(ctx context.Context, m *Model, d *TokenDataset, seq, maxBatches int) (float64, int, error) {
+	return evaluateDatasetSplit(ctx, m, d, "validation", seq, maxBatches)
+}
+func evaluateDatasetSplit(ctx context.Context, m *Model, d *TokenDataset, split string, seq, maxBatches int) (float64, int, error) {
 	if seq < 1 || seq > m.Config.Context || maxBatches < 0 {
 		return 0, 0, errors.New("invalid dataset evaluation settings")
 	}
 	c := PrefetchConfig{Batch: 1, Seq: seq, Workers: 1, Depth: 1}
-	planner, err := newTokenPlanner(d, "validation", c, DatasetCursor{Offset: 1})
+	planner, err := newTokenPlanner(d, split, c, DatasetCursor{Offset: 1})
 	if err != nil {
 		return 0, 0, err
 	}
-	p, err := NewTokenPrefetch(ctx, d, "validation", c, DatasetCursor{Offset: 1})
+	p, err := NewTokenPrefetch(ctx, d, split, c, DatasetCursor{Offset: 1})
 	if err != nil {
 		return 0, 0, err
 	}
@@ -3625,12 +3640,111 @@ func runGenerate(ctx context.Context, args []string) error {
 	fmt.Print(*prompt + out.Text + "\n")
 	return nil
 }
+
+type evaluationOptions struct {
+	Model, Data, Dataset, Split string
+	Seq, MaxBatches             int
+}
+type EvaluationSource struct {
+	Kind   string `json:"kind"`
+	SHA256 string `json:"sha256"`
+	Split  string `json:"split,omitempty"`
+}
+type TargetRange struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
+}
+type EvaluationReport struct {
+	Format           string           `json:"format"`
+	CheckpointSHA256 string           `json:"checkpoint_sha256"`
+	TokenizerSHA256  string           `json:"tokenizer_sha256"`
+	Source           EvaluationSource `json:"source"`
+	Scoring          string           `json:"scoring"`
+	SequenceLength   int              `json:"sequence_length"`
+	MaxBatches       int              `json:"max_batches"`
+	TargetRange      TargetRange      `json:"target_range"`
+	Targets          int              `json:"targets"`
+	Loss             float64          `json:"loss"`
+	Perplexity       any              `json:"perplexity"`
+	GoVersion        string           `json:"go_version"`
+}
+
+func evaluationReport(ctx context.Context, o evaluationOptions) (EvaluationReport, error) {
+	r := EvaluationReport{}
+	if err := ctx.Err(); err != nil {
+		return r, err
+	}
+	if (o.Data == "") == (o.Dataset == "") {
+		return r, errors.New("provide exactly one of -data or -dataset")
+	}
+	if o.MaxBatches < 0 || o.Seq < 0 {
+		return r, errors.New("evaluation sequence and batch limits must be nonnegative")
+	}
+	if o.Dataset == "" && o.Split != "" {
+		return r, errors.New("-split requires -dataset")
+	}
+	if o.Dataset != "" && o.Split != "" && o.Split != "train" && o.Split != "validation" {
+		return r, errors.New("-split must be train or validation")
+	}
+	m, tok, _, digest, err := loadCheckpointIdentity(o.Model)
+	if err != nil {
+		return r, err
+	}
+	m.DropOptimizer()
+	if o.Seq == 0 {
+		o.Seq = min(128, m.Config.Context)
+	}
+	r = EvaluationReport{Format: "monolith-eval-v1", CheckpointSHA256: digest, TokenizerSHA256: tokenizerHash(tok), SequenceLength: o.Seq, MaxBatches: o.MaxBatches, GoVersion: runtime.Version()}
+	if o.Dataset != "" {
+		d, err := OpenTokenDataset(ctx, o.Dataset)
+		if err != nil {
+			return r, err
+		}
+		if d.manifest.TokenizerSHA256 != r.TokenizerSHA256 {
+			return r, errors.New("evaluation dataset/tokenizer identity mismatch")
+		}
+		if o.Split == "" {
+			o.Split = "validation"
+		}
+		r.Source = EvaluationSource{Kind: "dataset", SHA256: d.id, Split: o.Split}
+		r.Scoring = "packed-shards-bos-window-v1"
+		r.Loss, r.Targets, err = evaluateDatasetSplit(ctx, m, d, o.Split, o.Seq, o.MaxBatches)
+		if err != nil {
+			return r, err
+		}
+	} else {
+		text, err := readText(o.Data, 64<<20)
+		if err != nil {
+			return r, err
+		}
+		r.Source = EvaluationSource{Kind: "text", SHA256: corpusHash(text)}
+		r.Scoring = "text-bos-window-v1"
+		r.Loss, r.Targets, err = evaluate(ctx, m, tok.Encode(text, true, true), o.Seq, o.MaxBatches)
+		if err != nil {
+			return r, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return r, err
+	}
+	r.TargetRange = TargetRange{Start: 0, End: r.Targets}
+	ppl := math.Exp(r.Loss)
+	if finite(ppl) {
+		r.Perplexity = ppl
+	} else {
+		r.Perplexity = "overflow"
+	}
+	return r, nil
+}
 func runEval(ctx context.Context, args []string) error {
 	f := flags("eval")
-	model := f.String("model", "runs/model.mglm", "checkpoint")
-	data := f.String("data", "", "evaluation text")
-	seq := f.Int("seq", 0, "context window (default min(context,128))")
-	batches := f.Int("batches", 0, "maximum windows; 0 evaluates all targets")
+	o := evaluationOptions{}
+	f.StringVar(&o.Model, "model", "runs/model.mglm", "checkpoint")
+	f.StringVar(&o.Data, "data", "", "evaluation text (max 64 MiB)")
+	f.StringVar(&o.Dataset, "dataset", "", "prepared manifest.json; mutually exclusive with -data")
+	f.StringVar(&o.Split, "split", "", "dataset split: train or validation (default validation)")
+	f.IntVar(&o.Seq, "seq", 0, "context window (default min(context,128))")
+	f.IntVar(&o.MaxBatches, "batches", 0, "maximum leading windows; 0 evaluates all targets")
 	threads := threadFlag(f)
 	if err := parse(f, args); err != nil {
 		return err
@@ -3638,28 +3752,11 @@ func runEval(ctx context.Context, args []string) error {
 	if err := setThreads(*threads); err != nil {
 		return err
 	}
-	m, tok, _, err := LoadCheckpoint(*model)
+	report, err := evaluationReport(ctx, o)
 	if err != nil {
 		return err
 	}
-	m.DropOptimizer()
-	text, err := readText(*data, 64<<20)
-	if err != nil {
-		return err
-	}
-	if *seq == 0 {
-		*seq = min(128, m.Config.Context)
-	}
-	loss, count, err := evaluate(ctx, m, tok.Encode(text, true, true), *seq, *batches)
-	if err != nil {
-		return err
-	}
-	ppl := math.Exp(loss)
-	var perplexity any = ppl
-	if !finite(ppl) {
-		perplexity = "overflow"
-	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"loss": loss, "perplexity": perplexity, "targets": count, "sequence_length": *seq})
+	return json.NewEncoder(os.Stdout).Encode(report)
 }
 func runTokenizer(args []string) error {
 	f := flags("tokenizer")

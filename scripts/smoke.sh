@@ -47,4 +47,11 @@ sed -n '97,128p' examples/tiny.txt > "$dataset_tmp/validation.txt"
   -data-workers 3 -prefetch 5 -eval-every 0 -save-every 0 -eval-batches 2 \
   2> "$smoke_dir/dataset-resume.log"
 cmp "$smoke_dir/dataset-full.mglm" "$smoke_dir/dataset-resumed.mglm"
+"$smoke_dir/monolith" eval -model "$smoke_dir/dataset-full.mglm" \
+  -dataset "$dataset_tmp/tokens/manifest.json" -seq 16 -batches 2 \
+  > "$smoke_dir/dataset-eval.json"
+"$smoke_dir/monolith" eval -model "$smoke_dir/dataset-resumed.mglm" \
+  -dataset "$dataset_tmp/tokens/manifest.json" -seq 16 -batches 2 \
+  > "$smoke_dir/dataset-eval-resumed.json"
+cmp "$smoke_dir/dataset-eval.json" "$smoke_dir/dataset-eval-resumed.json"
 printf '%s\n' 'PASS: CLI BPE/text/dataset training, byte-identical resume across IO settings, evaluation, generation, inspection.'

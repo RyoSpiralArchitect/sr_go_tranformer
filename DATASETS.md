@@ -71,4 +71,19 @@ The checkpoint stores a versioned dataset state: manifest and tokenizer identiti
 
 Opening a dataset revalidates all files. Resume rejects a changed dataset, tokenizer, split assignment, shard order, or a cursor inconsistent with the committed token count. Moving an unchanged dataset directory is supported because absolute paths are not part of its identity. Worker/depth and compute thread counts may change; the saved model, tokenizer, batch/sequence/accumulation and optimizer schedule cannot be overridden. Under the same numerical environment, uninterrupted and resumed checkpoints are byte-identical even when IO settings change. This does not promise identical floating-point results across different architectures/toolchains.
 
-Training validation uses the manifest's validation split in file order, with no shuffling or updates to the training cursor. It scores one pass (or the configured leading `-eval-batches` subset), counting the final short window once without scoring wrapped targets. The standalone `eval -data` command continues to evaluate separately supplied text.
+Training validation uses the manifest's validation split in file order, with no shuffling or updates to the training cursor. It scores one pass (or the configured leading `-eval-batches` subset), counting the final short window once without scoring wrapped targets.
+
+## Standalone evaluation receipts
+
+```sh
+./monolith eval -model runs/stream.mglm -dataset runs/dataset/manifest.json \
+  -split validation -seq 96 -batches 8 > runs/evaluation.json
+```
+
+`-split` defaults to `validation`; `train` is also available. `-batches 0` scores one complete pass. The CLI and training validation share the same scoring implementation: matching checkpoint, manifest, sequence length and window limit produce the same loss and target count. The manifest tokenizer must match the checkpoint's full tokenizer identity, not only its vocabulary size. Dataset files are verified before scoring and remain subject to the immutable-file contract.
+
+The JSON receipt has `format: "monolith-eval-v1"`, the complete checkpoint file SHA-256 (including its checksum trailer), tokenizer SHA-256, source kind/hash/split, scoring version, effective sequence length, requested window limit, actual target count, loss in nats/target, perplexity and Go version. Model arrays and the checkpoint digest come from the same open file, so an atomic checkpoint replacement cannot mislabel the loaded model. In-place mutation of an opened checkpoint is unsupported.
+
+`target_range` is a zero-based, half-open range in the logical scored target stream: `[0, targets)`. For `packed-shards-bos-window-v1`, this is manifest split order with each shard's leading BOS removed; internal document BOS/EOS tokens remain. Each window starts with a fresh BOS input, and the final short window is counted once. These are target positions, not byte offsets or raw shard token offsets.
+
+`eval -data file.txt` retains its whole-text scoring and original result fields, and now includes the same receipt metadata with a raw-input SHA-256 and `text-bos-window-v1`. It cannot be combined with `-dataset` or `-split`. Text and packed-dataset scoring are distinct; compare loss/perplexity with matched tokenizer, scoring, sequence length and target subset. Receipts contain no source paths, raw documents or timestamps.
