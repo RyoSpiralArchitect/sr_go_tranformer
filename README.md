@@ -87,6 +87,15 @@ For larger corpora, prepare token shards and train with bounded parallel prefetc
 
 The last command resumes an interrupted or `-stop-after` run with its saved schedule. Dataset manifests carry their own tokenizer and validation split; omit `-tokenizer` and `-val-fraction` when training them. The existing `-data` path remains available for small text files. See [token datasets](DATASETS.md) for document/packing semantics, memory bounds and the resume contract, and [dataset validation](DATASET_VALIDATION.md) for correctness checks and a scoped memory probe.
 
+Evaluate the same packed dataset independently and retain a reproducible JSON receipt:
+
+```sh
+./monolith eval -model runs/stream.mglm -dataset runs/dataset/manifest.json \
+  -seq 96 -batches 8 > runs/evaluation.json
+```
+
+Evaluation defaults to the validation split. Receipts identify the checkpoint, dataset, tokenizer, scoring method and actual target range. With matching settings, standalone dataset evaluation agrees with training validation.
+
 Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, and `serve`.
 
 ## HTTP inference
