@@ -700,6 +700,285 @@ func runPrepare(ctx context.Context, args []string) error {
 	return PrepareTokenDataset(ctx, o)
 }
 
+// DatasetCursor points to the next target, not the end of speculative reads.
+// Shard is a position in the epoch's deterministic shard order, not a file index.
+type DatasetCursor struct {
+	Epoch  uint64 `json:"epoch"`
+	Shard  int    `json:"shard"`
+	Offset int64  `json:"offset"`
+}
+type PrefetchConfig struct {
+	Batch, Seq, Workers, Depth int
+	Seed                       uint64
+	Shuffle                    bool
+}
+
+type tokenSpan struct {
+	shard      int
+	offset     int64
+	begin, end int
+}
+type tokenBuffer struct{ x, y []int }
+type tokenJob struct {
+	id     uint64
+	buffer *tokenBuffer
+	spans  []tokenSpan
+	after  DatasetCursor
+	err    error
+}
+
+// A batch lease owns its arrays until Release. Do not access them afterward.
+// Credits follow ownership through dispatch, IO, reordering and the consumer.
+type TokenBatch struct {
+	X, Y    []int
+	After   DatasetCursor
+	err     error
+	release func()
+	once    sync.Once
+}
+
+func (b *TokenBatch) Release() { b.once.Do(b.release) }
+
+type TokenPrefetch struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	out    chan *TokenBatch
+	wg     sync.WaitGroup
+}
+
+func (p *TokenPrefetch) Close() { p.cancel(); p.wg.Wait() }
+func (p *TokenPrefetch) Next(ctx context.Context) (*TokenBatch, error) {
+	if err := ctx.Err(); err != nil {
+		p.cancel()
+		return nil, err
+	}
+	select {
+	case b, ok := <-p.out:
+		if !ok {
+			return nil, p.ctx.Err()
+		}
+		if b.err != nil {
+			b.Release()
+			p.cancel()
+			return nil, b.err
+		}
+		return b, nil
+	case <-ctx.Done():
+		p.cancel()
+		return nil, ctx.Err()
+	case <-p.ctx.Done():
+		return nil, p.ctx.Err()
+	}
+}
+
+type tokenPlanner struct {
+	d              *TokenDataset
+	indices, order []int
+	config         PrefetchConfig
+	cursor         DatasetCursor
+	perEpoch       int64
+}
+
+func newTokenPlanner(d *TokenDataset, split string, c PrefetchConfig, cursor DatasetCursor) (*tokenPlanner, error) {
+	if c.Batch < 1 || c.Batch > 4096 || c.Seq < 1 || c.Seq > 32768 || c.Workers < 1 || c.Workers > 64 || c.Depth < 1 || c.Depth > 64 || c.Workers > c.Depth {
+		return nil, errors.New("invalid prefetch settings; workers 1..depth, depth 1..64")
+	}
+	// Conservative allowance for two int arrays plus range descriptors and
+	// slice growth; metadata and at most 16 KiB per IO worker are additional.
+	if int64(c.Batch)*int64(c.Seq) > maxReadTokens || int64(c.Batch)*int64(c.Seq)*int64(c.Depth)*64 > 128<<20 {
+		return nil, errors.New("prefetch staging exceeds 128 MiB allowance")
+	}
+	p := &tokenPlanner{d: d, config: c, cursor: cursor}
+	for i, s := range d.manifest.Shards {
+		if s.Split != split {
+			continue
+		}
+		if p.perEpoch > math.MaxInt64-(s.Tokens-1) {
+			return nil, errors.New("dataset token count overflows int64")
+		}
+		p.perEpoch += s.Tokens - 1
+		p.indices = append(p.indices, i)
+	}
+	if len(p.indices) == 0 {
+		return nil, errors.New("empty or unknown dataset split")
+	}
+	p.setOrder()
+	if cursor.Shard < 0 || cursor.Shard >= len(p.order) || cursor.Offset < 1 || cursor.Offset >= d.manifest.Shards[p.order[cursor.Shard]].Tokens {
+		return nil, errors.New("dataset cursor outside shard")
+	}
+	return p, nil
+}
+func (p *tokenPlanner) setOrder() {
+	p.order = append(p.order[:0], p.indices...)
+	if p.config.Shuffle {
+		rng := RNG{p.config.Seed ^ (p.cursor.Epoch * 0x9e3779b97f4a7c15)}
+		for i := len(p.order) - 1; i > 0; i-- {
+			j := rng.Intn(i + 1)
+			p.order[i], p.order[j] = p.order[j], p.order[i]
+		}
+	}
+}
+func (p *tokenPlanner) plan(ctx context.Context) ([]tokenSpan, DatasetCursor, error) {
+	var spans []tokenSpan
+	for written, n := 0, p.config.Batch*p.config.Seq; written < n; {
+		if err := ctx.Err(); err != nil {
+			return nil, p.cursor, err
+		}
+		index := p.order[p.cursor.Shard]
+		s := p.d.manifest.Shards[index]
+		count := int(min(int64(n-written), s.Tokens-p.cursor.Offset))
+		spans = append(spans, tokenSpan{index, p.cursor.Offset, written, written + count})
+		written += count
+		p.cursor.Offset += int64(count)
+		if p.cursor.Offset == s.Tokens {
+			p.cursor.Offset = 1 // Skip only the shard's leading BOS.
+			p.cursor.Shard++
+			if p.cursor.Shard == len(p.order) {
+				if p.cursor.Epoch == math.MaxUint64 {
+					return nil, p.cursor, errors.New("dataset epoch overflow")
+				}
+				p.cursor.Epoch++
+				p.cursor.Shard = 0
+				p.setOrder()
+			}
+		}
+	}
+	return spans, p.cursor, nil
+}
+
+type tokenReadFunc func(context.Context, int, int64, []int) error
+
+func NewTokenPrefetch(ctx context.Context, d *TokenDataset, split string, c PrefetchConfig, cursor DatasetCursor) (*TokenPrefetch, error) {
+	return newTokenPrefetch(ctx, d, split, c, cursor, d.ReadTokens)
+}
+func newTokenPrefetch(ctx context.Context, d *TokenDataset, split string, c PrefetchConfig, cursor DatasetCursor, read tokenReadFunc) (*TokenPrefetch, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	planner, err := newTokenPlanner(d, split, c, cursor)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	p := &TokenPrefetch{ctx: ctx, cancel: cancel, out: make(chan *TokenBatch)}
+	free := make(chan *tokenBuffer, c.Depth)
+	jobs := make(chan tokenJob, c.Depth)
+	type result struct {
+		id    uint64
+		batch *TokenBatch
+	}
+	results := make(chan result, c.Depth)
+	n := c.Batch * c.Seq
+	for i := 0; i < c.Depth; i++ {
+		storage := make([]int, 2*n)
+		free <- &tokenBuffer{storage[:n:n], storage[n:]}
+	}
+	p.wg.Add(c.Workers + 2)
+	// Only this goroutine advances the speculative cursor and shard-order RNG.
+	go func() {
+		defer p.wg.Done()
+		defer close(jobs)
+		for id := uint64(0); ; id++ {
+			if ctx.Err() != nil {
+				return
+			}
+			var buffer *tokenBuffer
+			select {
+			case buffer = <-free:
+			case <-ctx.Done():
+				return
+			}
+			spans, after, err := planner.plan(ctx)
+			job := tokenJob{id, buffer, spans, after, err}
+			select {
+			case jobs <- job:
+			case <-ctx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	for worker := 0; worker < c.Workers; worker++ {
+		go func() {
+			defer p.wg.Done()
+			for {
+				if ctx.Err() != nil {
+					return
+				}
+				var job tokenJob
+				var ok bool
+				select {
+				case job, ok = <-jobs:
+					if !ok {
+						return
+					}
+				case <-ctx.Done():
+					return
+				}
+				for _, span := range job.spans {
+					if job.err != nil {
+						break
+					}
+					job.err = read(ctx, span.shard, span.offset, job.buffer.y[span.begin:span.end])
+				}
+				if job.err == nil {
+					for row := 0; row < c.Batch; row++ {
+						begin, end := row*c.Seq, (row+1)*c.Seq
+						job.buffer.x[begin] = BOS
+						copy(job.buffer.x[begin+1:end], job.buffer.y[begin:end-1])
+					}
+				}
+				buffer := job.buffer
+				b := &TokenBatch{X: buffer.x, Y: buffer.y, After: job.after, err: job.err, release: func() {
+					select {
+					case free <- buffer:
+					case <-ctx.Done():
+					}
+				}}
+				select {
+				case results <- result{job.id, b}:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+	go func() {
+		defer p.wg.Done()
+		defer close(p.out)
+		defer cancel()
+		pending := make(map[uint64]*TokenBatch)
+		for next := uint64(0); ; {
+			var r result
+			select {
+			case r = <-results:
+			case <-ctx.Done():
+				return
+			}
+			pending[r.id] = r.batch
+			for {
+				b, ok := pending[next]
+				if !ok {
+					break
+				}
+				select {
+				case p.out <- b:
+				case <-ctx.Done():
+					return
+				}
+				delete(pending, next)
+				next++
+				if b.err != nil {
+					return
+				}
+			}
+		}
+	}()
+	return p, nil
+}
+
 // Parallel kernels partition independent output rows; reductions have a fixed
 // order, so changing GOMAXPROCS does not change arithmetic or resume trajectories.
 func parallel(n, work int, fn func(lo, hi int)) {

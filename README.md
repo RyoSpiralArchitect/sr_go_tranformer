@@ -73,7 +73,7 @@ For BPE, train a tokenizer on training-only text and pass its JSON file with `-t
   -vocab 512 -out runs/tokenizer.json
 ```
 
-To prepare a larger corpus as token shards, see [token datasets](DATASETS.md). Preparation and verified range reads use bounded buffers; training integration follows separately.
+To prepare a larger corpus as token shards, see [token datasets](DATASETS.md). Preparation, verified range reads, and ordered parallel prefetch use bounded buffers; training integration follows separately. [Dataset validation](DATASET_VALIDATION.md) records correctness checks and a scoped memory probe.
 
 Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, and `serve`.
 
