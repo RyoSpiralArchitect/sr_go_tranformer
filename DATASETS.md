@@ -55,4 +55,20 @@ Depth counts **all outstanding leases**, including batches held by the consumer.
 
 The cursor stores epoch, position within the epoch's shard permutation, and the next token offset. At shard boundaries it is normalized to offset 1 of the next shard. Seed and shuffle policy must be restored with that cursor; worker/depth changes do not affect batches.
 
-Training/checkpoint integration follows separately; `train -data` continues to use its existing in-memory path.
+## Training and exact resume
+
+```sh
+./monolith train -dataset runs/dataset/manifest.json -preset demo \
+  -steps 500 -seq 96 -batch 2 -accum 2 -stop-after 100 \
+  -data-workers 2 -prefetch 4 -out runs/stream.mglm
+./monolith train -dataset runs/dataset/manifest.json \
+  -resume runs/stream.mglm -data-workers 3 -prefetch 6 -out runs/stream.mglm
+```
+
+`-data` and `-dataset` are mutually exclusive. `-data-workers` defaults to 2 and `-prefetch` to 4. Dataset training obtains its tokenizer and train/validation split from the manifest; passing `-tokenizer` or `-val-fraction` is an error. The text training path and old checkpoints remain readable. A resumed run must keep its original source kind.
+
+The checkpoint stores a versioned dataset state: manifest and tokenizer identities, the order seed, and the committed cursor. The shard permutation RNG is reconstructed from that seed and the epoch; no hidden RNG state depends on worker completion. The cursor advances only after a complete gradient-accumulated optimizer update. Cancellation during an incomplete update discards its gradients and saves the last completed update. Speculative IO and unconsumed batches are discarded, then reconstructed on resume.
+
+Opening a dataset revalidates all files. Resume rejects a changed dataset, tokenizer, split assignment, shard order, or a cursor inconsistent with the committed token count. Moving an unchanged dataset directory is supported because absolute paths are not part of its identity. Worker/depth and compute thread counts may change; the saved model, tokenizer, batch/sequence/accumulation and optimizer schedule cannot be overridden. Under the same numerical environment, uninterrupted and resumed checkpoints are byte-identical even when IO settings change. This does not promise identical floating-point results across different architectures/toolchains.
+
+Training validation uses the manifest's validation split in file order, with no shuffling or updates to the training cursor. It scores one pass (or the configured leading `-eval-batches` subset), counting the final short window once without scoring wrapped targets. The standalone `eval -data` command continues to evaluate separately supplied text.
