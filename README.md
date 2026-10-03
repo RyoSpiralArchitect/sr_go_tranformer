@@ -13,6 +13,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - SSE token streaming with bounded per-request buffers and slow-consumer isolation.
 - Greedy, temperature, top-k, and top-p sampling with repetition penalties.
 - Atomic checkpoints containing model weights, optimizer state, tokenizer, and training progress.
+- Optional JSONL training metrics and standard Go CPU/allocation profiles.
 
 ## Requirements
 
@@ -95,6 +96,8 @@ Evaluate the same packed dataset independently and retain a reproducible JSON re
 ```
 
 Evaluation defaults to the validation split. Receipts identify the checkpoint, dataset, tokenizer, scoring method and actual target range. With matching settings, standalone dataset evaluation agrees with training validation.
+
+To measure training, add `-metrics runs/train.jsonl`, `-cpu-profile runs/cpu.pprof`, or `-alloc-profile runs/alloc.pprof` to `train`. These require new files in existing directories and also work with `-resume`. See [training measurement](TRAINING_MEASUREMENT.md) for event semantics, phase timing, profile scope and comparison guidance.
 
 Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, and `serve`.
 

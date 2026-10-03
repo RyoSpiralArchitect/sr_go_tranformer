@@ -21,6 +21,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 	"strings"
 	"sync"
@@ -2231,22 +2232,23 @@ func sampleBatch(data []int, batch, seq int, rng *RNG) ([]int, []int) {
 	return x, y
 }
 func trainUpdate(m *Model, s *TrainState, data []int) (float64, float64, error) {
+	return observedTrainUpdate(context.Background(), m, s, data, nil)
+}
+func observedTrainUpdate(ctx context.Context, m *Model, s *TrainState, data []int, observer *trainingObserver) (float64, float64, error) {
 	spec := s.Spec
-	m.ZeroGrad()
+	_ = observer.phase(ctx, "zero_grad", func() error { m.ZeroGrad(); return nil })
 	var loss float64
 	for micro := 0; micro < spec.Accum; micro++ {
-		x, y := sampleBatch(data, spec.Batch, spec.Seq, &s.RNG)
-		t, err := m.Forward(x, spec.Batch, spec.Seq)
-		if err != nil {
-			return 0, 0, err
-		}
-		l, err := m.Backward(t, y, 1/float64(spec.Accum))
+		var x, y []int
+		_ = observer.phase(ctx, "input", func() error { x, y = sampleBatch(data, spec.Batch, spec.Seq, &s.RNG); return nil })
+		l, err := observedMicrobatch(ctx, m, spec, x, y, observer)
 		if err != nil {
 			return 0, 0, err
 		}
 		loss += l / float64(spec.Accum)
 	}
-	norm, err := m.AdamW(spec, s.Step+1)
+	var norm float64
+	err := observer.phase(ctx, "optimizer", func() (err error) { norm, err = m.AdamW(spec, s.Step+1); return err })
 	if err != nil {
 		return 0, 0, err
 	}
@@ -2291,20 +2293,20 @@ func validateDatasetResume(d *TokenDataset, tok Tokenizer, s *TrainState) error 
 }
 
 func trainDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *TokenPrefetch) (float64, float64, error) {
+	return observedDatasetUpdate(ctx, m, s, p, nil)
+}
+func observedDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *TokenPrefetch, observer *trainingObserver) (float64, float64, error) {
 	spec := s.Spec
-	m.ZeroGrad()
+	_ = observer.phase(ctx, "zero_grad", func() error { m.ZeroGrad(); return nil })
 	var loss float64
 	var after DatasetCursor
 	for micro := 0; micro < spec.Accum; micro++ {
-		b, err := p.Next(ctx)
+		var b *TokenBatch
+		err := observer.phase(ctx, "input", func() (err error) { b, err = p.Next(ctx); return err })
 		if err != nil {
 			return 0, 0, err
 		}
-		t, err := m.Forward(b.X, spec.Batch, spec.Seq)
-		var l float64
-		if err == nil {
-			l, err = m.Backward(t, b.Y, 1/float64(spec.Accum))
-		}
+		l, err := observedMicrobatch(ctx, m, spec, b.X, b.Y, observer)
 		after = b.After
 		b.Release()
 		if err != nil {
@@ -2315,7 +2317,8 @@ func trainDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *TokenPr
 	if err := ctx.Err(); err != nil {
 		return 0, 0, err
 	}
-	norm, err := m.AdamW(spec, s.Step+1)
+	var norm float64
+	err := observer.phase(ctx, "optimizer", func() (err error) { norm, err = m.AdamW(spec, s.Step+1); return err })
 	if err != nil {
 		return 0, 0, err
 	}
@@ -2323,6 +2326,16 @@ func trainDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *TokenPr
 	s.TokensSeen += int64(spec.Batch) * int64(spec.Seq) * int64(spec.Accum)
 	s.Dataset.Cursor = after
 	return loss, norm, nil
+}
+
+func observedMicrobatch(ctx context.Context, m *Model, spec TrainSpec, x, y []int, observer *trainingObserver) (float64, error) {
+	var tape *Tape
+	err := observer.phase(ctx, "forward", func() (err error) { tape, err = m.Forward(x, spec.Batch, spec.Seq); return err })
+	var loss float64
+	if err == nil {
+		err = observer.phase(ctx, "backward", func() (err error) { loss, err = m.Backward(tape, y, 1/float64(spec.Accum)); return err })
+	}
+	return loss, err
 }
 
 func evaluateDataset(ctx context.Context, m *Model, d *TokenDataset, seq, maxBatches int) (float64, int, error) {
@@ -3342,14 +3355,293 @@ func ensureMoments(m *Model) {
 	}
 }
 
+// Telemetry belongs to one invocation, never to TrainState or a checkpoint.
+// The training goroutine owns phases/JSON; IO workers only touch atomic counters.
+type trainingPhases struct {
+	Input      int64 `json:"input_ns"`
+	ZeroGrad   int64 `json:"zero_grad_ns"`
+	Forward    int64 `json:"forward_ns"`
+	Backward   int64 `json:"backward_ns"`
+	Optimizer  int64 `json:"optimizer_ns"`
+	Evaluation int64 `json:"evaluation_ns"`
+	Checkpoint int64 `json:"checkpoint_ns"`
+}
+type trainingRun struct {
+	Config             Config           `json:"config"`
+	Spec               TrainSpec        `json:"spec"`
+	Source             EvaluationSource `json:"source"`
+	TokenizerSHA256    string           `json:"tokenizer_sha256"`
+	ResumeSHA256       string           `json:"resume_sha256,omitempty"`
+	InitializationSeed *uint64          `json:"initialization_seed,omitempty"`
+	GoVersion          string           `json:"go_version"`
+	Threads            int              `json:"threads"`
+	DataWorkers        int              `json:"data_workers"`
+	Prefetch           int              `json:"prefetch"`
+	StopAfter          int              `json:"stop_after"`
+	EvalEvery          int              `json:"eval_every"`
+	EvalBatches        int              `json:"eval_batches"`
+	SaveEvery          int              `json:"save_every"`
+	LogEvery           int              `json:"log_every"`
+}
+type trainingEvent struct {
+	Format     string         `json:"format"`
+	Event      string         `json:"event"`
+	Step       int            `json:"step"`
+	TokensSeen int64          `json:"tokens_seen"`
+	Cursor     *DatasetCursor `json:"cursor,omitempty"`
+	ElapsedNS  int64          `json:"elapsed_ns"`
+	Phases     trainingPhases `json:"phases"`
+	ReadNS     int64          `json:"prefetch_read_ns"`
+	ReadTokens int64          `json:"prefetch_read_tokens"`
+	AllocBytes uint64         `json:"alloc_bytes"`
+	HeapBytes  uint64         `json:"heap_bytes"`
+	GCs        uint32         `json:"gc_cycles"`
+	Loss       *float64       `json:"loss,omitempty"`
+	GradNorm   *float64       `json:"grad_norm,omitempty"`
+	Targets    int            `json:"targets,omitempty"`
+	Status     string         `json:"status,omitempty"`
+	Run        *trainingRun   `json:"run,omitempty"`
+}
+type telemetryOptions struct{ Metrics, CPUProfile, AllocProfile, Checkpoint string }
+
+// The CPU profiler writes asynchronously. Read err only after StopCPUProfile
+// has joined its writer; the runtime otherwise discards output write errors.
+type profileWriter struct {
+	io.Writer
+	err error
+}
+
+func (w *profileWriter) Write(p []byte) (int, error) {
+	n, err := w.Writer.Write(p)
+	if err != nil && w.err == nil {
+		w.err = err
+	}
+	return n, err
+}
+
+type trainingObserver struct {
+	encoder            *json.Encoder
+	files              []*os.File
+	cpu                bool
+	started            bool
+	cpuWriter          *profileWriter
+	alloc              *os.File
+	start              time.Time
+	baseline           runtime.MemStats
+	phases             trainingPhases
+	readNS, readTokens atomic.Int64
+	run                trainingRun
+}
+
+// Resolve parent symlinks even when the final checkpoint directory does not yet
+// exist. SaveCheckpoint replaces a directory entry, not a final symlink target.
+func outputIdentity(path string) (string, error) {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	parent, base := filepath.Dir(path), filepath.Base(path)
+	resolved, err := filepath.EvalSymlinks(parent)
+	if errors.Is(err, os.ErrNotExist) && parent != path {
+		resolved, err = outputIdentity(parent)
+	}
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(resolved, base), nil
+}
+func openTrainingObserver(o telemetryOptions) (*trainingObserver, error) {
+	if o.Metrics == "" && o.CPUProfile == "" && o.AllocProfile == "" {
+		return nil, nil
+	}
+	paths := []string{o.Metrics, o.CPUProfile, o.AllocProfile}
+	seen := make(map[string]bool)
+	checkpoint, err := outputIdentity(o.Checkpoint)
+	if err != nil {
+		return nil, err
+	}
+	seen[checkpoint] = true
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		id, err := outputIdentity(path)
+		if err != nil {
+			return nil, err
+		}
+		if seen[id] {
+			return nil, errors.New("telemetry outputs must differ from each other and the checkpoint")
+		}
+		seen[id] = true
+	}
+	observer := &trainingObserver{}
+	success := false
+	defer func() {
+		if !success {
+			for _, f := range observer.files {
+				_ = f.Close()
+				_ = os.Remove(f.Name())
+			}
+		}
+	}()
+	for i, path := range paths {
+		if path == "" {
+			continue
+		}
+		// Never truncate an input, existing receipt or existing profile.
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		if err != nil {
+			return nil, err
+		}
+		observer.files = append(observer.files, f)
+		switch i {
+		case 0:
+			observer.encoder = json.NewEncoder(f)
+		case 1: // Start only after every requested file has been created.
+		case 2:
+			observer.alloc = f
+		}
+	}
+	// String canonicalization alone cannot detect case-folding filesystems.
+	if info, err := os.Stat(o.Checkpoint); err == nil {
+		for _, f := range observer.files {
+			created, err := f.Stat()
+			if err != nil {
+				return nil, err
+			}
+			if os.SameFile(info, created) {
+				return nil, errors.New("telemetry output aliases the checkpoint")
+			}
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if o.CPUProfile != "" {
+		for _, f := range observer.files {
+			if f.Name() == o.CPUProfile {
+				observer.cpuWriter = &profileWriter{Writer: f}
+				if err := pprof.StartCPUProfile(observer.cpuWriter); err != nil {
+					return nil, err
+				}
+				observer.cpu = true
+			}
+		}
+	}
+	observer.start = time.Now()
+	runtime.ReadMemStats(&observer.baseline)
+	success = true
+	return observer, nil
+}
+func (o *trainingObserver) close() error {
+	if o == nil {
+		return nil
+	}
+	if o.cpu {
+		pprof.StopCPUProfile()
+	}
+	var err error
+	if o.cpuWriter != nil {
+		err = o.cpuWriter.err
+	}
+	if o.alloc != nil {
+		// Flush recent samples after the measured invocation, including dead
+		// training tapes. alloc_space is process-wide, not live tensor memory.
+		runtime.GC()
+		err = errors.Join(err, pprof.Lookup("allocs").WriteTo(o.alloc, 0))
+	}
+	for _, f := range o.files {
+		err = errors.Join(err, f.Close())
+	}
+	if !o.started {
+		// CLI/source settings can still be rejected while constructing the
+		// loop. Those attempts must not reserve the next corrected run's paths.
+		for _, f := range o.files {
+			err = errors.Join(err, os.Remove(f.Name()))
+		}
+	}
+	return err
+}
+func (o *trainingObserver) phase(ctx context.Context, name string, f func() error) error {
+	if o == nil {
+		return f()
+	}
+	start := time.Now()
+	var err error
+	if o.cpu {
+		pprof.Do(ctx, pprof.Labels("phase", name), func(context.Context) { err = f() })
+	} else {
+		err = f()
+	}
+	n := time.Since(start).Nanoseconds()
+	switch name {
+	case "input":
+		o.phases.Input += n
+	case "zero_grad":
+		o.phases.ZeroGrad += n
+	case "forward":
+		o.phases.Forward += n
+	case "backward":
+		o.phases.Backward += n
+	case "optimizer":
+		o.phases.Optimizer += n
+	case "evaluation":
+		o.phases.Evaluation += n
+	case "checkpoint":
+		o.phases.Checkpoint += n
+	}
+	return err
+}
+func (o *trainingObserver) reader(read tokenReadFunc) tokenReadFunc {
+	if o == nil {
+		return read
+	}
+	return func(ctx context.Context, shard int, offset int64, dst []int) error {
+		start := time.Now()
+		var err error
+		if o.cpu {
+			pprof.Do(ctx, pprof.Labels("phase", "prefetch_read"), func(context.Context) { err = read(ctx, shard, offset, dst) })
+		} else {
+			err = read(ctx, shard, offset, dst)
+		}
+		o.readNS.Add(time.Since(start).Nanoseconds())
+		if err == nil {
+			o.readTokens.Add(int64(len(dst)))
+		}
+		return err
+	}
+}
+func (o *trainingObserver) emit(s *TrainState, e trainingEvent) error {
+	if o == nil || o.encoder == nil {
+		return nil
+	}
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	e.Format, e.Step, e.TokensSeen = "monolith-train-v1", s.Step, s.TokensSeen
+	e.ElapsedNS, e.Phases = time.Since(o.start).Nanoseconds(), o.phases
+	e.ReadNS, e.ReadTokens = o.readNS.Load(), o.readTokens.Load()
+	e.AllocBytes, e.HeapBytes, e.GCs = mem.TotalAlloc-o.baseline.TotalAlloc, mem.HeapAlloc, mem.NumGC-o.baseline.NumGC
+	if s.Dataset != nil {
+		cursor := s.Dataset.Cursor
+		e.Cursor = &cursor
+	}
+	if e.Event == "start" {
+		e.Run = &o.run
+	}
+	if err := o.encoder.Encode(e); err != nil {
+		return fmt.Errorf("write training metrics: %w", err)
+	}
+	return nil
+}
+
 type loopOptions struct {
 	Out                                                    string
 	StopAfter, SaveEvery, EvalEvery, EvalBatches, LogEvery int
+	Observer                                               *trainingObserver
 }
 
 func trainLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, train, val []int, o loopOptions) error {
 	return trainingLoop(ctx, m, tok, s, int64(len(train)), int64(len(val)), o,
-		func() (float64, float64, error) { return trainUpdate(m, s, train) },
+		func() (float64, float64, error) { return observedTrainUpdate(ctx, m, s, train, o.Observer) },
 		func() (float64, int, error) { return evaluate(ctx, m, val, s.Spec.Seq, o.EvalBatches) })
 }
 func trainDatasetLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, d *TokenDataset, workers, depth int, o loopOptions) error {
@@ -3360,7 +3652,7 @@ func trainDatasetLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainStat
 		return err
 	}
 	c := PrefetchConfig{Batch: s.Spec.Batch, Seq: s.Spec.Seq, Workers: workers, Depth: depth, Seed: s.Dataset.OrderSeed, Shuffle: true}
-	p, err := NewTokenPrefetch(ctx, d, "train", c, s.Dataset.Cursor)
+	p, err := newTokenPrefetch(ctx, d, "train", c, s.Dataset.Cursor, o.Observer.reader(d.ReadTokens))
 	if err != nil {
 		return err
 	}
@@ -3373,18 +3665,58 @@ func trainDatasetLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainStat
 		counts[shard.Split] += shard.Tokens
 	}
 	return trainingLoop(ctx, m, tok, s, counts["train"], counts["validation"], o,
-		func() (float64, float64, error) { return trainDatasetUpdate(ctx, m, s, p) },
+		func() (float64, float64, error) { return observedDatasetUpdate(ctx, m, s, p, o.Observer) },
 		func() (float64, int, error) { return evaluateDataset(ctx, m, d, s.Spec.Seq, o.EvalBatches) })
 }
-func trainingLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, trainTokens, valTokens int64, o loopOptions, update func() (float64, float64, error), eval func() (float64, int, error)) error {
+func trainingLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, trainTokens, valTokens int64, o loopOptions, update func() (float64, float64, error), eval func() (float64, int, error)) (result error) {
 	if err := s.Validate(m.Config); err != nil {
 		return err
 	}
 	if o.StopAfter < 0 || o.SaveEvery < 0 || o.EvalEvery < 0 || o.EvalBatches < 0 || o.LogEvery < 1 {
 		return errors.New("invalid logging/save/evaluation interval")
 	}
+	if o.Observer != nil {
+		o.Observer.started = true
+	}
 	ensureMoments(m)
-	initial, nt, err := eval()
+	observer := o.Observer
+	defer func() {
+		status := "completed"
+		if s.Step < s.Spec.Steps {
+			status = "stopped"
+		}
+		if ctx.Err() != nil {
+			status = "canceled"
+		}
+		if result != nil {
+			status = "failed"
+		}
+		result = errors.Join(result, observer.emit(s, trainingEvent{Event: "end", Status: status}))
+	}()
+	save := func() error {
+		return observer.phase(ctx, "checkpoint", func() error { return SaveCheckpoint(o.Out, m, tok, s) })
+	}
+	// An output error at a completed boundary stops training and saves that
+	// boundary. No logger goroutine, unbounded queue or silently dropped record.
+	record := func(e trainingEvent) error {
+		if err := observer.emit(s, e); err != nil {
+			return errors.Join(err, save())
+		}
+		return nil
+	}
+	if err := record(trainingEvent{Event: "start"}); err != nil {
+		return err
+	}
+	observedEval := func() (float64, int, error) {
+		var value float64
+		var count int
+		err := observer.phase(ctx, "evaluation", func() (err error) { value, count, err = eval(); return err })
+		if err == nil {
+			err = record(trainingEvent{Event: "evaluation", Loss: &value, Targets: count})
+		}
+		return value, count, err
+	}
+	initial, nt, err := observedEval()
 	if err != nil {
 		return err
 	}
@@ -3409,11 +3741,14 @@ func trainingLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, t
 		}
 		if s.Step%o.LogEvery == 0 || s.Step == target {
 			fmt.Fprintf(os.Stderr, "step=%d/%d loss=%.6f lr=%.7f grad_norm=%.4f tokens_per_sec=%.1f\n", s.Step, s.Spec.Steps, loss, s.Spec.LearningRate(s.Step), norm, float64(s.TokensSeen-initialTokens)/time.Since(start).Seconds())
+			if err = record(trainingEvent{Event: "update", Loss: &loss, GradNorm: &norm}); err != nil {
+				return err
+			}
 		}
 		if o.EvalEvery > 0 && s.Step%o.EvalEvery == 0 {
-			value, count, e := eval()
+			value, count, e := observedEval()
 			if e != nil {
-				if ctx.Err() != nil {
+				if ctx.Err() != nil && errors.Is(e, ctx.Err()) {
 					break
 				}
 				return e
@@ -3421,16 +3756,22 @@ func trainingLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, t
 			fmt.Fprintf(os.Stderr, "step=%d val_loss=%.6f val_targets=%d\n", s.Step, value, count)
 		}
 		if o.SaveEvery > 0 && s.Step%o.SaveEvery == 0 {
-			if err = SaveCheckpoint(o.Out, m, tok, s); err != nil {
+			if err = save(); err != nil {
+				return err
+			}
+			if err = record(trainingEvent{Event: "checkpoint"}); err != nil {
 				return err
 			}
 		}
 	}
-	if err = SaveCheckpoint(o.Out, m, tok, s); err != nil {
+	if err = save(); err != nil {
+		return err
+	}
+	if err = record(trainingEvent{Event: "checkpoint"}); err != nil {
 		return err
 	}
 	if ctx.Err() == nil {
-		value, count, e := eval()
+		value, count, e := observedEval()
 		if e != nil {
 			return e
 		}
@@ -3440,7 +3781,7 @@ func trainingLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, t
 	}
 	return nil
 }
-func runTrain(ctx context.Context, args []string) error {
+func runTrain(ctx context.Context, args []string) (result error) {
 	f := flags("train")
 	spec := defaultTrainSpec()
 	data := f.String("data", "", "UTF-8 or arbitrary byte text file (max 64 MiB)")
@@ -3465,6 +3806,10 @@ func runTrain(ctx context.Context, args []string) error {
 	f.Float64Var(&spec.Clip, "clip", spec.Clip, "global gradient norm limit")
 	f.Float64Var(&spec.ValFraction, "val-fraction", spec.ValFraction, "held-out trailing raw byte fraction")
 	o := loopOptions{}
+	telemetry := telemetryOptions{}
+	f.StringVar(&telemetry.Metrics, "metrics", "", "new JSONL file for cumulative phase timing and training events")
+	f.StringVar(&telemetry.CPUProfile, "cpu-profile", "", "new Go pprof CPU profile (after source/model loading)")
+	f.StringVar(&telemetry.AllocProfile, "alloc-profile", "", "new Go pprof sampled allocation profile (process-wide)")
 	f.IntVar(&o.StopAfter, "stop-after", 0, "stop after this many additional updates, retaining full schedule")
 	f.IntVar(&o.SaveEvery, "save-every", 50, "checkpoint interval; 0 disables periodic saves")
 	f.IntVar(&o.EvalEvery, "eval-every", 25, "validation interval; 0 disables periodic validation")
@@ -3502,8 +3847,9 @@ func runTrain(ctx context.Context, args []string) error {
 	var m *Model
 	var tok Tokenizer
 	var state *TrainState
+	var resumeSHA256 string
 	if *resume != "" {
-		allowed := map[string]bool{"resume": true, "data": true, "dataset": true, "data-workers": true, "prefetch": true, "out": true, "threads": true, "stop-after": true, "save-every": true, "eval-every": true, "eval-batches": true, "log-every": true}
+		allowed := map[string]bool{"resume": true, "data": true, "dataset": true, "data-workers": true, "prefetch": true, "out": true, "threads": true, "stop-after": true, "save-every": true, "eval-every": true, "eval-batches": true, "log-every": true, "metrics": true, "cpu-profile": true, "alloc-profile": true}
 		var bad string
 		f.Visit(func(v *flag.Flag) {
 			if !allowed[v.Name] {
@@ -3513,7 +3859,7 @@ func runTrain(ctx context.Context, args []string) error {
 		if bad != "" {
 			return fmt.Errorf("-%s cannot override a resumed run; its schedule/tokenizer/model are saved", bad)
 		}
-		m, tok, state, err = LoadCheckpoint(*resume)
+		m, tok, state, resumeSHA256, err = loadCheckpointIdentity(*resume)
 		if err != nil {
 			return err
 		}
@@ -3552,12 +3898,32 @@ func runTrain(ctx context.Context, args []string) error {
 			state.Dataset = datasetTrainingState(dataset, state.RNG.State)
 		}
 	}
-	if dataset != nil {
-		return trainDatasetLoop(ctx, m, tok, state, dataset, *dataWorkers, *prefetch, o)
+	var train, val []int
+	if dataset == nil {
+		train, val, err = splitCorpus(tok, text, state.Spec.ValFraction, state.Spec.Seq)
+		if err != nil {
+			return err
+		}
 	}
-	train, val, err := splitCorpus(tok, text, state.Spec.ValFraction, state.Spec.Seq)
+	telemetry.Checkpoint = o.Out
+	o.Observer, err = openTrainingObserver(telemetry)
 	if err != nil {
 		return err
+	}
+	defer func() { result = errors.Join(result, o.Observer.close()) }()
+	if observer := o.Observer; observer != nil {
+		observer.run = trainingRun{Config: m.Config, Spec: state.Spec, Source: EvaluationSource{Kind: "text", SHA256: state.CorpusSHA256}, TokenizerSHA256: tokenizerHash(tok), ResumeSHA256: resumeSHA256, GoVersion: runtime.Version(), Threads: runtime.GOMAXPROCS(0)}
+		observer.run.StopAfter, observer.run.EvalEvery, observer.run.EvalBatches, observer.run.SaveEvery, observer.run.LogEvery = o.StopAfter, o.EvalEvery, o.EvalBatches, o.SaveEvery, o.LogEvery
+		if *resume == "" {
+			observer.run.InitializationSeed = seed
+		}
+		if dataset != nil {
+			observer.run.Source.Kind, observer.run.Source.Split = "dataset", "train"
+			observer.run.DataWorkers, observer.run.Prefetch = *dataWorkers, *prefetch
+		}
+	}
+	if dataset != nil {
+		return trainDatasetLoop(ctx, m, tok, state, dataset, *dataWorkers, *prefetch, o)
 	}
 	return trainLoop(ctx, m, tok, state, train, val, o)
 }
