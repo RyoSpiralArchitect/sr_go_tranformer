@@ -45,8 +45,13 @@ sed -n '97,128p' examples/tiny.txt > "$dataset_tmp/validation.txt"
 "$smoke_dir/monolith" train -dataset "$dataset_tmp/tokens/manifest.json" \
   -resume "$smoke_dir/dataset-resumed.mglm" -out "$smoke_dir/dataset-resumed.mglm" \
   -data-workers 3 -prefetch 5 -eval-every 0 -save-every 0 -eval-batches 2 \
+  -metrics "$dataset_tmp/train.jsonl" -cpu-profile "$dataset_tmp/cpu.pprof" \
+  -alloc-profile "$dataset_tmp/alloc.pprof" \
   2> "$smoke_dir/dataset-resume.log"
 cmp "$smoke_dir/dataset-full.mglm" "$smoke_dir/dataset-resumed.mglm"
+./scripts/go.sh tool pprof -top "$dataset_tmp/cpu.pprof" > "$smoke_dir/cpu-profile.txt"
+./scripts/go.sh tool pprof -top -sample_index=alloc_space "$dataset_tmp/alloc.pprof" \
+  > "$smoke_dir/alloc-profile.txt"
 "$smoke_dir/monolith" eval -model "$smoke_dir/dataset-full.mglm" \
   -dataset "$dataset_tmp/tokens/manifest.json" -seq 16 -batches 2 \
   > "$smoke_dir/dataset-eval.json"
@@ -54,4 +59,4 @@ cmp "$smoke_dir/dataset-full.mglm" "$smoke_dir/dataset-resumed.mglm"
   -dataset "$dataset_tmp/tokens/manifest.json" -seq 16 -batches 2 \
   > "$smoke_dir/dataset-eval-resumed.json"
 cmp "$smoke_dir/dataset-eval.json" "$smoke_dir/dataset-eval-resumed.json"
-printf '%s\n' 'PASS: CLI BPE/text/dataset training, byte-identical resume across IO settings, evaluation, generation, inspection.'
+printf '%s\n' 'PASS: CLI BPE/text/dataset training, exact resume across IO/telemetry settings, evaluation, pprof, generation, inspection.'
