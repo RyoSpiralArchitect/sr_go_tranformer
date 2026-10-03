@@ -7,6 +7,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - RMSNorm, rotary position embeddings (RoPE), grouped-query attention (GQA), SwiGLU, and tied input/output embeddings.
 - Manual backpropagation, AdamW, gradient clipping and accumulation, and a warmup/cosine learning-rate schedule.
 - Byte-level tokenization with optional byte-pair encoding (BPE).
+- Bounded token-shard preparation with document boundaries, checksums, and explicit training/validation splits.
 - Continuous batching with bounded token budgets, chunked prefill, paged KV caches, and request cancellation.
 - SSE token streaming with bounded per-request buffers and slow-consumer isolation.
 - Greedy, temperature, top-k, and top-p sampling with repetition penalties.
@@ -72,7 +73,9 @@ For BPE, train a tokenizer on training-only text and pass its JSON file with `-t
   -vocab 512 -out runs/tokenizer.json
 ```
 
-Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `train`, `eval`, `generate`, `inspect`, and `serve`.
+To prepare a larger corpus as token shards, see [token datasets](DATASETS.md). Preparation and verified range reads use bounded buffers; training integration follows separately.
+
+Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, and `serve`.
 
 ## HTTP inference
 
@@ -157,7 +160,7 @@ GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke tes
 
 This is an experimental foundation for further development. Attention avoids storing a quadratic probability matrix, but dense attention still takes quadratic compute. The KV memory limit covers cache pages, not total process memory. Generation beyond the sequence lengths used during training may degrade quality.
 
-Dataset ingestion and BPE training are currently bounded, in-memory implementations. GPU execution, quantization, distributed training, and compatibility with external pretrained checkpoints are not implemented. Synthetic demo results are implementation checks, not evidence of general language ability.
+The text training path and BPE tokenizer training are currently bounded, in-memory implementations. Token-shard preparation can process larger corpora one bounded document at a time. GPU execution, quantization, distributed training, and compatibility with external pretrained checkpoints are not implemented. Synthetic demo results are implementation checks, not evidence of general language ability.
 
 ## License
 

@@ -248,6 +248,458 @@ func TrainTokenizer(text string, vocab int) (Tokenizer, error) {
 	return t, t.Validate()
 }
 
+// Token shards contain complete, independently tokenized documents. A document
+// is one input line, retaining its newline bytes. No BPE merge crosses a document.
+const (
+	shardMagic       = "MGTS0001"
+	shardHeaderBytes = 64
+	maxDatasetShards = 16384
+	maxDocumentBytes = 1 << 20
+	maxReadTokens    = 1 << 20
+)
+
+type TokenShard struct {
+	File      string `json:"file"`
+	Split     string `json:"split"`
+	Tokens    int64  `json:"tokens"`
+	Documents int64  `json:"documents"`
+	Bytes     int64  `json:"bytes"`
+	SHA256    string `json:"sha256"`
+}
+type DatasetManifest struct {
+	Format          string       `json:"format"`
+	Tokenizer       Tokenizer    `json:"tokenizer"`
+	TokenizerSHA256 string       `json:"tokenizer_sha256"`
+	Vocab           int          `json:"vocab"`
+	Shards          []TokenShard `json:"shards"`
+}
+type TokenDataset struct {
+	root     string
+	manifest DatasetManifest
+	id       string
+}
+
+func tokenizerHash(tok Tokenizer) string {
+	// Normalize nil and empty merge tables to the same identity.
+	merges := append(make([]Pair, 0, len(tok.Merges)), tok.Merges...)
+	b, _ := json.Marshal(Tokenizer{Merges: merges})
+	return corpusHash(string(b))
+}
+func validSHA256(s string) bool {
+	b, err := hex.DecodeString(s)
+	return err == nil && len(b) == sha256.Size && s == strings.ToLower(s)
+}
+func shardHeader(m DatasetManifest, s TokenShard) []byte {
+	b := make([]byte, shardHeaderBytes)
+	copy(b, shardMagic)
+	binary.LittleEndian.PutUint32(b[8:], uint32(m.Vocab))
+	binary.LittleEndian.PutUint64(b[16:], uint64(s.Tokens))
+	binary.LittleEndian.PutUint64(b[24:], uint64(s.Documents))
+	digest, _ := hex.DecodeString(m.TokenizerSHA256)
+	copy(b[32:], digest)
+	return b
+}
+func (m DatasetManifest) Validate() error {
+	if m.Format != "monolith-tokens-v1" || len(m.Shards) == 0 || len(m.Shards) > maxDatasetShards {
+		return errors.New("invalid dataset format or shard count")
+	}
+	if err := m.Tokenizer.Validate(); err != nil {
+		return err
+	}
+	if m.Vocab != m.Tokenizer.Vocab() || m.TokenizerSHA256 != tokenizerHash(m.Tokenizer) {
+		return errors.New("dataset tokenizer identity/vocabulary mismatch")
+	}
+	seen := make(map[string]bool)
+	train, val := false, false
+	for _, s := range m.Shards {
+		if s.File == "" || s.File == "." || filepath.Base(s.File) != s.File || strings.ContainsAny(s.File, "/\\") || seen[s.File] {
+			return errors.New("shard filenames must be unique local basenames")
+		}
+		seen[s.File] = true
+		if s.Split != "train" && s.Split != "validation" {
+			return errors.New("unknown dataset split")
+		}
+		train = train || s.Split == "train"
+		val = val || s.Split == "validation"
+		if s.Tokens < 3 || s.Tokens > 1<<50 || s.Documents < 1 || s.Documents > s.Tokens/3 || s.Bytes != shardHeaderBytes+4*s.Tokens || !validSHA256(s.SHA256) {
+			return errors.New("invalid shard size/count/checksum metadata")
+		}
+	}
+	if !train || !val {
+		return errors.New("dataset requires nonempty train and validation splits")
+	}
+	return nil
+}
+
+// Opening verifies the entire dataset using a fixed buffer before training.
+// Files must remain immutable until all readers/prefetchers have closed.
+func OpenTokenDataset(ctx context.Context, path string) (*TokenDataset, error) {
+	var m DatasetManifest
+	if err := readJSONFile(path, &m); err != nil {
+		return nil, err
+	}
+	if err := m.Validate(); err != nil {
+		return nil, err
+	}
+	d := &TokenDataset{root: filepath.Dir(path), manifest: m}
+	canonical, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+	d.id = corpusHash(string(canonical))
+	for i := range m.Shards {
+		if err := d.verifyShard(ctx, i); err != nil {
+			return nil, fmt.Errorf("shard %s: %w", m.Shards[i].File, err)
+		}
+	}
+	return d, nil
+}
+func (d *TokenDataset) openShard(index int) (*os.File, error) {
+	if index < 0 || index >= len(d.manifest.Shards) {
+		return nil, errors.New("shard index outside dataset")
+	}
+	s := d.manifest.Shards[index]
+	path := filepath.Join(d.root, s.File)
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, errors.New("shard must be a regular file (no symlinks)")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	fail := func(err error) (*os.File, error) { f.Close(); return nil, err }
+	info, err = f.Stat()
+	if err != nil {
+		return fail(err)
+	}
+	if !info.Mode().IsRegular() || info.Size() != s.Bytes {
+		return fail(errors.New("shard size mismatch"))
+	}
+	var header [shardHeaderBytes]byte
+	if _, err = io.ReadFull(f, header[:]); err != nil {
+		return fail(err)
+	}
+	if !bytes.Equal(header[:], shardHeader(d.manifest, s)) {
+		return fail(errors.New("shard header/tokenizer mismatch"))
+	}
+	return f, nil
+}
+func (d *TokenDataset) verifyShard(ctx context.Context, index int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	f, err := d.openShard(index)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	s := d.manifest.Shards[index]
+	h := sha256.New()
+	h.Write(shardHeader(d.manifest, s))
+	buf := make([]byte, 16*1024)
+	inside, payload := false, false
+	var documents int64
+	for left := s.Tokens; left > 0; {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		n := int(min(left, int64(len(buf)/4)))
+		if _, err = io.ReadFull(f, buf[:4*n]); err != nil {
+			return err
+		}
+		h.Write(buf[:4*n])
+		for j := 0; j < n; j++ {
+			id := int(binary.LittleEndian.Uint32(buf[4*j:]))
+			if id >= d.manifest.Vocab {
+				return errors.New("token outside vocabulary")
+			}
+			switch {
+			case !inside:
+				if id != BOS {
+					return errors.New("document must start with BOS")
+				}
+				inside, payload = true, false
+			case id == BOS:
+				return errors.New("unexpected BOS inside document")
+			case id == EOS:
+				if !payload {
+					return errors.New("empty document")
+				}
+				inside = false
+				documents++
+			default:
+				payload = true
+			}
+		}
+		left -= int64(n)
+	}
+	if inside || documents != s.Documents {
+		return errors.New("document boundary/count mismatch")
+	}
+	if hex.EncodeToString(h.Sum(nil)) != s.SHA256 {
+		return errors.New("shard checksum mismatch")
+	}
+	return nil
+}
+
+// ReadTokens fills caller-owned memory, opening at most one file. No corpus-wide
+// token array, per-document index, mmap, or retained file descriptor is needed.
+func (d *TokenDataset) ReadTokens(ctx context.Context, shard int, offset int64, dst []int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if shard < 0 || shard >= len(d.manifest.Shards) || len(dst) > maxReadTokens {
+		return errors.New("invalid shard or read allocation")
+	}
+	s := d.manifest.Shards[shard]
+	if offset < 0 || offset > s.Tokens-int64(len(dst)) {
+		return errors.New("token read outside shard")
+	}
+	f, err := d.openShard(shard)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	r := io.NewSectionReader(f, shardHeaderBytes+4*offset, int64(len(dst))*4)
+	buf := make([]byte, min(16*1024, 4*len(dst)))
+	for start := 0; start < len(dst); {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		n := min(len(dst)-start, len(buf)/4)
+		if _, err = io.ReadFull(r, buf[:4*n]); err != nil {
+			return err
+		}
+		for i := 0; i < n; i++ {
+			id := int(binary.LittleEndian.Uint32(buf[4*i:]))
+			if id >= d.manifest.Vocab {
+				return errors.New("token outside vocabulary; dataset changed")
+			}
+			dst[start+i] = id
+		}
+		start += n
+	}
+	return nil
+}
+
+type prepareOptions struct {
+	Train, Validation, Out     string
+	Tokenizer                  Tokenizer
+	ShardTokens, DocumentBytes int
+}
+
+// Bounded line reads never split a document to satisfy a buffer size. A long
+// line is rejected, so UTF-8 bytes and BPE merges remain identical to Encode.
+func readDocument(r *bufio.Reader, limit int) ([]byte, error) {
+	var doc []byte
+	for {
+		part, err := r.ReadSlice('\n')
+		if len(doc)+len(part) > limit {
+			return nil, errors.New("document exceeds -document-bytes; split documents explicitly before preparation")
+		}
+		doc = append(doc, part...)
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		if err == io.EOF && len(doc) > 0 {
+			return doc, nil
+		}
+		return doc, err
+	}
+}
+
+func PrepareTokenDataset(ctx context.Context, o prepareOptions) error {
+	if o.Train == "" || o.Validation == "" || o.Out == "" || o.DocumentBytes < 1 || o.DocumentBytes > maxDocumentBytes || o.ShardTokens < 3 || o.ShardTokens > 16<<20 {
+		return errors.New("prepare requires train, validation, out; document-bytes 1..1048576; shard-tokens 3..16777216")
+	}
+	if err := o.Tokenizer.Validate(); err != nil {
+		return err
+	}
+	if _, err := os.Lstat(o.Out); !errors.Is(err, os.ErrNotExist) {
+		if err == nil {
+			return errors.New("dataset output already exists")
+		}
+		return err
+	}
+	parent := filepath.Dir(filepath.Clean(o.Out))
+	if err := os.MkdirAll(parent, 0755); err != nil {
+		return err
+	}
+	dir, err := os.MkdirTemp(parent, ".monolith-dataset-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	m := DatasetManifest{Format: "monolith-tokens-v1", Tokenizer: o.Tokenizer, TokenizerSHA256: tokenizerHash(o.Tokenizer), Vocab: o.Tokenizer.Vocab()}
+	for _, input := range []struct{ path, split string }{{o.Train, "train"}, {o.Validation, "validation"}} {
+		if err = prepareSplit(ctx, dir, input.path, input.split, o, &m); err != nil {
+			return err
+		}
+	}
+	if err = m.Validate(); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	if len(b)+1 > 4<<20 {
+		return errors.New("dataset manifest exceeds 4 MiB")
+	}
+	f, err := os.OpenFile(filepath.Join(dir, "manifest.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(append(b, '\n'))
+	if err == nil {
+		err = f.Sync()
+	}
+	closeErr := f.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if err = ctx.Err(); err != nil {
+		return err
+	}
+	// A prepared dataset becomes visible only after every shard is complete.
+	if f, e := os.Open(dir); e == nil {
+		_ = f.Sync()
+		_ = f.Close()
+	}
+	if err = os.Rename(dir, o.Out); err != nil {
+		return err
+	}
+	if f, e := os.Open(parent); e == nil {
+		_ = f.Sync()
+		_ = f.Close()
+	}
+	return nil
+}
+
+func prepareSplit(ctx context.Context, dir, path, split string, o prepareOptions, m *DatasetManifest) error {
+	in, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	r := bufio.NewReaderSize(in, 16*1024)
+	var f *os.File
+	var s TokenShard
+	defer func() {
+		if f != nil {
+			_ = f.Close()
+		}
+	}()
+	finish := func() error {
+		if f == nil {
+			return nil
+		}
+		s.Bytes = shardHeaderBytes + 4*s.Tokens
+		if _, err := f.WriteAt(shardHeader(*m, s), 0); err != nil {
+			return err
+		}
+		h := sha256.New()
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		buf := make([]byte, 16*1024)
+		for {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			n, err := f.Read(buf)
+			h.Write(buf[:n])
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return err
+			}
+		}
+		s.SHA256 = hex.EncodeToString(h.Sum(nil))
+		if err := f.Sync(); err != nil {
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
+		f = nil
+		m.Shards = append(m.Shards, s)
+		return nil
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		doc, err := readDocument(r, o.DocumentBytes)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("%s: %w", split, err)
+		}
+		ids := o.Tokenizer.Encode(string(doc), true, true)
+		if len(ids) > o.ShardTokens {
+			return errors.New("one document exceeds -shard-tokens")
+		}
+		if f != nil && s.Tokens+int64(len(ids)) > int64(o.ShardTokens) {
+			if err = finish(); err != nil {
+				return err
+			}
+		}
+		if f == nil {
+			if len(m.Shards) >= maxDatasetShards {
+				return errors.New("too many dataset shards")
+			}
+			s = TokenShard{File: fmt.Sprintf("%s-%06d.mgts", split, len(m.Shards)), Split: split}
+			f, err = os.OpenFile(filepath.Join(dir, s.File), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0644)
+			if err != nil {
+				return err
+			}
+			if _, err = f.Write(make([]byte, shardHeaderBytes)); err != nil {
+				return err
+			}
+		}
+		buf := make([]byte, 4*len(ids))
+		for i, id := range ids {
+			binary.LittleEndian.PutUint32(buf[4*i:], uint32(id))
+		}
+		if _, err = f.Write(buf); err != nil {
+			return err
+		}
+		s.Tokens += int64(len(ids))
+		s.Documents++
+	}
+	return finish()
+}
+
+func runPrepare(ctx context.Context, args []string) error {
+	f := flags("prepare")
+	o := prepareOptions{}
+	f.StringVar(&o.Train, "train", "", "training text: one document per line, newline retained")
+	f.StringVar(&o.Validation, "validation", "", "separate validation text in the same format")
+	f.StringVar(&o.Out, "out", "", "new output directory (must not exist)")
+	f.IntVar(&o.ShardTokens, "shard-tokens", 1<<20, "maximum tokens per shard, including BOS/EOS")
+	f.IntVar(&o.DocumentBytes, "document-bytes", 64<<10, "maximum bytes per document, including newline")
+	tokPath := f.String("tokenizer", "", "existing tokenizer JSON; default is byte vocabulary")
+	if err := parse(f, args); err != nil {
+		return err
+	}
+	if *tokPath != "" {
+		if err := readJSONFile(*tokPath, &o.Tokenizer); err != nil {
+			return err
+		}
+	}
+	return PrepareTokenDataset(ctx, o)
+}
+
 // Parallel kernels partition independent output rows; reductions have a fixed
 // order, so changing GOMAXPROCS does not change arithmetic or resume trajectories.
 func parallel(n, work int, fn func(lo, hi int)) {
@@ -2793,10 +3245,12 @@ func runServe(ctx context.Context, args []string) error {
 }
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, train, eval, generate, inspect, serve\nusage: monolith <command> -h")
+		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, serve\nusage: monolith <command> -h")
 		return nil
 	}
 	switch args[0] {
+	case "prepare":
+		return runPrepare(ctx, args[1:])
 	case "demo":
 		return runDemo(ctx, args[1:])
 	case "train":
