@@ -1094,25 +1094,62 @@ func linearInto(y, x []float32, w *Param, n int) {
 func linearBackward(x []float32, w *Param, dy []float32, n int) []float32 {
 	in, out := w.Cols, w.Rows
 	dx := make([]float32, n*in)
-	parallel(n, n*in*out, func(lo, hi int) {
-		for r := lo; r < hi; r++ {
-			for o := 0; o < out; o++ {
-				g := dy[r*out+o]
-				wr := w.Data[o*in : (o+1)*in]
-				for i, v := range wr {
-					dx[r*in+i] += g * v
+	// Four independent rows share each weight load. Each output element still
+	// accumulates o in ascending order, exactly as the scalar kernel did.
+	parallel((n+3)/4, n*in*out, func(lo, hi int) {
+		for tile := lo; tile < hi; tile++ {
+			r := tile * 4
+			if r+4 <= n {
+				d0, d1, d2, d3 := dx[r*in:(r+1)*in], dx[(r+1)*in:(r+2)*in], dx[(r+2)*in:(r+3)*in], dx[(r+3)*in:(r+4)*in]
+				y0, y1, y2, y3 := dy[r*out:(r+1)*out], dy[(r+1)*out:(r+2)*out], dy[(r+2)*out:(r+3)*out], dy[(r+3)*out:(r+4)*out]
+				for o := 0; o < out; o++ {
+					g0, g1, g2, g3 := y0[o], y1[o], y2[o], y3[o]
+					for i, v := range w.Data[o*in : (o+1)*in] {
+						d0[i] += g0 * v
+						d1[i] += g1 * v
+						d2[i] += g2 * v
+						d3[i] += g3 * v
+					}
+				}
+			} else {
+				for row := r; row < n; row++ {
+					d := dx[row*in : (row+1)*in]
+					for o := 0; o < out; o++ {
+						g := dy[row*out+o]
+						for i, v := range w.Data[o*in : (o+1)*in] {
+							d[i] += g * v
+						}
+					}
 				}
 			}
 		}
 	})
-	parallel(out, n*in*out, func(lo, hi int) {
-		for o := lo; o < hi; o++ {
-			gw := w.Grad[o*in : (o+1)*in]
-			for r := 0; r < n; r++ {
-				g := dy[r*out+o]
-				xr := x[r*in : (r+1)*in]
-				for i, v := range xr {
-					gw[i] += g * v
+	// Weight-gradient tiles have disjoint owners and reuse each input load.
+	// Existing gradients (tied embeddings / accumulation) are never reset here.
+	parallel((out+3)/4, n*in*out, func(lo, hi int) {
+		for tile := lo; tile < hi; tile++ {
+			o := tile * 4
+			if o+4 <= out {
+				g0, g1, g2, g3 := w.Grad[o*in:(o+1)*in], w.Grad[(o+1)*in:(o+2)*in], w.Grad[(o+2)*in:(o+3)*in], w.Grad[(o+3)*in:(o+4)*in]
+				for r := 0; r < n; r++ {
+					y := dy[r*out : (r+1)*out]
+					d0, d1, d2, d3 := y[o], y[o+1], y[o+2], y[o+3]
+					for i, v := range x[r*in : (r+1)*in] {
+						g0[i] += d0 * v
+						g1[i] += d1 * v
+						g2[i] += d2 * v
+						g3[i] += d3 * v
+					}
+				}
+			} else {
+				for row := o; row < out; row++ {
+					gw := w.Grad[row*in : (row+1)*in]
+					for r := 0; r < n; r++ {
+						g := dy[r*out+row]
+						for i, v := range x[r*in : (r+1)*in] {
+							gw[i] += g * v
+						}
+					}
 				}
 			}
 		}

@@ -1,0 +1,40 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkLinearBackward/128x64x192-4         	     100	    202453 ns/op	   33830 B/op	      13 allocs/op
+BenchmarkLinearBackward/128x256x704-4        	     100	   2476925 ns/op	  131778 B/op	      13 allocs/op
+BenchmarkLinearBackward/3x12x258-4           	     100	      6639 ns/op	     336 B/op	       3 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkLinearBackward/128x64x192-4         	     100	    192323 ns/op	   33738 B/op	      13 allocs/op
+BenchmarkLinearBackward/128x256x704-4        	     100	   2512681 ns/op	  131813 B/op	      13 allocs/op
+BenchmarkLinearBackward/3x12x258-4           	     100	      6339 ns/op	     336 B/op	       3 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkLinearBackward/128x64x192-4         	     100	    214305 ns/op	   33796 B/op	      13 allocs/op
+BenchmarkLinearBackward/128x256x704-4        	     100	   2730842 ns/op	  131792 B/op	      13 allocs/op
+BenchmarkLinearBackward/3x12x258-4           	     100	      5769 ns/op	     336 B/op	       3 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkLinearBackward/128x64x192-4         	     100	    219643 ns/op	   33782 B/op	      13 allocs/op
+BenchmarkLinearBackward/128x256x704-4        	     100	   2722643 ns/op	  131825 B/op	      13 allocs/op
+BenchmarkLinearBackward/3x12x258-4           	     100	      6228 ns/op	     336 B/op	       3 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkLinearBackward/128x64x192-4         	     100	    198690 ns/op	   33840 B/op	      13 allocs/op
+BenchmarkLinearBackward/128x256x704-4        	     100	   2735510 ns/op	  131798 B/op	      13 allocs/op
+BenchmarkLinearBackward/3x12x258-4           	     100	      6317 ns/op	     336 B/op	       3 allocs/op
+PASS

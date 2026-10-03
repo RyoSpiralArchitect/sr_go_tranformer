@@ -1,0 +1,22 @@
+File: baseline
+Type: alloc_space
+Time: 2026-10-03 16:56:24 JST
+Showing nodes accounting for 907.03MB, 98.14% of 924.24MB total
+Dropped 48 nodes (cum <= 4.62MB)
+Showing top 15 nodes out of 31
+      flat  flat%   sum%        cum   cum%
+  267.66MB 28.96% 28.96%   269.16MB 29.12%  main.linear (inline)
+  202.27MB 21.89% 50.85%   204.77MB 22.16%  main.linearBackward
+  125.57MB 13.59% 64.43%   125.57MB 13.59%  main.swigluBackward
+   59.31MB  6.42% 70.85%    59.31MB  6.42%  main.swiglu
+   57.77MB  6.25% 77.10%    57.77MB  6.25%  main.rmsBackward
+   53.99MB  5.84% 82.94%    53.99MB  5.84%  main.rms
+   47.33MB  5.12% 88.06%    47.33MB  5.12%  main.add (inline)
+   42.47MB  4.60% 92.66%    42.47MB  4.60%  main.(*Model).attentionBackward
+   25.13MB  2.72% 95.38%    25.13MB  2.72%  main.(*Model).attention
+   19.36MB  2.09% 97.47%    19.36MB  2.09%  main.CrossEntropy
+    6.17MB  0.67% 98.14%   461.09MB 49.89%  main.(*Model).Forward
+         0     0% 98.14%   449.94MB 48.68%  main.(*Model).Backward
+         0     0% 98.14%   916.10MB 99.12%  main.(*trainingObserver).phase
+         0     0% 98.14%   916.10MB 99.12%  main.(*trainingObserver).phase.func1
+         0     0% 98.14%    61.23MB  6.63%  main.evaluateDataset (inline)

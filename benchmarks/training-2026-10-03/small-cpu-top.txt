@@ -1,0 +1,20 @@
+File: baseline
+Type: cpu
+Time: 2026-10-03 16:57:25 JST
+Duration: 7.34s, Total samples = 22.22s (302.60%)
+Showing nodes accounting for 21.89s, 98.51% of 22.22s total
+Dropped 77 nodes (cum <= 0.11s)
+Showing top 12 nodes out of 36
+      flat  flat%   sum%        cum   cum%
+    10.32s 46.44% 46.44%     10.32s 46.44%  runtime.pthread_cond_wait
+     3.52s 15.84% 62.29%      3.52s 15.84%  main.linearBackward.func1
+     3.20s 14.40% 76.69%      3.20s 14.40%  main.linearBackward.func2
+     2.40s 10.80% 87.49%      2.41s 10.85%  main.linearInto.func1
+     2.19s  9.86% 97.34%      2.19s  9.86%  runtime.pthread_cond_signal
+     0.16s  0.72% 98.06%      0.16s  0.72%  main.(*Model).attentionBackward.func1
+     0.10s  0.45% 98.51%      0.12s  0.54%  main.attend
+         0     0% 98.51%      1.89s  8.51%  _.goready.func1
+         0     0% 98.51%      0.12s  0.54%  main.(*Model).attention.func1
+         0     0% 98.51%      0.18s  0.81%  main.(*trainingObserver).phase
+         0     0% 98.51%      0.18s  0.81%  main.(*trainingObserver).phase.func1
+         0     0% 98.51%      0.18s  0.81%  main.main

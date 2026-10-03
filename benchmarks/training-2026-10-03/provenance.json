@@ -1,0 +1,30 @@
+{
+  "format": "monolith-training-evidence-v1",
+  "hardware": "Apple M4",
+  "go_version": "go1.27.1",
+  "goos": "darwin",
+  "goarch": "arm64",
+  "profile_baseline_commit": "a2aec63af3c920d8e58bff3c38260de5f9e0e11e",
+  "timing_baseline_commit": "99ac08b5eea3ec319ff63fca86b535fc1e6abcee",
+  "baseline_monolith_sha256": "c965f213802896ed1cd3a63b1fdb63220d2ae493779974c273d5b9d81bc9485d",
+  "candidate_monolith_sha256": "05ba998a13bfe9fb8b1b4c4882f23238403113231417d0df5c2d6abb18a2751b",
+  "build_flags": [
+    "CGO_ENABLED=0",
+    "go build",
+    "-trimpath"
+  ],
+  "profiles": {
+    "tiny_cpu": {
+      "sha256": "ba8c26d1caffb3093e46c749c9ce68d1e938bc97ac7d7ec9f30f2a18d4e1a635",
+      "publication": "local only; may contain paths"
+    },
+    "small_cpu": {
+      "sha256": "e730122d1bfab84c6ba0d64ea3ea61d4c2f9663dcdca1ff953605e6fdae2ef76",
+      "publication": "local only; may contain paths"
+    },
+    "tiny_allocations": {
+      "sha256": "f621aacbd751994e2e15170d6ea3dc9c2978a110a6d5160fea288ba61206b4f8",
+      "publication": "local only; may contain paths"
+    }
+  }
+}
