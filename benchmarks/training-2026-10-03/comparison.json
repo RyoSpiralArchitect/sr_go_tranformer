@@ -1,0 +1,286 @@
+{
+  "format": "monolith-training-comparison-v1",
+  "baseline_binary_sha256": "2f6e586050784aabb24559b86fa61c5cf0fa9fbbfbffcbdb3af290c6e723e5ae",
+  "candidate_binary_sha256": "1db63f98c052da549916a0193739992e3470f03ff15912a98cddb05eaf2d02ff",
+  "train_text_sha256": "f8cd122333a418fe0136251ddd3c318818774a7217a63706f25b7c21935741d3",
+  "validation_text_sha256": "8b06b0ded345523df8b8762c11c20014826b9e631e61130a7a05323012436d56",
+  "harness_go_version": "go1.27.1",
+  "goos": "darwin",
+  "goarch": "arm64",
+  "cases": [
+    {
+      "preset": "tiny",
+      "steps": 160,
+      "arguments": [
+        "-preset",
+        "tiny",
+        "-steps",
+        "160",
+        "-warmup",
+        "5",
+        "-seq",
+        "64",
+        "-batch",
+        "2",
+        "-accum",
+        "1",
+        "-threads",
+        "4",
+        "-seed",
+        "73",
+        "-data-workers",
+        "2",
+        "-prefetch",
+        "4",
+        "-eval-every",
+        "0",
+        "-eval-batches",
+        "0",
+        "-save-every",
+        "0",
+        "-log-every",
+        "160"
+      ],
+      "runs": [
+        {
+          "implementation": "baseline",
+          "repetition": 1,
+          "wall_seconds": 2.376943834,
+          "user_seconds": 5.136696,
+          "system_seconds": 0.275746,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 1,
+          "wall_seconds": 2.239569333,
+          "user_seconds": 3.827055,
+          "system_seconds": 0.25508,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 2,
+          "wall_seconds": 1.892151958,
+          "user_seconds": 3.881783,
+          "system_seconds": 0.261104,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        },
+        {
+          "implementation": "baseline",
+          "repetition": 2,
+          "wall_seconds": 2.308201417,
+          "user_seconds": 5.130314,
+          "system_seconds": 0.260836,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        },
+        {
+          "implementation": "baseline",
+          "repetition": 3,
+          "wall_seconds": 2.277611792,
+          "user_seconds": 5.094342,
+          "system_seconds": 0.257856,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 3,
+          "wall_seconds": 1.833857708,
+          "user_seconds": 3.808573,
+          "system_seconds": 0.227325,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 4,
+          "wall_seconds": 1.8128565829999999,
+          "user_seconds": 3.815947,
+          "system_seconds": 0.229191,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        },
+        {
+          "implementation": "baseline",
+          "repetition": 4,
+          "wall_seconds": 2.238954042,
+          "user_seconds": 5.023809,
+          "system_seconds": 0.246864,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        },
+        {
+          "implementation": "baseline",
+          "repetition": 5,
+          "wall_seconds": 2.269515125,
+          "user_seconds": 5.127337,
+          "system_seconds": 0.266105,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 5,
+          "wall_seconds": 1.777181417,
+          "user_seconds": 3.7928319999999998,
+          "system_seconds": 0.234965,
+          "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697"
+        }
+      ],
+      "evaluation": {
+        "format": "monolith-eval-v1",
+        "checkpoint_sha256": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697",
+        "tokenizer_sha256": "5519320c3cfa26da96dcec757f355f73b8814f6e535c2593d92b55500182d83a",
+        "source": {
+          "kind": "dataset",
+          "sha256": "a15ab21792c3734f130cb5957ca6117ec61f55e787d6421e50d3ca49954f825b",
+          "split": "validation"
+        },
+        "scoring": "packed-shards-bos-window-v1",
+        "sequence_length": 64,
+        "max_batches": 0,
+        "target_range": {
+          "start": 0,
+          "end": 1606
+        },
+        "targets": 1606,
+        "loss": 2.574167860044203,
+        "perplexity": 13.120394609984992,
+        "go_version": "go1.27.1"
+      }
+    },
+    {
+      "preset": "small",
+      "steps": 40,
+      "arguments": [
+        "-preset",
+        "small",
+        "-steps",
+        "40",
+        "-warmup",
+        "5",
+        "-seq",
+        "64",
+        "-batch",
+        "2",
+        "-accum",
+        "1",
+        "-threads",
+        "4",
+        "-seed",
+        "73",
+        "-data-workers",
+        "2",
+        "-prefetch",
+        "4",
+        "-eval-every",
+        "0",
+        "-eval-batches",
+        "0",
+        "-save-every",
+        "0",
+        "-log-every",
+        "40"
+      ],
+      "runs": [
+        {
+          "implementation": "baseline",
+          "repetition": 1,
+          "wall_seconds": 8.722765833,
+          "user_seconds": 26.948177,
+          "system_seconds": 0.47085,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 1,
+          "wall_seconds": 6.901459083,
+          "user_seconds": 20.179926,
+          "system_seconds": 0.383306,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 2,
+          "wall_seconds": 6.732627917,
+          "user_seconds": 20.248359,
+          "system_seconds": 0.342898,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        },
+        {
+          "implementation": "baseline",
+          "repetition": 2,
+          "wall_seconds": 8.860989625,
+          "user_seconds": 28.054313,
+          "system_seconds": 0.444965,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        },
+        {
+          "implementation": "baseline",
+          "repetition": 3,
+          "wall_seconds": 8.527126333,
+          "user_seconds": 27.673739,
+          "system_seconds": 0.380207,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 3,
+          "wall_seconds": 7.621991834,
+          "user_seconds": 21.887874,
+          "system_seconds": 0.411474,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 4,
+          "wall_seconds": 7.551542166,
+          "user_seconds": 21.999467,
+          "system_seconds": 0.459545,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        },
+        {
+          "implementation": "baseline",
+          "repetition": 4,
+          "wall_seconds": 9.219525917,
+          "user_seconds": 28.780838,
+          "system_seconds": 0.506748,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        },
+        {
+          "implementation": "baseline",
+          "repetition": 5,
+          "wall_seconds": 9.113995666,
+          "user_seconds": 28.51002,
+          "system_seconds": 0.453,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        },
+        {
+          "implementation": "candidate",
+          "repetition": 5,
+          "wall_seconds": 6.963885,
+          "user_seconds": 20.540588,
+          "system_seconds": 0.366987,
+          "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+        }
+      ],
+      "evaluation": {
+        "format": "monolith-eval-v1",
+        "checkpoint_sha256": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31",
+        "tokenizer_sha256": "5519320c3cfa26da96dcec757f355f73b8814f6e535c2593d92b55500182d83a",
+        "source": {
+          "kind": "dataset",
+          "sha256": "a15ab21792c3734f130cb5957ca6117ec61f55e787d6421e50d3ca49954f825b",
+          "split": "validation"
+        },
+        "scoring": "packed-shards-bos-window-v1",
+        "sequence_length": 64,
+        "max_batches": 0,
+        "target_range": {
+          "start": 0,
+          "end": 1606
+        },
+        "targets": 1606,
+        "loss": 2.6718308783834113,
+        "perplexity": 14.466431237255708,
+        "go_version": "go1.27.1"
+      }
+    }
+  ]
+}

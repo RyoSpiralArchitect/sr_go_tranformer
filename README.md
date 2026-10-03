@@ -99,6 +99,8 @@ Evaluation defaults to the validation split. Receipts identify the checkpoint, d
 
 To measure training, add `-metrics runs/train.jsonl`, `-cpu-profile runs/cpu.pprof`, or `-alloc-profile runs/alloc.pprof` to `train`. These require new files in existing directories and also work with `-resume`. See [training measurement](TRAINING_MEASUREMENT.md) for event semantics, phase timing, profile scope and comparison guidance.
 
+The [held-out training validation](TRAINING_VALIDATION.md) provides a small authored fixture, complete evaluation receipts and matched CPU optimization measurements. The standard-library Go comparison tool can repeat the same checks against two local executables.
+
 Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, and `serve`.
 
 ## HTTP inference
