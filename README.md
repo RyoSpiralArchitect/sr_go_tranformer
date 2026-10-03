@@ -8,6 +8,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Manual backpropagation, AdamW, gradient clipping and accumulation, and a warmup/cosine learning-rate schedule.
 - Byte-level tokenization with optional byte-pair encoding (BPE).
 - Bounded token-shard preparation with document boundaries, checksums, and explicit training/validation splits.
+- Deterministic parallel dataset prefetch with leased buffers and exact checkpoint resume.
 - Continuous batching with bounded token budgets, chunked prefill, paged KV caches, and request cancellation.
 - SSE token streaming with bounded per-request buffers and slow-consumer isolation.
 - Greedy, temperature, top-k, and top-p sampling with repetition penalties.
@@ -73,7 +74,18 @@ For BPE, train a tokenizer on training-only text and pass its JSON file with `-t
   -vocab 512 -out runs/tokenizer.json
 ```
 
-To prepare a larger corpus as token shards, see [token datasets](DATASETS.md). Preparation, verified range reads, and ordered parallel prefetch use bounded buffers; training integration follows separately. [Dataset validation](DATASET_VALIDATION.md) records correctness checks and a scoped memory probe.
+For larger corpora, prepare token shards and train with bounded parallel prefetch:
+
+```sh
+./monolith prepare -train path/to/train.txt -validation path/to/validation.txt \
+  -tokenizer runs/tokenizer.json -out runs/dataset
+./monolith train -dataset runs/dataset/manifest.json -preset demo \
+  -seq 96 -steps 500 -data-workers 2 -prefetch 4 -out runs/stream.mglm
+./monolith train -dataset runs/dataset/manifest.json \
+  -resume runs/stream.mglm -out runs/stream.mglm
+```
+
+The last command resumes an interrupted or `-stop-after` run with its saved schedule. Dataset manifests carry their own tokenizer and validation split; omit `-tokenizer` and `-val-fraction` when training them. The existing `-data` path remains available for small text files. See [token datasets](DATASETS.md) for document/packing semantics, memory bounds and the resume contract, and [dataset validation](DATASET_VALIDATION.md) for correctness checks and a scoped memory probe.
 
 Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, and `serve`.
 
@@ -152,7 +164,7 @@ go vet ./...
 go test -run '^$' -bench . -benchmem -cpu 4
 ```
 
-The tests cover numerical gradients, causal attention, mixed-length chunked prefill, KV-cache equivalence, streamed output and UTF-8 boundaries, slow consumers, cancellation and shutdown, checkpoint integrity, deterministic resume, and small-model learning. The smoke script exercises the CLI and compares uninterrupted and resumed checkpoints byte for byte.
+The tests cover numerical gradients, causal attention, mixed-length chunked prefill, KV-cache equivalence, streamed output and UTF-8 boundaries, slow consumers, cancellation and shutdown, token-shard integrity, bounded ordered prefetch, checkpoint integrity, deterministic resume, and small-model learning. The smoke script exercises both text and dataset training and compares uninterrupted and resumed checkpoints byte for byte, including changed dataset IO settings.
 
 GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke test with Go 1.22 on Linux and the current stable Go release on Linux and macOS. See [`VALIDATION.md`](VALIDATION.md) for the recorded experiments and their limits.
 
@@ -160,7 +172,7 @@ GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke tes
 
 This is an experimental foundation for further development. Attention avoids storing a quadratic probability matrix, but dense attention still takes quadratic compute. The KV memory limit covers cache pages, not total process memory. Generation beyond the sequence lengths used during training may degrade quality.
 
-The text training path and BPE tokenizer training are currently bounded, in-memory implementations. Token-shard preparation can process larger corpora one bounded document at a time. GPU execution, quantization, distributed training, and compatibility with external pretrained checkpoints are not implemented. Synthetic demo results are implementation checks, not evidence of general language ability.
+The text training path and BPE tokenizer training remain bounded, in-memory implementations. Token-shard preparation processes one bounded document at a time; dataset training reads bounded microbatches with a capped manifest and prefetch budget. All shards are verified on opening and must remain immutable during a run. GPU execution, quantization, distributed training, and compatibility with external pretrained checkpoints are not implemented. Synthetic demo results are implementation checks, not evidence of general language ability.
 
 ## License
 

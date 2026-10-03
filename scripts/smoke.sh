@@ -26,4 +26,25 @@ cmp "$smoke_dir/full.mglm" "$smoke_dir/resumed.mglm"
 "$smoke_dir/monolith" generate -model "$smoke_dir/full.mglm" \
   -prompt 'the ' -max-tokens 8 -temperature 0 -json > "$smoke_dir/generated.json"
 "$smoke_dir/monolith" inspect -model "$smoke_dir/full.mglm" > "$smoke_dir/inspect.json"
-printf '%s\n' 'PASS: CLI training, BPE, byte-identical resume, evaluation, generation, inspection.'
+# Synthetic fixture only: this validates mechanics, not held-out model quality.
+dataset_tmp=$(mktemp -d "$smoke_dir/dataset-XXXXXX")
+trap 'rm -rf "$dataset_tmp"' EXIT HUP INT TERM
+sed -n '1,96p' examples/tiny.txt > "$dataset_tmp/train.txt"
+sed -n '97,128p' examples/tiny.txt > "$dataset_tmp/validation.txt"
+"$smoke_dir/monolith" prepare -train "$dataset_tmp/train.txt" \
+  -validation "$dataset_tmp/validation.txt" -tokenizer "$smoke_dir/tokenizer.json" \
+  -out "$dataset_tmp/tokens" -shard-tokens 128
+"$smoke_dir/monolith" train -dataset "$dataset_tmp/tokens/manifest.json" \
+  -preset demo -seq 16 -batch 2 -accum 2 -steps 8 -warmup 2 -seed 9 \
+  -data-workers 1 -prefetch 1 -eval-every 0 -save-every 0 -eval-batches 2 \
+  -out "$smoke_dir/dataset-full.mglm" 2> "$smoke_dir/dataset-full.log"
+"$smoke_dir/monolith" train -dataset "$dataset_tmp/tokens/manifest.json" \
+  -preset demo -seq 16 -batch 2 -accum 2 -steps 8 -warmup 2 -seed 9 \
+  -data-workers 2 -prefetch 3 -stop-after 3 -eval-every 0 -save-every 0 -eval-batches 2 \
+  -out "$smoke_dir/dataset-resumed.mglm" 2> "$smoke_dir/dataset-partial.log"
+"$smoke_dir/monolith" train -dataset "$dataset_tmp/tokens/manifest.json" \
+  -resume "$smoke_dir/dataset-resumed.mglm" -out "$smoke_dir/dataset-resumed.mglm" \
+  -data-workers 3 -prefetch 5 -eval-every 0 -save-every 0 -eval-batches 2 \
+  2> "$smoke_dir/dataset-resume.log"
+cmp "$smoke_dir/dataset-full.mglm" "$smoke_dir/dataset-resumed.mglm"
+printf '%s\n' 'PASS: CLI BPE/text/dataset training, byte-identical resume across IO settings, evaluation, generation, inspection.'

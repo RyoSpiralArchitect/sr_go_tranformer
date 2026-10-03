@@ -8,6 +8,8 @@ Preparation tests cover byte/BPE documents (including UTF-8, invalid bytes, CRLF
 
 The PR review identified repeated file opens when a microbatch loops through a tiny split many times. Workers now reuse ranges already filled in the same target buffer. A regression test fills 65,536 targets from one- and six-shard tiny corpora, verifies every target, and requires one underlying read per training shard rather than one per repeated visit.
 
+Training integration tests compare uninterrupted and interrupted/resumed checkpoint bytes across different worker/depth settings and multiple epochs. A cancellation injected during gradient accumulation leaves saved weights, Adam moments and cursor byte-identical to the last committed prefix. Other checks reject changed/reordered datasets, tokenizer mismatches and inconsistent cursors, allow directory relocation, and verify validation's final short window. `scripts/smoke.sh` also exercises real CLI dataset preparation, BPE, training and exact resume; the original text/checkpoint smoke remains in place.
+
 ## Memory probe, 2026-10-03
 
 Apple M4, darwin/arm64, Go 1.27.1. One fresh test process per input size; byte tokenizer, 256-byte documents, one training shard plus one validation shard in both cases. Batch 2, sequence 128, workers 2, depth 4; 100 timed microbatches per benchmark. The process also prepares and verifies its dataset, including Go benchmark warmup.

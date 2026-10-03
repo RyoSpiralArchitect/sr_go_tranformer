@@ -1846,11 +1846,20 @@ func (s TrainSpec) LearningRate(step int) float64 {
 }
 
 type TrainState struct {
-	Spec         TrainSpec `json:"spec"`
-	Step         int       `json:"step"`
-	TokensSeen   int64     `json:"tokens_seen"`
-	RNG          RNG       `json:"rng"`
-	CorpusSHA256 string    `json:"corpus_sha256"`
+	Spec         TrainSpec          `json:"spec"`
+	Step         int                `json:"step"`
+	TokensSeen   int64              `json:"tokens_seen"`
+	RNG          RNG                `json:"rng"`
+	CorpusSHA256 string             `json:"corpus_sha256"`
+	Dataset      *DatasetTrainState `json:"dataset,omitempty"`
+}
+
+type DatasetTrainState struct {
+	Version         int           `json:"version"`
+	ManifestSHA256  string        `json:"manifest_sha256"`
+	TokenizerSHA256 string        `json:"tokenizer_sha256"`
+	OrderSeed       uint64        `json:"order_seed"`
+	Cursor          DatasetCursor `json:"cursor"`
 }
 
 func (s *TrainState) Validate(c Config) error {
@@ -1863,6 +1872,11 @@ func (s *TrainState) Validate(c Config) error {
 	hash, err := hex.DecodeString(s.CorpusSHA256)
 	if err != nil || len(hash) != 32 {
 		return errors.New("invalid corpus hash")
+	}
+	if d := s.Dataset; d != nil {
+		if d.Version != 1 || !validSHA256(d.ManifestSHA256) || d.ManifestSHA256 != s.CorpusSHA256 || !validSHA256(d.TokenizerSHA256) || d.Cursor.Shard < 0 || d.Cursor.Shard >= maxDatasetShards || d.Cursor.Offset < 1 || d.Cursor.Offset > 1<<50 || d.Cursor.Epoch > uint64(s.TokensSeen)/2 {
+			return errors.New("invalid dataset training state")
+		}
 	}
 	return nil
 }
@@ -2000,6 +2014,9 @@ func SaveCheckpoint(path string, m *Model, tok Tokenizer, state *TrainState) err
 		if err := state.Validate(m.Config); err != nil {
 			return err
 		}
+		if state.Dataset != nil && state.Dataset.TokenizerSHA256 != tokenizerHash(tok) {
+			return errors.New("checkpoint dataset/tokenizer identity mismatch")
+		}
 		for _, p := range m.Params {
 			if len(p.M) != len(p.Data) || len(p.V) != len(p.Data) {
 				return errors.New("missing optimizer moments")
@@ -2121,6 +2138,9 @@ func LoadCheckpoint(path string) (*Model, Tokenizer, *TrainState, error) {
 		if err = meta.Training.Validate(meta.Config); err != nil {
 			return fail(err)
 		}
+		if meta.Training.Dataset != nil && meta.Training.Dataset.TokenizerSHA256 != tokenizerHash(meta.Tokenizer) {
+			return fail(errors.New("checkpoint dataset/tokenizer identity mismatch"))
+		}
 	}
 	expected := 12 + int64(headerLen) + 4*arrays*meta.Config.ParameterCount() + sha256.Size
 	if stat.Size() != expected {
@@ -2221,6 +2241,115 @@ func trainUpdate(m *Model, s *TrainState, data []int) (float64, float64, error) 
 	s.Step++
 	s.TokensSeen += int64(spec.Batch) * int64(spec.Seq) * int64(spec.Accum)
 	return loss, norm, nil
+}
+
+func datasetTrainingState(d *TokenDataset, seed uint64) *DatasetTrainState {
+	return &DatasetTrainState{Version: 1, ManifestSHA256: d.id, TokenizerSHA256: d.manifest.TokenizerSHA256, OrderSeed: seed, Cursor: DatasetCursor{Offset: 1}}
+}
+
+// Reconcile position against committed optimizer progress, not speculative IO.
+func validateDatasetResume(d *TokenDataset, tok Tokenizer, s *TrainState) error {
+	state := s.Dataset
+	if state == nil || state.Version != 1 || state.ManifestSHA256 != d.id || s.CorpusSHA256 != d.id {
+		return errors.New("resume dataset manifest identity differs from original")
+	}
+	if state.TokenizerSHA256 != d.manifest.TokenizerSHA256 || tokenizerHash(tok) != d.manifest.TokenizerSHA256 {
+		return errors.New("resume dataset tokenizer identity differs from original")
+	}
+	p, err := newTokenPlanner(d, "train", PrefetchConfig{Batch: 1, Seq: 1, Workers: 1, Depth: 1, Seed: state.OrderSeed, Shuffle: true}, DatasetCursor{Offset: 1})
+	if err != nil {
+		return err
+	}
+	p.cursor.Epoch = uint64(s.TokensSeen / p.perEpoch)
+	p.setOrder()
+	left := s.TokensSeen % p.perEpoch
+	for i, index := range p.order {
+		n := d.manifest.Shards[index].Tokens - 1
+		if left < n {
+			p.cursor.Shard = i
+			p.cursor.Offset = left + 1
+			break
+		}
+		left -= n
+	}
+	if state.Cursor != p.cursor {
+		return errors.New("dataset cursor does not match committed training tokens")
+	}
+	return nil
+}
+
+func trainDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *TokenPrefetch) (float64, float64, error) {
+	spec := s.Spec
+	m.ZeroGrad()
+	var loss float64
+	var after DatasetCursor
+	for micro := 0; micro < spec.Accum; micro++ {
+		b, err := p.Next(ctx)
+		if err != nil {
+			return 0, 0, err
+		}
+		t, err := m.Forward(b.X, spec.Batch, spec.Seq)
+		var l float64
+		if err == nil {
+			l, err = m.Backward(t, b.Y, 1/float64(spec.Accum))
+		}
+		after = b.After
+		b.Release()
+		if err != nil {
+			return 0, 0, err
+		}
+		loss += l / float64(spec.Accum)
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, 0, err
+	}
+	norm, err := m.AdamW(spec, s.Step+1)
+	if err != nil {
+		return 0, 0, err
+	}
+	s.Step++
+	s.TokensSeen += int64(spec.Batch) * int64(spec.Seq) * int64(spec.Accum)
+	s.Dataset.Cursor = after
+	return loss, norm, nil
+}
+
+func evaluateDataset(ctx context.Context, m *Model, d *TokenDataset, seq, maxBatches int) (float64, int, error) {
+	if seq < 1 || seq > m.Config.Context || maxBatches < 0 {
+		return 0, 0, errors.New("invalid dataset evaluation settings")
+	}
+	c := PrefetchConfig{Batch: 1, Seq: seq, Workers: 1, Depth: 1}
+	planner, err := newTokenPlanner(d, "validation", c, DatasetCursor{Offset: 1})
+	if err != nil {
+		return 0, 0, err
+	}
+	p, err := NewTokenPrefetch(ctx, d, "validation", c, DatasetCursor{Offset: 1})
+	if err != nil {
+		return 0, 0, err
+	}
+	defer p.Close()
+	left := planner.perEpoch
+	var total float64
+	tokens := 0
+	for batches := 0; left > 0 && (maxBatches == 0 || batches < maxBatches); batches++ {
+		b, err := p.Next(ctx)
+		if err != nil {
+			return 0, tokens, err
+		}
+		n := int(min(int64(seq), left))
+		t, err := m.Forward(b.X[:n], 1, n)
+		var loss float64
+		if err == nil {
+			loss, _, err = CrossEntropy(t.Logits, b.Y[:n], m.Config.Vocab, 1, false)
+		}
+		b.Release()
+		if err != nil {
+			return 0, tokens, err
+		}
+		total += loss * float64(n)
+		tokens += n
+		left -= int64(n)
+	}
+	return total / float64(tokens), tokens, nil
 }
 
 // Evaluation scores every post-BOS target exactly once in independent, BOS-
@@ -3173,18 +3302,21 @@ func freshModel(presetName, configPath, tokenizerPath string, seed uint64) (*Mod
 			return nil, tok, err
 		}
 	}
+	m, err := configuredModel(presetName, configPath, tok, seed)
+	return m, tok, err
+}
+func configuredModel(presetName, configPath string, tok Tokenizer, seed uint64) (*Model, error) {
 	c, err := preset(presetName)
 	if err != nil {
-		return nil, tok, err
+		return nil, err
 	}
 	if configPath != "" {
 		if err = readJSONFile(configPath, &c); err != nil {
-			return nil, tok, err
+			return nil, err
 		}
 	}
 	c.Vocab = tok.Vocab()
-	m, err := NewModel(c, seed)
-	return m, tok, err
+	return NewModel(c, seed)
 }
 func ensureMoments(m *Model) {
 	for _, p := range m.Params {
@@ -3201,6 +3333,35 @@ type loopOptions struct {
 }
 
 func trainLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, train, val []int, o loopOptions) error {
+	return trainingLoop(ctx, m, tok, s, int64(len(train)), int64(len(val)), o,
+		func() (float64, float64, error) { return trainUpdate(m, s, train) },
+		func() (float64, int, error) { return evaluate(ctx, m, val, s.Spec.Seq, o.EvalBatches) })
+}
+func trainDatasetLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, d *TokenDataset, workers, depth int, o loopOptions) error {
+	if err := s.Validate(m.Config); err != nil {
+		return err
+	}
+	if err := validateDatasetResume(d, tok, s); err != nil {
+		return err
+	}
+	c := PrefetchConfig{Batch: s.Spec.Batch, Seq: s.Spec.Seq, Workers: workers, Depth: depth, Seed: s.Dataset.OrderSeed, Shuffle: true}
+	p, err := NewTokenPrefetch(ctx, d, "train", c, s.Dataset.Cursor)
+	if err != nil {
+		return err
+	}
+	defer p.Close()
+	counts := make(map[string]int64)
+	for _, shard := range d.manifest.Shards {
+		if counts[shard.Split] > math.MaxInt64-shard.Tokens {
+			return errors.New("dataset token count overflows int64")
+		}
+		counts[shard.Split] += shard.Tokens
+	}
+	return trainingLoop(ctx, m, tok, s, counts["train"], counts["validation"], o,
+		func() (float64, float64, error) { return trainDatasetUpdate(ctx, m, s, p) },
+		func() (float64, int, error) { return evaluateDataset(ctx, m, d, s.Spec.Seq, o.EvalBatches) })
+}
+func trainingLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, trainTokens, valTokens int64, o loopOptions, update func() (float64, float64, error), eval func() (float64, int, error)) error {
 	if err := s.Validate(m.Config); err != nil {
 		return err
 	}
@@ -3208,31 +3369,34 @@ func trainLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, trai
 		return errors.New("invalid logging/save/evaluation interval")
 	}
 	ensureMoments(m)
-	initial, nt, err := evaluate(ctx, m, val, s.Spec.Seq, o.EvalBatches)
+	initial, nt, err := eval()
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "parameters=%d fp32_weights_mib=%.2f train_tokens=%d val_tokens=%d workers=%d\n", m.Config.ParameterCount(), float64(m.Config.ParameterCount()*4)/(1<<20), len(train), len(val), runtime.GOMAXPROCS(0))
+	fmt.Fprintf(os.Stderr, "parameters=%d fp32_weights_mib=%.2f train_tokens=%d val_tokens=%d workers=%d\n", m.Config.ParameterCount(), float64(m.Config.ParameterCount()*4)/(1<<20), trainTokens, valTokens, runtime.GOMAXPROCS(0))
 	fmt.Fprintf(os.Stderr, "step=%d val_loss=%.6f val_targets=%d\n", s.Step, initial, nt)
 	start := time.Now()
 	initialTokens := s.TokensSeen
 	target := s.Spec.Steps
-	if o.StopAfter > 0 {
-		target = min(target, s.Step+o.StopAfter)
+	if o.StopAfter > 0 && o.StopAfter < target-s.Step {
+		target = s.Step + o.StopAfter
 	}
 	for s.Step < target {
 		if ctx.Err() != nil {
 			break
 		}
-		loss, norm, err := trainUpdate(m, s, train)
+		loss, norm, err := update()
 		if err != nil {
+			if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+				break
+			}
 			return err
 		}
 		if s.Step%o.LogEvery == 0 || s.Step == target {
 			fmt.Fprintf(os.Stderr, "step=%d/%d loss=%.6f lr=%.7f grad_norm=%.4f tokens_per_sec=%.1f\n", s.Step, s.Spec.Steps, loss, s.Spec.LearningRate(s.Step), norm, float64(s.TokensSeen-initialTokens)/time.Since(start).Seconds())
 		}
 		if o.EvalEvery > 0 && s.Step%o.EvalEvery == 0 {
-			value, count, e := evaluate(ctx, m, val, s.Spec.Seq, o.EvalBatches)
+			value, count, e := eval()
 			if e != nil {
 				if ctx.Err() != nil {
 					break
@@ -3251,7 +3415,7 @@ func trainLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, trai
 		return err
 	}
 	if ctx.Err() == nil {
-		value, count, e := evaluate(ctx, m, val, s.Spec.Seq, o.EvalBatches)
+		value, count, e := eval()
 		if e != nil {
 			return e
 		}
@@ -3265,6 +3429,9 @@ func runTrain(ctx context.Context, args []string) error {
 	f := flags("train")
 	spec := defaultTrainSpec()
 	data := f.String("data", "", "UTF-8 or arbitrary byte text file (max 64 MiB)")
+	datasetPath := f.String("dataset", "", "prepared manifest.json; mutually exclusive with -data")
+	dataWorkers := f.Int("data-workers", 2, "dataset IO workers (1..prefetch)")
+	prefetch := f.Int("prefetch", 4, "outstanding dataset microbatches (1..64)")
 	out := f.String("out", "runs/model.mglm", "atomic checkpoint destination")
 	resume := f.String("resume", "", "resume a checkpoint with its original schedule")
 	pre := f.String("preset", "tiny", "model preset: demo, tiny, small, base")
@@ -3294,7 +3461,25 @@ func runTrain(ctx context.Context, args []string) error {
 	if err := setThreads(*threads); err != nil {
 		return err
 	}
-	text, err := readText(*data, 64<<20)
+	if (*data == "") == (*datasetPath == "") {
+		return errors.New("provide exactly one of -data or -dataset")
+	}
+	visited := make(map[string]bool)
+	f.Visit(func(v *flag.Flag) { visited[v.Name] = true })
+	if *datasetPath != "" && (visited["tokenizer"] || visited["val-fraction"]) {
+		return errors.New("-dataset supplies its own tokenizer and validation split")
+	}
+	if *datasetPath == "" && (visited["data-workers"] || visited["prefetch"]) {
+		return errors.New("-data-workers and -prefetch require -dataset")
+	}
+	var text string
+	var dataset *TokenDataset
+	var err error
+	if *datasetPath != "" {
+		dataset, err = OpenTokenDataset(ctx, *datasetPath)
+	} else {
+		text, err = readText(*data, 64<<20)
+	}
 	if err != nil {
 		return err
 	}
@@ -3303,7 +3488,7 @@ func runTrain(ctx context.Context, args []string) error {
 	var tok Tokenizer
 	var state *TrainState
 	if *resume != "" {
-		allowed := map[string]bool{"resume": true, "data": true, "out": true, "threads": true, "stop-after": true, "save-every": true, "eval-every": true, "eval-batches": true, "log-every": true}
+		allowed := map[string]bool{"resume": true, "data": true, "dataset": true, "data-workers": true, "prefetch": true, "out": true, "threads": true, "stop-after": true, "save-every": true, "eval-every": true, "eval-batches": true, "log-every": true}
 		var bad string
 		f.Visit(func(v *flag.Flag) {
 			if !allowed[v.Name] {
@@ -3320,14 +3505,26 @@ func runTrain(ctx context.Context, args []string) error {
 		if state == nil {
 			return errors.New("checkpoint has no training state")
 		}
-		if state.CorpusSHA256 != corpusHash(text) {
+		if (state.Dataset == nil) != (dataset == nil) {
+			return errors.New("resume must retain the original data source kind (-data or -dataset)")
+		}
+		if dataset != nil {
+			if err = validateDatasetResume(dataset, tok, state); err != nil {
+				return err
+			}
+		} else if state.CorpusSHA256 != corpusHash(text) {
 			return errors.New("resume corpus SHA-256 differs from original")
 		}
 		if state.Step >= state.Spec.Steps {
 			return errors.New("saved training schedule is already complete")
 		}
 	} else {
-		m, tok, err = freshModel(*pre, *config, *tokenizer, *seed)
+		if dataset != nil {
+			tok = dataset.manifest.Tokenizer
+			m, err = configuredModel(*pre, *config, tok, *seed)
+		} else {
+			m, tok, err = freshModel(*pre, *config, *tokenizer, *seed)
+		}
 		if err != nil {
 			return err
 		}
@@ -3335,6 +3532,13 @@ func runTrain(ctx context.Context, args []string) error {
 			return err
 		}
 		state = &TrainState{Spec: spec, RNG: RNG{*seed ^ 0xd1b54a32d192ed03}, CorpusSHA256: corpusHash(text)}
+		if dataset != nil {
+			state.CorpusSHA256 = dataset.id
+			state.Dataset = datasetTrainingState(dataset, state.RNG.State)
+		}
+	}
+	if dataset != nil {
+		return trainDatasetLoop(ctx, m, tok, state, dataset, *dataWorkers, *prefetch, o)
 	}
 	train, val, err := splitCorpus(tok, text, state.Spec.ValFraction, state.Spec.Seq)
 	if err != nil {
