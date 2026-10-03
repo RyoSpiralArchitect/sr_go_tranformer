@@ -45,6 +45,8 @@ BOS/EOS delimit documents unambiguously: the tokenizer never merges these tokens
 
 `NewTokenPrefetch` adds deterministic packed microbatches over one split. One dispatcher owns the cursor and a Fisher-Yates shard permutation, derived from the saved seed and epoch. Workers fill disjoint buffers. A reorder stage returns results in dispatch order, regardless of IO completion order. A batch's `After` cursor identifies the next target after that batch; speculative dispatch never changes a consumer's saved cursor.
 
+Within a microbatch, workers order IO ranges by shard/offset and copy already-filled ranges when small shards repeat across epochs. Logical destinations are preserved. A batch spanning thousands of repeats of a tiny split therefore reads each covered shard range once, using the existing target buffer as its cache rather than reopening the file on every visit.
+
 The stream visits every token after each shard's leading BOS, then repeats at the next epoch. Internal document BOS/EOS tokens remain in the packed stream. Each training row begins with BOS and predicts `seq` consecutive targets. Windows can cross document/shard/epoch boundaries; dense attention is not masked at document boundaries. This packed objective differs from the random windows of `train -data`. Changing the shard layout changes the ordered training stream and its dataset identity.
 
 `PrefetchConfig` sets batch/sequence size, workers (1..depth), depth (1..64), seed, and shuffling. Validation can use the same reader with shuffling disabled. Staging is restricted to a conservative 128 MiB allowance for target/input arrays and span descriptors, plus bounded manifest metadata and at most 16 KiB per worker. One microbatch is capped at 1,048,576 targets.

@@ -848,6 +848,47 @@ func (p *tokenPlanner) plan(ctx context.Context) ([]tokenSpan, DatasetCursor, er
 
 type tokenReadFunc func(context.Context, int, int64, []int) error
 
+// Repeated epochs in one microbatch can revisit the same ranges many times.
+// Fill in physical range order, copying covered ranges from this job's existing
+// target buffer. Logical order is encoded in begin/end, so no extra token cache
+// or file descriptors are needed and output order remains unchanged.
+func fillTokenJob(ctx context.Context, job *tokenJob, read tokenReadFunc) {
+	if job.err != nil {
+		return
+	}
+	if len(job.spans) > 1 {
+		sort.Slice(job.spans, func(i, j int) bool {
+			a, b := job.spans[i], job.spans[j]
+			if a.shard != b.shard {
+				return a.shard < b.shard
+			}
+			if a.offset != b.offset {
+				return a.offset < b.offset
+			}
+			return a.end-a.begin > b.end-b.begin
+		})
+	}
+	var previous tokenSpan
+	havePrevious := false
+	for _, span := range job.spans {
+		if job.err = ctx.Err(); job.err != nil {
+			return
+		}
+		delta := span.offset - previous.offset
+		n := span.end - span.begin
+		if havePrevious && span.shard == previous.shard && delta >= 0 && delta+int64(n) <= int64(previous.end-previous.begin) {
+			start := previous.begin + int(delta)
+			copy(job.buffer.y[span.begin:span.end], job.buffer.y[start:start+n])
+			continue
+		}
+		if job.err = read(ctx, span.shard, span.offset, job.buffer.y[span.begin:span.end]); job.err != nil {
+			return
+		}
+		previous = span
+		havePrevious = true
+	}
+}
+
 func NewTokenPrefetch(ctx context.Context, d *TokenDataset, split string, c PrefetchConfig, cursor DatasetCursor) (*TokenPrefetch, error) {
 	return newTokenPrefetch(ctx, d, split, c, cursor, d.ReadTokens)
 }
@@ -917,12 +958,7 @@ func newTokenPrefetch(ctx context.Context, d *TokenDataset, split string, c Pref
 				case <-ctx.Done():
 					return
 				}
-				for _, span := range job.spans {
-					if job.err != nil {
-						break
-					}
-					job.err = read(ctx, span.shard, span.offset, job.buffer.y[span.begin:span.end])
-				}
+				fillTokenJob(ctx, &job, read)
 				if job.err == nil {
 					for row := 0; row < c.Batch; row++ {
 						begin, end := row*c.Seq, (row+1)*c.Seq

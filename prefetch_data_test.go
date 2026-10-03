@@ -137,6 +137,47 @@ func TestPrefetchPackedTargetsAndCursor(t *testing.T) {
 	}
 }
 
+func TestPrefetchRepeatedEpochsReuseFilledRanges(t *testing.T) {
+	for _, train := range []string{"a", "a\nb\nc\nd\ne\nf\n"} {
+		_, d := preparedDataset(t, Tokenizer{}, train, "v", 4)
+		c := PrefetchConfig{Batch: 64, Seq: 1024, Workers: 1, Depth: 1}
+		planner, err := newTokenPlanner(d, "train", c, DatasetCursor{Offset: 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		spans, after, err := planner.plan(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		job := tokenJob{buffer: &tokenBuffer{y: make([]int, c.Batch*c.Seq)}, spans: spans, after: after}
+		reads := 0
+		fillTokenJob(context.Background(), &job, func(ctx context.Context, shard int, offset int64, dst []int) error {
+			reads++
+			return d.ReadTokens(ctx, shard, offset, dst)
+		})
+		if job.err != nil {
+			t.Fatal(job.err)
+		}
+		if reads != len(planner.indices) {
+			t.Fatalf("repeated epochs reopened ranges: got %d reads for %d train shards", reads, len(planner.indices))
+		}
+		var epoch []int
+		for _, index := range planner.indices {
+			s := d.manifest.Shards[index]
+			ids := make([]int, s.Tokens-1)
+			if err = d.ReadTokens(context.Background(), index, 1, ids); err != nil {
+				t.Fatal(err)
+			}
+			epoch = append(epoch, ids...)
+		}
+		for i, v := range job.buffer.y {
+			if v != epoch[i%len(epoch)] {
+				t.Fatalf("physical IO order changed target %d", i)
+			}
+		}
+	}
+}
+
 func TestPrefetchWorkerAndDepthInvariance(t *testing.T) {
 	_, d := preparedDataset(t, Tokenizer{}, "first\nsecond\nthird\nfourth\nfifth\n", "held\n", 12)
 	type snapshot struct {
