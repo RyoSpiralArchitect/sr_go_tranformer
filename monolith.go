@@ -780,14 +780,20 @@ type tokenPlanner struct {
 	perEpoch       int64
 }
 
-func newTokenPlanner(d *TokenDataset, split string, c PrefetchConfig, cursor DatasetCursor) (*tokenPlanner, error) {
+func (c PrefetchConfig) Validate() error {
 	if c.Batch < 1 || c.Batch > 4096 || c.Seq < 1 || c.Seq > 32768 || c.Workers < 1 || c.Workers > 64 || c.Depth < 1 || c.Depth > 64 || c.Workers > c.Depth {
-		return nil, errors.New("invalid prefetch settings; workers 1..depth, depth 1..64")
+		return errors.New("invalid prefetch settings; workers 1..depth, depth 1..64")
 	}
 	// Conservative allowance for two int arrays plus range descriptors and
 	// slice growth; metadata and at most 16 KiB per IO worker are additional.
 	if int64(c.Batch)*int64(c.Seq) > maxReadTokens || int64(c.Batch)*int64(c.Seq)*int64(c.Depth)*64 > 128<<20 {
-		return nil, errors.New("prefetch staging exceeds 128 MiB allowance")
+		return errors.New("prefetch staging exceeds 128 MiB allowance")
+	}
+	return nil
+}
+func newTokenPlanner(d *TokenDataset, split string, c PrefetchConfig, cursor DatasetCursor) (*tokenPlanner, error) {
+	if err := c.Validate(); err != nil {
+		return nil, err
 	}
 	p := &tokenPlanner{d: d, config: c, cursor: cursor}
 	for i, s := range d.manifest.Shards {
@@ -1467,23 +1473,30 @@ func backwardWorkspaceElements(c Config, batch, seq int) int64 {
 	return int64(batch) * int64(seq) * (int64(c.Vocab) + 4*int64(c.Dim) + 3*int64(c.Hidden) + 2*int64(c.KVDim()))
 }
 
-func newBackwardWorkspace(m *Model, batch, seq int) (*backwardWorkspace, error) {
-	if m == nil {
-		return nil, errors.New("workspace requires a model")
-	}
-	c := m.Config
+func validateTrainingShape(c Config, batch, seq int) error {
 	if err := c.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 	if batch < 1 || batch > 4096 || seq < 1 || seq > c.Context {
-		return nil, errors.New("invalid workspace shape or context length")
+		return errors.New("invalid workspace shape or context length")
 	}
 	// Keep the existing conservative guard and charge persistent scratch too.
 	// Evaluation owns its workspace only within each validation invocation.
 	// Its batch=1 payload is smaller than this activation estimate, so it also
 	// fits while backward scratch is retained. Shapes near the old limit may fail.
 	if activationElements(c, batch, seq)+backwardWorkspaceElements(c, batch, seq) > maxActivationElements {
-		return nil, errors.New("activation budget including backward workspace exceeded; reduce batch, sequence, or model size")
+		return errors.New("activation budget including backward workspace exceeded; reduce batch, sequence, or model size")
+	}
+	return nil
+}
+
+func newBackwardWorkspace(m *Model, batch, seq int) (*backwardWorkspace, error) {
+	if m == nil {
+		return nil, errors.New("workspace requires a model")
+	}
+	c := m.Config
+	if err := validateTrainingShape(c, batch, seq); err != nil {
+		return nil, err
 	}
 	n := batch * seq
 	return &backwardWorkspace{
@@ -2159,6 +2172,120 @@ func (s TrainSpec) Validate(c Config) error {
 	}
 	return nil
 }
+
+// An invocation's major-array plan is computed before allocating model tensors,
+// corpus token arrays, workspaces or prefetch leases. It is not a process/RSS cap:
+// runtime/allocator overhead, metadata, source preparation, checkpoint/profile IO
+// and garbage awaiting collection are outside this working-set estimate.
+type trainingMemoryInput struct {
+	Kind      string `json:"kind"`
+	TextBytes int64  `json:"text_bytes,omitempty"`
+	Shards    int    `json:"shards,omitempty"`
+	Workers   int    `json:"workers,omitempty"`
+	Depth     int    `json:"depth,omitempty"`
+}
+type trainingMemoryComponents struct {
+	Weights                   int64 `json:"weights_bytes"`
+	Gradients                 int64 `json:"gradients_bytes"`
+	AdamMoments               int64 `json:"adam_moments_bytes"`
+	RoPE                      int64 `json:"rope_bytes"`
+	BackwardWorkspace         int64 `json:"backward_workspace_bytes"`
+	CorpusAllowance           int64 `json:"corpus_allowance_bytes"`
+	TrainingPrefetchAllowance int64 `json:"training_prefetch_allowance_bytes"`
+	TrainingActivationBound   int64 `json:"training_activation_bound_bytes"`
+	TrainingInputAllowance    int64 `json:"training_input_allowance_bytes"`
+	EvaluationWorkspace       int64 `json:"evaluation_workspace_bytes"`
+	EvaluationInputAllowance  int64 `json:"evaluation_input_allowance_bytes"`
+}
+type trainingMemoryPlan struct {
+	Format          string                   `json:"format"`
+	Scope           string                   `json:"scope"`
+	Config          Config                   `json:"config"`
+	Spec            TrainSpec                `json:"spec"`
+	Input           trainingMemoryInput      `json:"input"`
+	Components      trainingMemoryComponents `json:"components"`
+	PersistentBytes int64                    `json:"persistent_bytes"`
+	TrainingBytes   int64                    `json:"training_bytes"`
+	EvaluationBytes int64                    `json:"evaluation_bytes"`
+	RequiredBytes   int64                    `json:"required_bytes"`
+	BudgetBytes     int64                    `json:"budget_bytes"`
+	FitsBudget      bool                     `json:"fits_budget"`
+}
+
+func memoryBudgetBytes(mib int64) (int64, error) {
+	if mib < 0 || mib > math.MaxInt64/(1<<20) {
+		return 0, errors.New("memory-mib must be nonnegative and fit in int64 bytes")
+	}
+	return mib * (1 << 20), nil
+}
+
+func newTrainingMemoryPlan(c Config, s TrainSpec, input trainingMemoryInput, budget int64) (trainingMemoryPlan, error) {
+	p := trainingMemoryPlan{Format: "monolith-training-memory-v1", Scope: "major-array-payload-and-input-staging", Config: c, Spec: s, Input: input, BudgetBytes: budget}
+	// Validate scalar limits before multiplying. All subsequent products/sums fit
+	// int64 under Config/TrainSpec/prefetch limits, even for rejected shapes.
+	if err := validateTrainingShape(c, s.Batch, s.Seq); err != nil {
+		return p, err
+	}
+	if err := s.Validate(c); err != nil {
+		return p, err
+	}
+	if budget < 0 {
+		return p, errors.New("negative memory budget")
+	}
+	n := int64(s.Batch) * int64(s.Seq)
+	a := &p.Components
+	a.Weights = 4 * c.ParameterCount()
+	a.Gradients, a.AdamMoments = a.Weights, 2*a.Weights
+	a.RoPE = 4 * int64(c.Context) * int64(c.Dim/c.Heads)
+	a.BackwardWorkspace = 4 * backwardWorkspaceElements(c, s.Batch, s.Seq)
+	a.TrainingActivationBound = 4 * activationElements(c, s.Batch, s.Seq)
+	a.EvaluationWorkspace = 4 * evaluationWorkspaceElements(c, 1, s.Seq)
+	// Tape.IDs is copied with append: allow two 64-bit ints per target for
+	// capacity growth. Per-microbatch arrays are released before the next one;
+	// accumulation increases compute, not the planned live payload.
+	a.TrainingInputAllowance = 16 * n
+	switch input.Kind {
+	case "text":
+		if input.TextBytes < 1 || input.TextBytes > 64<<20 || input.Shards != 0 || input.Workers != 0 || input.Depth != 0 {
+			return p, errors.New("invalid text memory-plan input")
+		}
+		// At most one token per raw byte, plus BOS/EOS for each split. Allow
+		// capacity growth and keep the source text charged throughout training.
+		a.CorpusAllowance = input.TextBytes + 16*(input.TextBytes+4)
+		a.TrainingInputAllowance += 16 * n // sampleBatch's X and Y
+		a.EvaluationInputAllowance = 8 * int64(s.Seq)
+	case "dataset":
+		if input.TextBytes != 0 || input.Shards < 1 || input.Shards > maxDatasetShards {
+			return p, errors.New("invalid dataset memory-plan input")
+		}
+		prefetch := PrefetchConfig{Batch: s.Batch, Seq: s.Seq, Workers: input.Workers, Depth: input.Depth}
+		if err := prefetch.Validate(); err != nil {
+			return p, err
+		}
+		// The existing 64-byte allowance covers X/Y and span slice growth per
+		// outstanding target. Add bounded readers and planner index/order arrays.
+		a.TrainingPrefetchAllowance = 64*n*int64(input.Depth) + (16<<10)*int64(input.Workers) + 64*int64(input.Shards)
+		// Validation runs its own depth=1 reader while training prefetch remains
+		// alive. It also has a second planner to determine the scoring range.
+		a.EvaluationInputAllowance = 64*int64(s.Seq) + (16 << 10) + 128*int64(input.Shards)
+	default:
+		return p, errors.New("unknown memory-plan source kind")
+	}
+	p.PersistentBytes = a.Weights + a.Gradients + a.AdamMoments + a.RoPE + a.BackwardWorkspace + a.CorpusAllowance + a.TrainingPrefetchAllowance
+	p.TrainingBytes = p.PersistentBytes + a.TrainingActivationBound + a.TrainingInputAllowance
+	p.EvaluationBytes = p.PersistentBytes + a.EvaluationWorkspace + a.EvaluationInputAllowance
+	p.RequiredBytes = max(p.TrainingBytes, p.EvaluationBytes)
+	p.FitsBudget = budget == 0 || p.RequiredBytes <= budget
+	return p, nil
+}
+
+func (p trainingMemoryPlan) checkBudget() error {
+	if !p.FitsBudget {
+		return fmt.Errorf("training memory plan requires %d bytes (%.2f MiB), exceeds -memory-mib budget %d bytes (%.2f MiB); reduce model, batch, sequence or prefetch, or raise the budget", p.RequiredBytes, float64(p.RequiredBytes)/(1<<20), p.BudgetBytes, float64(p.BudgetBytes)/(1<<20))
+	}
+	return nil
+}
+
 func (s TrainSpec) LearningRate(step int) float64 {
 	if s.Warmup > 0 && step <= s.Warmup {
 		if step == s.Warmup {
@@ -2432,83 +2559,109 @@ func loadCheckpointIdentity(path string) (*Model, Tokenizer, *TrainState, string
 	return loadCheckpointFile(f)
 }
 
-// Digest and tensors come from the same open file, even if a trainer atomically
-// replaces the path during evaluation. In-place mutation is not supported.
+// Digest, metadata and tensors come from the same open file, even if a trainer
+// atomically replaces the path. In-place mutation remains unsupported.
 func loadCheckpointFile(f *os.File) (*Model, Tokenizer, *TrainState, string, error) {
-	fail := func(err error) (*Model, Tokenizer, *TrainState, string, error) { return nil, Tokenizer{}, nil, "", err }
+	checked, err := readCheckpointMetadata(f)
+	if err != nil {
+		return nil, Tokenizer{}, nil, "", err
+	}
+	m, err := loadCheckpointTensors(f, checked)
+	if err != nil {
+		return nil, Tokenizer{}, nil, "", err
+	}
+	return m, checked.meta.Tokenizer, checked.meta.Training, checked.identity, nil
+}
+
+type checkedCheckpoint struct {
+	meta       checkpointMeta
+	dataOffset int64
+	identity   string
+}
+
+// Verify bounded metadata, expected file size and the complete checksum without
+// allocating tensor arrays. Training can check its invocation budget here, then
+// either return a plan or load tensors from this same descriptor.
+func readCheckpointMetadata(f *os.File) (checkedCheckpoint, error) {
 	stat, err := f.Stat()
 	if err != nil {
-		return fail(err)
+		return checkedCheckpoint{}, err
 	}
+	r := io.NewSectionReader(f, 0, stat.Size())
 	var prefix [12]byte
-	if _, err = io.ReadFull(f, prefix[:]); err != nil {
-		return fail(err)
+	if _, err = io.ReadFull(r, prefix[:]); err != nil {
+		return checkedCheckpoint{}, err
 	}
 	if string(prefix[:8]) != checkpointMagic {
-		return fail(errors.New("unknown checkpoint magic/version"))
+		return checkedCheckpoint{}, errors.New("unknown checkpoint magic/version")
 	}
 	headerLen := binary.LittleEndian.Uint32(prefix[8:])
 	if headerLen == 0 || headerLen > 4*1024*1024 {
-		return fail(errors.New("checkpoint header outside allocation limit"))
+		return checkedCheckpoint{}, errors.New("checkpoint header outside allocation limit")
 	}
 	data := make([]byte, int(headerLen))
-	if _, err = io.ReadFull(f, data); err != nil {
-		return fail(err)
+	if _, err = io.ReadFull(r, data); err != nil {
+		return checkedCheckpoint{}, err
 	}
 	var meta checkpointMeta
 	if err = strictJSON(data, &meta); err != nil {
-		return fail(err)
+		return checkedCheckpoint{}, err
 	}
 	if meta.Architecture != architecture {
-		return fail(errors.New("unsupported checkpoint architecture"))
+		return checkedCheckpoint{}, errors.New("unsupported checkpoint architecture")
 	}
 	if err = meta.Config.Validate(); err != nil {
-		return fail(err)
+		return checkedCheckpoint{}, err
 	}
 	if err = meta.Tokenizer.Validate(); err != nil {
-		return fail(err)
+		return checkedCheckpoint{}, err
 	}
 	if meta.Tokenizer.Vocab() != meta.Config.Vocab {
-		return fail(errors.New("checkpoint vocabulary mismatch"))
+		return checkedCheckpoint{}, errors.New("checkpoint vocabulary mismatch")
 	}
 	arrays := int64(1)
 	if meta.Training != nil {
 		arrays = 3
 		if err = meta.Training.Validate(meta.Config); err != nil {
-			return fail(err)
+			return checkedCheckpoint{}, err
 		}
 		if meta.Training.Dataset != nil && meta.Training.Dataset.TokenizerSHA256 != tokenizerHash(meta.Tokenizer) {
-			return fail(errors.New("checkpoint dataset/tokenizer identity mismatch"))
+			return checkedCheckpoint{}, errors.New("checkpoint dataset/tokenizer identity mismatch")
 		}
 	}
 	expected := 12 + int64(headerLen) + 4*arrays*meta.Config.ParameterCount() + sha256.Size
 	if stat.Size() != expected {
-		return fail(fmt.Errorf("checkpoint size mismatch: got %d, expected %d", stat.Size(), expected))
+		return checkedCheckpoint{}, fmt.Errorf("checkpoint size mismatch: got %d, expected %d", stat.Size(), expected)
 	}
 	hash := sha256.New()
 	if _, err = io.Copy(hash, io.NewSectionReader(f, 0, expected-sha256.Size)); err != nil {
-		return fail(err)
+		return checkedCheckpoint{}, err
 	}
 	var sum [sha256.Size]byte
 	if _, err = f.ReadAt(sum[:], expected-sha256.Size); err != nil {
-		return fail(err)
+		return checkedCheckpoint{}, err
 	}
 	if !bytes.Equal(sum[:], hash.Sum(nil)) {
-		return fail(errors.New("checkpoint checksum mismatch"))
+		return checkedCheckpoint{}, errors.New("checkpoint checksum mismatch")
 	}
 	hash.Write(sum[:])
 	identity := hex.EncodeToString(hash.Sum(nil))
+	return checkedCheckpoint{meta: meta, dataOffset: 12 + int64(headerLen), identity: identity}, nil
+}
+
+func loadCheckpointTensors(f *os.File, checked checkedCheckpoint) (*Model, error) {
+	meta := checked.meta
 	m, err := allocateModel(meta.Config, nil)
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
-	if _, err = f.Seek(12+int64(headerLen), io.SeekStart); err != nil {
-		return fail(err)
+	if _, err = f.Seek(checked.dataOffset, io.SeekStart); err != nil {
+		return nil, err
 	}
 	r := bufio.NewReaderSize(f, 64*1024)
 	for _, p := range m.Params {
 		if err = readFloats(r, p.Data, false); err != nil {
-			return fail(err)
+			return nil, err
 		}
 	}
 	if meta.Training != nil {
@@ -2516,14 +2669,14 @@ func loadCheckpointFile(f *os.File) (*Model, Tokenizer, *TrainState, string, err
 			p.M = make([]float32, len(p.Data))
 			p.V = make([]float32, len(p.Data))
 			if err = readFloats(r, p.M, false); err != nil {
-				return fail(err)
+				return nil, err
 			}
 			if err = readFloats(r, p.V, true); err != nil {
-				return fail(err)
+				return nil, err
 			}
 		}
 	}
-	return m, meta.Tokenizer, meta.Training, identity, nil
+	return m, nil
 }
 func (m *Model) DropOptimizer() {
 	for _, p := range m.Params {
@@ -3679,31 +3832,30 @@ func samplingFlags(f *flag.FlagSet, s *Sampling) {
 	f.Float64Var(&s.RepeatPenalty, "repeat-penalty", s.RepeatPenalty, "penalty for already seen tokens (>=1)")
 	f.Uint64Var(&s.Seed, "seed", s.Seed, "sampling seed")
 }
-func freshModel(presetName, configPath, tokenizerPath string, seed uint64) (*Model, Tokenizer, error) {
+func readTokenizer(tokenizerPath string) (Tokenizer, error) {
 	tok := Tokenizer{}
 	if tokenizerPath != "" {
 		if err := readJSONFile(tokenizerPath, &tok); err != nil {
-			return nil, tok, err
+			return tok, err
 		}
 		if err := tok.Validate(); err != nil {
-			return nil, tok, err
+			return tok, err
 		}
 	}
-	m, err := configuredModel(presetName, configPath, tok, seed)
-	return m, tok, err
+	return tok, nil
 }
-func configuredModel(presetName, configPath string, tok Tokenizer, seed uint64) (*Model, error) {
+func modelConfig(presetName, configPath string, tok Tokenizer) (Config, error) {
 	c, err := preset(presetName)
 	if err != nil {
-		return nil, err
+		return c, err
 	}
 	if configPath != "" {
 		if err = readJSONFile(configPath, &c); err != nil {
-			return nil, err
+			return c, err
 		}
 	}
 	c.Vocab = tok.Vocab()
-	return NewModel(c, seed)
+	return c, c.Validate()
 }
 func ensureMoments(m *Model) {
 	for _, p := range m.Params {
@@ -3726,21 +3878,22 @@ type trainingPhases struct {
 	Checkpoint int64 `json:"checkpoint_ns"`
 }
 type trainingRun struct {
-	Config             Config           `json:"config"`
-	Spec               TrainSpec        `json:"spec"`
-	Source             EvaluationSource `json:"source"`
-	TokenizerSHA256    string           `json:"tokenizer_sha256"`
-	ResumeSHA256       string           `json:"resume_sha256,omitempty"`
-	InitializationSeed *uint64          `json:"initialization_seed,omitempty"`
-	GoVersion          string           `json:"go_version"`
-	Threads            int              `json:"threads"`
-	DataWorkers        int              `json:"data_workers"`
-	Prefetch           int              `json:"prefetch"`
-	StopAfter          int              `json:"stop_after"`
-	EvalEvery          int              `json:"eval_every"`
-	EvalBatches        int              `json:"eval_batches"`
-	SaveEvery          int              `json:"save_every"`
-	LogEvery           int              `json:"log_every"`
+	Config             Config              `json:"config"`
+	Spec               TrainSpec           `json:"spec"`
+	Source             EvaluationSource    `json:"source"`
+	TokenizerSHA256    string              `json:"tokenizer_sha256"`
+	ResumeSHA256       string              `json:"resume_sha256,omitempty"`
+	InitializationSeed *uint64             `json:"initialization_seed,omitempty"`
+	GoVersion          string              `json:"go_version"`
+	Threads            int                 `json:"threads"`
+	DataWorkers        int                 `json:"data_workers"`
+	Prefetch           int                 `json:"prefetch"`
+	StopAfter          int                 `json:"stop_after"`
+	EvalEvery          int                 `json:"eval_every"`
+	EvalBatches        int                 `json:"eval_batches"`
+	SaveEvery          int                 `json:"save_every"`
+	LogEvery           int                 `json:"log_every"`
+	MemoryPlan         *trainingMemoryPlan `json:"memory_plan,omitempty"`
 }
 type trainingEvent struct {
 	Format     string         `json:"format"`
@@ -3998,6 +4151,13 @@ type loopOptions struct {
 	Observer                                               *trainingObserver
 }
 
+func (o loopOptions) Validate() error {
+	if o.StopAfter < 0 || o.SaveEvery < 0 || o.EvalEvery < 0 || o.EvalBatches < 0 || o.LogEvery < 1 {
+		return errors.New("invalid logging/save/evaluation interval")
+	}
+	return nil
+}
+
 func trainLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, train, val []int, o loopOptions) error {
 	if err := s.Validate(m.Config); err != nil {
 		return err
@@ -4042,8 +4202,8 @@ func trainingLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, t
 	if err := s.Validate(m.Config); err != nil {
 		return err
 	}
-	if o.StopAfter < 0 || o.SaveEvery < 0 || o.EvalEvery < 0 || o.EvalBatches < 0 || o.LogEvery < 1 {
-		return errors.New("invalid logging/save/evaluation interval")
+	if err := o.Validate(); err != nil {
+		return err
 	}
 	if o.Observer != nil {
 		o.Observer.started = true
@@ -4158,6 +4318,8 @@ func runTrain(ctx context.Context, args []string) (result error) {
 	datasetPath := f.String("dataset", "", "prepared manifest.json; mutually exclusive with -data")
 	dataWorkers := f.Int("data-workers", 2, "dataset IO workers (1..prefetch)")
 	prefetch := f.Int("prefetch", 4, "outstanding dataset microbatches (1..64)")
+	memoryMiB := f.Int64("memory-mib", 0, "major-array/input working-set budget in MiB; 0 disables this extra cap (not RSS)")
+	memoryPlanOnly := f.Bool("memory-plan", false, "print JSON memory plan and exit before tensor allocation/training")
 	out := f.String("out", "runs/model.mglm", "atomic checkpoint destination")
 	resume := f.String("resume", "", "resume a checkpoint with its original schedule")
 	pre := f.String("preset", "tiny", "model preset: demo, tiny, small, base")
@@ -4188,6 +4350,13 @@ func runTrain(ctx context.Context, args []string) (result error) {
 	if err := parse(f, args); err != nil {
 		return err
 	}
+	budget, err := memoryBudgetBytes(*memoryMiB)
+	if err != nil {
+		return err
+	}
+	if err := o.Validate(); err != nil {
+		return err
+	}
 	if err := setThreads(*threads); err != nil {
 		return err
 	}
@@ -4202,24 +4371,8 @@ func runTrain(ctx context.Context, args []string) (result error) {
 	if *datasetPath == "" && (visited["data-workers"] || visited["prefetch"]) {
 		return errors.New("-data-workers and -prefetch require -dataset")
 	}
-	var text string
-	var dataset *TokenDataset
-	var err error
-	if *datasetPath != "" {
-		dataset, err = OpenTokenDataset(ctx, *datasetPath)
-	} else {
-		text, err = readText(*data, 64<<20)
-	}
-	if err != nil {
-		return err
-	}
-	o.Out = *out
-	var m *Model
-	var tok Tokenizer
-	var state *TrainState
-	var resumeSHA256 string
 	if *resume != "" {
-		allowed := map[string]bool{"resume": true, "data": true, "dataset": true, "data-workers": true, "prefetch": true, "out": true, "threads": true, "stop-after": true, "save-every": true, "eval-every": true, "eval-batches": true, "log-every": true, "metrics": true, "cpu-profile": true, "alloc-profile": true}
+		allowed := map[string]bool{"resume": true, "data": true, "dataset": true, "data-workers": true, "prefetch": true, "out": true, "threads": true, "stop-after": true, "save-every": true, "eval-every": true, "eval-batches": true, "log-every": true, "metrics": true, "cpu-profile": true, "alloc-profile": true, "memory-mib": true, "memory-plan": true}
 		var bad string
 		f.Visit(func(v *flag.Flag) {
 			if !allowed[v.Name] {
@@ -4229,10 +4382,41 @@ func runTrain(ctx context.Context, args []string) (result error) {
 		if bad != "" {
 			return fmt.Errorf("-%s cannot override a resumed run; its schedule/tokenizer/model are saved", bad)
 		}
-		m, tok, state, resumeSHA256, err = loadCheckpointIdentity(*resume)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var text string
+	var dataset *TokenDataset
+	if *datasetPath != "" {
+		dataset, err = OpenTokenDataset(ctx, *datasetPath)
+	} else {
+		text, err = readText(*data, 64<<20)
+	}
+	if err != nil {
+		return err
+	}
+	o.Out = *out
+	var c Config
+	var tok Tokenizer
+	var state *TrainState
+	var checkpoint *os.File
+	var checked checkedCheckpoint
+	if *resume != "" {
+		checkpoint, err = os.Open(*resume)
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if checkpoint != nil {
+				_ = checkpoint.Close()
+			}
+		}()
+		checked, err = readCheckpointMetadata(checkpoint)
+		if err != nil {
+			return err
+		}
+		c, tok, state = checked.meta.Config, checked.meta.Tokenizer, checked.meta.Training
 		if state == nil {
 			return errors.New("checkpoint has no training state")
 		}
@@ -4252,14 +4436,14 @@ func runTrain(ctx context.Context, args []string) (result error) {
 	} else {
 		if dataset != nil {
 			tok = dataset.manifest.Tokenizer
-			m, err = configuredModel(*pre, *config, tok, *seed)
 		} else {
-			m, tok, err = freshModel(*pre, *config, *tokenizer, *seed)
+			tok, err = readTokenizer(*tokenizer)
+			if err != nil {
+				return err
+			}
 		}
+		c, err = modelConfig(*pre, *config, tok)
 		if err != nil {
-			return err
-		}
-		if err = spec.Validate(m.Config); err != nil {
 			return err
 		}
 		state = &TrainState{Spec: spec, RNG: RNG{*seed ^ 0xd1b54a32d192ed03}, CorpusSHA256: corpusHash(text)}
@@ -4268,12 +4452,46 @@ func runTrain(ctx context.Context, args []string) (result error) {
 			state.Dataset = datasetTrainingState(dataset, state.RNG.State)
 		}
 	}
+	input := trainingMemoryInput{Kind: "text", TextBytes: int64(len(text))}
+	if dataset != nil {
+		input = trainingMemoryInput{Kind: "dataset", Shards: len(dataset.manifest.Shards), Workers: *dataWorkers, Depth: *prefetch}
+	}
+	plan, err := newTrainingMemoryPlan(c, state.Spec, input, budget)
+	if err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if *memoryPlanOnly {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(plan); err != nil {
+			return err
+		}
+		return plan.checkBudget()
+	}
+	if err := plan.checkBudget(); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "memory plan: %.2f MiB managed working set; not process RSS (-memory-mib=%d)\n", float64(plan.RequiredBytes)/(1<<20), *memoryMiB)
 	var train, val []int
 	if dataset == nil {
 		train, val, err = splitCorpus(tok, text, state.Spec.ValFraction, state.Spec.Seq)
 		if err != nil {
 			return err
 		}
+	}
+	var m *Model
+	if checkpoint != nil {
+		m, err = loadCheckpointTensors(checkpoint, checked)
+		err = errors.Join(err, checkpoint.Close())
+		checkpoint = nil
+	} else {
+		m, err = NewModel(c, *seed)
+	}
+	if err != nil {
+		return err
 	}
 	telemetry.Checkpoint = o.Out
 	o.Observer, err = openTrainingObserver(telemetry)
@@ -4282,7 +4500,7 @@ func runTrain(ctx context.Context, args []string) (result error) {
 	}
 	defer func() { result = errors.Join(result, o.Observer.close()) }()
 	if observer := o.Observer; observer != nil {
-		observer.run = trainingRun{Config: m.Config, Spec: state.Spec, Source: EvaluationSource{Kind: "text", SHA256: state.CorpusSHA256}, TokenizerSHA256: tokenizerHash(tok), ResumeSHA256: resumeSHA256, GoVersion: runtime.Version(), Threads: runtime.GOMAXPROCS(0)}
+		observer.run = trainingRun{Config: m.Config, Spec: state.Spec, Source: EvaluationSource{Kind: "text", SHA256: state.CorpusSHA256}, TokenizerSHA256: tokenizerHash(tok), ResumeSHA256: checked.identity, MemoryPlan: &plan, GoVersion: runtime.Version(), Threads: runtime.GOMAXPROCS(0)}
 		observer.run.StopAfter, observer.run.EvalEvery, observer.run.EvalBatches, observer.run.SaveEvery, observer.run.LogEvery = o.StopAfter, o.EvalEvery, o.EvalBatches, o.SaveEvery, o.LogEvery
 		if *resume == "" {
 			observer.run.InitializationSeed = seed

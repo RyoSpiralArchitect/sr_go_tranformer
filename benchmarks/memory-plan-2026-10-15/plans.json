@@ -1,0 +1,619 @@
+{
+  "format": "monolith-memory-plan-cases-v1",
+  "cases": [
+    {
+      "name": "demo",
+      "arguments": [
+        "train",
+        "-data",
+        "examples/tiny.txt",
+        "-preset",
+        "demo",
+        "-memory-plan"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "plan": {
+        "format": "monolith-training-memory-v1",
+        "scope": "major-array-payload-and-input-staging",
+        "config": {
+          "vocab": 258,
+          "dim": 32,
+          "hidden": 96,
+          "layers": 2,
+          "heads": 4,
+          "kv_heads": 2,
+          "context": 128,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "spec": {
+          "steps": 200,
+          "batch": 2,
+          "seq": 64,
+          "accum": 1,
+          "lr": 0.003,
+          "min_lr": 0.0003,
+          "warmup": 10,
+          "weight_decay": 0.01,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 1e-08,
+          "clip": 1,
+          "val_fraction": 0.1
+        },
+        "input": {
+          "kind": "text",
+          "text_bytes": 3760
+        },
+        "components": {
+          "weights_bytes": 131968,
+          "gradients_bytes": 131968,
+          "adam_moments_bytes": 263936,
+          "rope_bytes": 4096,
+          "backward_workspace_bytes": 361472,
+          "corpus_allowance_bytes": 63984,
+          "training_prefetch_allowance_bytes": 0,
+          "training_activation_bound_bytes": 1585152,
+          "training_input_allowance_bytes": 4096,
+          "evaluation_workspace_bytes": 189952,
+          "evaluation_input_allowance_bytes": 512
+        },
+        "persistent_bytes": 957424,
+        "training_bytes": 2546672,
+        "evaluation_bytes": 1147888,
+        "required_bytes": 2546672,
+        "budget_bytes": 0,
+        "fits_budget": true
+      }
+    },
+    {
+      "name": "tiny",
+      "arguments": [
+        "train",
+        "-data",
+        "examples/tiny.txt",
+        "-preset",
+        "tiny",
+        "-memory-plan"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "plan": {
+        "format": "monolith-training-memory-v1",
+        "scope": "major-array-payload-and-input-staging",
+        "config": {
+          "vocab": 258,
+          "dim": 64,
+          "hidden": 192,
+          "layers": 4,
+          "heads": 4,
+          "kv_heads": 2,
+          "context": 256,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "spec": {
+          "steps": 200,
+          "batch": 2,
+          "seq": 64,
+          "accum": 1,
+          "lr": 0.003,
+          "min_lr": 0.0003,
+          "warmup": 10,
+          "weight_decay": 0.01,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 1e-08,
+          "clip": 1,
+          "val_fraction": 0.1
+        },
+        "input": {
+          "kind": "text",
+          "text_bytes": 3760
+        },
+        "components": {
+          "weights_bytes": 854784,
+          "gradients_bytes": 854784,
+          "adam_moments_bytes": 1709568,
+          "rope_bytes": 16384,
+          "backward_workspace_bytes": 590848,
+          "corpus_allowance_bytes": 63984,
+          "training_prefetch_allowance_bytes": 0,
+          "training_activation_bound_bytes": 4739072,
+          "training_input_allowance_bytes": 4096,
+          "evaluation_workspace_bytes": 312832,
+          "evaluation_input_allowance_bytes": 512
+        },
+        "persistent_bytes": 4090352,
+        "training_bytes": 8833520,
+        "evaluation_bytes": 4403696,
+        "required_bytes": 8833520,
+        "budget_bytes": 0,
+        "fits_budget": true
+      }
+    },
+    {
+      "name": "small",
+      "arguments": [
+        "train",
+        "-data",
+        "examples/tiny.txt",
+        "-preset",
+        "small",
+        "-memory-plan"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "plan": {
+        "format": "monolith-training-memory-v1",
+        "scope": "major-array-payload-and-input-staging",
+        "config": {
+          "vocab": 258,
+          "dim": 256,
+          "hidden": 704,
+          "layers": 6,
+          "heads": 8,
+          "kv_heads": 2,
+          "context": 512,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "spec": {
+          "steps": 200,
+          "batch": 2,
+          "seq": 64,
+          "accum": 1,
+          "lr": 0.003,
+          "min_lr": 0.0003,
+          "warmup": 10,
+          "weight_decay": 0.01,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 1e-08,
+          "clip": 1,
+          "val_fraction": 0.1
+        },
+        "input": {
+          "kind": "text",
+          "text_bytes": 3760
+        },
+        "components": {
+          "weights_bytes": 17185792,
+          "gradients_bytes": 17185792,
+          "adam_moments_bytes": 34371584,
+          "rope_bytes": 65536,
+          "backward_workspace_bytes": 1803264,
+          "corpus_allowance_bytes": 63984,
+          "training_prefetch_allowance_bytes": 0,
+          "training_activation_bound_bytes": 23777280,
+          "training_input_allowance_bytes": 4096,
+          "evaluation_workspace_bytes": 969216,
+          "evaluation_input_allowance_bytes": 512
+        },
+        "persistent_bytes": 70675952,
+        "training_bytes": 94457328,
+        "evaluation_bytes": 71645680,
+        "required_bytes": 94457328,
+        "budget_bytes": 0,
+        "fits_budget": true
+      }
+    },
+    {
+      "name": "base",
+      "arguments": [
+        "train",
+        "-data",
+        "examples/tiny.txt",
+        "-preset",
+        "base",
+        "-memory-plan"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "plan": {
+        "format": "monolith-training-memory-v1",
+        "scope": "major-array-payload-and-input-staging",
+        "config": {
+          "vocab": 258,
+          "dim": 768,
+          "hidden": 2048,
+          "layers": 12,
+          "heads": 12,
+          "kv_heads": 4,
+          "context": 2048,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "spec": {
+          "steps": 200,
+          "batch": 2,
+          "seq": 64,
+          "accum": 1,
+          "lr": 0.003,
+          "min_lr": 0.0003,
+          "warmup": 10,
+          "weight_decay": 0.01,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 1e-08,
+          "clip": 1,
+          "val_fraction": 0.1
+        },
+        "input": {
+          "kind": "text",
+          "text_bytes": 3760
+        },
+        "components": {
+          "weights_bytes": 302859264,
+          "gradients_bytes": 302859264,
+          "adam_moments_bytes": 605718528,
+          "rope_bytes": 524288,
+          "backward_workspace_bytes": 5112832,
+          "corpus_allowance_bytes": 63984,
+          "training_prefetch_allowance_bytes": 0,
+          "training_activation_bound_bytes": 139087872,
+          "training_input_allowance_bytes": 4096,
+          "evaluation_workspace_bytes": 2756096,
+          "evaluation_input_allowance_bytes": 512
+        },
+        "persistent_bytes": 1217138160,
+        "training_bytes": 1356230128,
+        "evaluation_bytes": 1219894768,
+        "required_bytes": 1356230128,
+        "budget_bytes": 0,
+        "fits_budget": true
+      }
+    },
+    {
+      "name": "tiny-batch4-seq128",
+      "arguments": [
+        "train",
+        "-data",
+        "examples/tiny.txt",
+        "-preset",
+        "tiny",
+        "-batch",
+        "4",
+        "-seq",
+        "128",
+        "-memory-plan"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "plan": {
+        "format": "monolith-training-memory-v1",
+        "scope": "major-array-payload-and-input-staging",
+        "config": {
+          "vocab": 258,
+          "dim": 64,
+          "hidden": 192,
+          "layers": 4,
+          "heads": 4,
+          "kv_heads": 2,
+          "context": 256,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "spec": {
+          "steps": 200,
+          "batch": 4,
+          "seq": 128,
+          "accum": 1,
+          "lr": 0.003,
+          "min_lr": 0.0003,
+          "warmup": 10,
+          "weight_decay": 0.01,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 1e-08,
+          "clip": 1,
+          "val_fraction": 0.1
+        },
+        "input": {
+          "kind": "text",
+          "text_bytes": 3760
+        },
+        "components": {
+          "weights_bytes": 854784,
+          "gradients_bytes": 854784,
+          "adam_moments_bytes": 1709568,
+          "rope_bytes": 16384,
+          "backward_workspace_bytes": 2363392,
+          "corpus_allowance_bytes": 63984,
+          "training_prefetch_allowance_bytes": 0,
+          "training_activation_bound_bytes": 18956288,
+          "training_input_allowance_bytes": 16384,
+          "evaluation_workspace_bytes": 625664,
+          "evaluation_input_allowance_bytes": 1024
+        },
+        "persistent_bytes": 5862896,
+        "training_bytes": 24835568,
+        "evaluation_bytes": 6489584,
+        "required_bytes": 24835568,
+        "budget_bytes": 0,
+        "fits_budget": true
+      }
+    },
+    {
+      "name": "tiny-accum16",
+      "arguments": [
+        "train",
+        "-data",
+        "examples/tiny.txt",
+        "-preset",
+        "tiny",
+        "-accum",
+        "16",
+        "-memory-plan"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "plan": {
+        "format": "monolith-training-memory-v1",
+        "scope": "major-array-payload-and-input-staging",
+        "config": {
+          "vocab": 258,
+          "dim": 64,
+          "hidden": 192,
+          "layers": 4,
+          "heads": 4,
+          "kv_heads": 2,
+          "context": 256,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "spec": {
+          "steps": 200,
+          "batch": 2,
+          "seq": 64,
+          "accum": 16,
+          "lr": 0.003,
+          "min_lr": 0.0003,
+          "warmup": 10,
+          "weight_decay": 0.01,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 1e-08,
+          "clip": 1,
+          "val_fraction": 0.1
+        },
+        "input": {
+          "kind": "text",
+          "text_bytes": 3760
+        },
+        "components": {
+          "weights_bytes": 854784,
+          "gradients_bytes": 854784,
+          "adam_moments_bytes": 1709568,
+          "rope_bytes": 16384,
+          "backward_workspace_bytes": 590848,
+          "corpus_allowance_bytes": 63984,
+          "training_prefetch_allowance_bytes": 0,
+          "training_activation_bound_bytes": 4739072,
+          "training_input_allowance_bytes": 4096,
+          "evaluation_workspace_bytes": 312832,
+          "evaluation_input_allowance_bytes": 512
+        },
+        "persistent_bytes": 4090352,
+        "training_bytes": 8833520,
+        "evaluation_bytes": 4403696,
+        "required_bytes": 8833520,
+        "budget_bytes": 0,
+        "fits_budget": true
+      }
+    },
+    {
+      "name": "tiny-dataset-depth1",
+      "arguments": [
+        "train",
+        "-dataset",
+        "runs/memory-plan-20261015/comparison/dataset/manifest.json",
+        "-preset",
+        "tiny",
+        "-data-workers",
+        "1",
+        "-prefetch",
+        "1",
+        "-memory-plan"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "plan": {
+        "format": "monolith-training-memory-v1",
+        "scope": "major-array-payload-and-input-staging",
+        "config": {
+          "vocab": 258,
+          "dim": 64,
+          "hidden": 192,
+          "layers": 4,
+          "heads": 4,
+          "kv_heads": 2,
+          "context": 256,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "spec": {
+          "steps": 200,
+          "batch": 2,
+          "seq": 64,
+          "accum": 1,
+          "lr": 0.003,
+          "min_lr": 0.0003,
+          "warmup": 10,
+          "weight_decay": 0.01,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 1e-08,
+          "clip": 1,
+          "val_fraction": 0.1
+        },
+        "input": {
+          "kind": "dataset",
+          "shards": 4,
+          "workers": 1,
+          "depth": 1
+        },
+        "components": {
+          "weights_bytes": 854784,
+          "gradients_bytes": 854784,
+          "adam_moments_bytes": 1709568,
+          "rope_bytes": 16384,
+          "backward_workspace_bytes": 590848,
+          "corpus_allowance_bytes": 0,
+          "training_prefetch_allowance_bytes": 24832,
+          "training_activation_bound_bytes": 4739072,
+          "training_input_allowance_bytes": 2048,
+          "evaluation_workspace_bytes": 312832,
+          "evaluation_input_allowance_bytes": 20992
+        },
+        "persistent_bytes": 4051200,
+        "training_bytes": 8792320,
+        "evaluation_bytes": 4385024,
+        "required_bytes": 8792320,
+        "budget_bytes": 0,
+        "fits_budget": true
+      }
+    },
+    {
+      "name": "tiny-dataset-depth8",
+      "arguments": [
+        "train",
+        "-dataset",
+        "runs/memory-plan-20261015/comparison/dataset/manifest.json",
+        "-preset",
+        "tiny",
+        "-data-workers",
+        "4",
+        "-prefetch",
+        "8",
+        "-memory-plan"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "plan": {
+        "format": "monolith-training-memory-v1",
+        "scope": "major-array-payload-and-input-staging",
+        "config": {
+          "vocab": 258,
+          "dim": 64,
+          "hidden": 192,
+          "layers": 4,
+          "heads": 4,
+          "kv_heads": 2,
+          "context": 256,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "spec": {
+          "steps": 200,
+          "batch": 2,
+          "seq": 64,
+          "accum": 1,
+          "lr": 0.003,
+          "min_lr": 0.0003,
+          "warmup": 10,
+          "weight_decay": 0.01,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 1e-08,
+          "clip": 1,
+          "val_fraction": 0.1
+        },
+        "input": {
+          "kind": "dataset",
+          "shards": 4,
+          "workers": 4,
+          "depth": 8
+        },
+        "components": {
+          "weights_bytes": 854784,
+          "gradients_bytes": 854784,
+          "adam_moments_bytes": 1709568,
+          "rope_bytes": 16384,
+          "backward_workspace_bytes": 590848,
+          "corpus_allowance_bytes": 0,
+          "training_prefetch_allowance_bytes": 131328,
+          "training_activation_bound_bytes": 4739072,
+          "training_input_allowance_bytes": 2048,
+          "evaluation_workspace_bytes": 312832,
+          "evaluation_input_allowance_bytes": 20992
+        },
+        "persistent_bytes": 4157696,
+        "training_bytes": 8898816,
+        "evaluation_bytes": 4491520,
+        "required_bytes": 8898816,
+        "budget_bytes": 0,
+        "fits_budget": true
+      }
+    },
+    {
+      "name": "base-budget1024",
+      "arguments": [
+        "train",
+        "-data",
+        "examples/tiny.txt",
+        "-preset",
+        "base",
+        "-memory-mib",
+        "1024",
+        "-memory-plan"
+      ],
+      "exit_code": 1,
+      "stderr": "error: training memory plan requires 1356230128 bytes (1293.40 MiB), exceeds -memory-mib budget 1073741824 bytes (1024.00 MiB); reduce model, batch, sequence or prefetch, or raise the budget",
+      "plan": {
+        "format": "monolith-training-memory-v1",
+        "scope": "major-array-payload-and-input-staging",
+        "config": {
+          "vocab": 258,
+          "dim": 768,
+          "hidden": 2048,
+          "layers": 12,
+          "heads": 12,
+          "kv_heads": 4,
+          "context": 2048,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "spec": {
+          "steps": 200,
+          "batch": 2,
+          "seq": 64,
+          "accum": 1,
+          "lr": 0.003,
+          "min_lr": 0.0003,
+          "warmup": 10,
+          "weight_decay": 0.01,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 1e-08,
+          "clip": 1,
+          "val_fraction": 0.1
+        },
+        "input": {
+          "kind": "text",
+          "text_bytes": 3760
+        },
+        "components": {
+          "weights_bytes": 302859264,
+          "gradients_bytes": 302859264,
+          "adam_moments_bytes": 605718528,
+          "rope_bytes": 524288,
+          "backward_workspace_bytes": 5112832,
+          "corpus_allowance_bytes": 63984,
+          "training_prefetch_allowance_bytes": 0,
+          "training_activation_bound_bytes": 139087872,
+          "training_input_allowance_bytes": 4096,
+          "evaluation_workspace_bytes": 2756096,
+          "evaluation_input_allowance_bytes": 512
+        },
+        "persistent_bytes": 1217138160,
+        "training_bytes": 1356230128,
+        "evaluation_bytes": 1219894768,
+        "required_bytes": 1356230128,
+        "budget_bytes": 1073741824,
+        "fits_budget": false
+      }
+    }
+  ]
+}

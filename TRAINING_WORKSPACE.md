@@ -32,7 +32,7 @@ For batch 2 and sequence 64 this is 590,848 bytes for tiny and 1,803,264 bytes f
 
 Before allocating scratch, the constructor adds its payload to the existing conservative activation estimate and checks the same 128 Mi-element guard. The original estimate includes a forward tape and allocating-backward transients, so this combined guard deliberately overestimates the new path and may reject shapes near the previous limit. Training validation uses batch 1 and the same sequence length, which also fits while the workspace is retained.
 
-This is a managed activation guard, not a process memory ceiling. Parameters, optimizer moments, input prefetch, Go runtime overhead and unreclaimed garbage are separate. A more detailed configurable memory plan is a later change.
+This is a managed activation guard, not a process memory ceiling. The CLI also checks an optional [startup memory budget](TRAINING_MEMORY.md) that includes parameters, optimizer moments, retained scratch and input staging before tensor allocation. Go runtime overhead and unreclaimed garbage remain outside both estimates.
 
 The architecture, arithmetic order, optimizer, objective, tokenizer, checkpoint format and resume cursor contract are unchanged. Ordinary forward tapes still own their activations. Evaluation now uses a separate [evaluation-only forward workspace](EVALUATION_FORWARD.md), owned within each validation invocation. Its batch-one payload fits inside the existing conservative training activation estimate.
 

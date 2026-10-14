@@ -26,13 +26,15 @@ Every record has `format: "monolith-train-v1"`, absolute committed `step`/`token
 
 | Event | When / extra fields |
 | --- | --- |
-| `start` | Before initial validation. `run` records model, saved schedule, source/tokenizer hashes, Go version, thread/IO settings, and either initialization seed or loaded resume-checkpoint hash. |
+| `start` | Before initial validation. `run` records model, saved schedule, source/tokenizer hashes, Go version, thread/IO settings, and either initialization seed or loaded resume-checkpoint hash. CLI training also includes `run.memory_plan` with the invocation's component estimates and optional budget. |
 | `update` | At `-log-every` and the invocation's final planned update. `loss`/`grad_norm` describe that single update, not an interval average. |
 | `evaluation` | After successful initial, periodic, and final validation. `loss` and actual `targets` are token weighted. |
 | `checkpoint` | After successful periodic/final saves. |
 | `end` | After the loop exits. `status` is `completed`, `stopped`, `canceled`, or `failed`. Validation/setup failures before the loop starts may produce no records. |
 
 Records are written by the training owner, without a logger queue or retained history. Their disk volume grows with event count; in-memory telemetry does not. Metrics contain no raw documents or paths. Start and end absolute counters delimit a resumed invocation; subtract its start counters before calculating throughput.
+
+The [memory plan](TRAINING_MEMORY.md) estimates major live array payload and input staging, independently of runtime heap counters. It is invocation metadata, never checkpoint state. `-memory-plan` and rejected budgets create no telemetry outputs and start no profiler.
 
 ## Timing and memory scope
 
