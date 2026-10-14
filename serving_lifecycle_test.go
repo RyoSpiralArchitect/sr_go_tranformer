@@ -77,8 +77,8 @@ func assertEngineDrained(t *testing.T, e *Engine, released int64) {
 func TestReleaseWaitsForMixedBatchCompute(t *testing.T) {
 	for _, source := range []string{"close", "parent"} {
 		t.Run(source, func(t *testing.T) {
-			m := testModel(t)
-			e, err := newEngine(m, Tokenizer{}, EngineConfig{MaxBatch: 2, Queue: 4, CacheBytes: 1 << 20, StreamBuffer: 64})
+			m := workerTestModel(t, 2)
+			e, err := newEngine(m, Tokenizer{}, EngineConfig{MaxBatch: 2, Queue: 4, CacheBytes: 1 << 20, StreamBuffer: 64, PrefillChunk: 32, KernelWorkers: 4})
 			if err != nil {
 				t.Fatal(err)
 			}

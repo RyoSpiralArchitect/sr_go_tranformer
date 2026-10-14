@@ -1040,6 +1040,74 @@ func parallel(n, work int, fn func(lo, hi int)) {
 	wg.Wait()
 }
 
+// A kernelExecutor belongs to one engine actor. Its fixed workers borrow one
+// kernel's disjoint output ranges, then join before the actor advances. There
+// is no request backlog here: parallel and close must have a single caller,
+// and callbacks must not recursively dispatch work through this executor.
+type kernelExecutor struct {
+	workers   int
+	jobs      chan kernelJob
+	completed chan struct{}
+	lifetime  sync.WaitGroup
+}
+
+type kernelJob struct {
+	lo, hi int
+	fn     func(lo, hi int)
+}
+
+// workers is validated by newEngine (1..256). One worker runs on the actor.
+func newKernelExecutor(workers int) *kernelExecutor {
+	e := &kernelExecutor{workers: workers}
+	if workers > 1 {
+		e.jobs = make(chan kernelJob, workers)
+		e.completed = make(chan struct{}, workers)
+		e.lifetime.Add(workers)
+		for i := 0; i < workers; i++ {
+			go e.run()
+		}
+	}
+	return e
+}
+
+func (e *kernelExecutor) run() {
+	defer e.lifetime.Done()
+	for job := range e.jobs {
+		job.fn(job.lo, job.hi)
+		// A completion acknowledges both the writes and the end of borrowing.
+		// Idle workers must not retain a closure over pooled scratch or KV pages.
+		job = kernelJob{}
+		e.completed <- struct{}{}
+	}
+}
+
+func (e *kernelExecutor) parallel(n, work int, fn func(lo, hi int)) {
+	if e == nil {
+		parallel(n, work, fn)
+		return
+	}
+	workers := min(e.workers, n)
+	if workers < 2 || work < 131072 {
+		fn(0, n)
+		return
+	}
+	for w := 0; w < workers; w++ {
+		e.jobs <- kernelJob{n * w / workers, n * (w + 1) / workers, fn}
+	}
+	for w := 0; w < workers; w++ {
+		<-e.completed
+	}
+}
+
+// Called once by the actor after its final joined kernel. No worker outlives
+// Engine.Close, including engines that were closed without serving a request.
+func (e *kernelExecutor) close() {
+	if e.jobs != nil {
+		close(e.jobs)
+		e.lifetime.Wait()
+	}
+}
+
 type Param struct {
 	Name             string
 	Rows, Cols       int
@@ -1054,12 +1122,16 @@ func linear(x []float32, w *Param, n int) []float32 {
 	return y
 }
 func linearInto(y, x []float32, w *Param, n int) {
+	linearIntoWithExecutor(nil, y, x, w, n)
+}
+
+func linearIntoWithExecutor(e *kernelExecutor, y, x []float32, w *Param, n int) {
 	in, out := w.Cols, w.Rows
 	// Four sequence rows share each weight load. Disjoint 4x32 output tiles can
 	// run on different goroutines, including for a single long hidden vector.
 	outTiles := (out + 31) / 32
 	tasks := ((n + 3) / 4) * outTiles
-	parallel(tasks, n*in*out, func(lo, hi int) {
+	e.parallel(tasks, n*in*out, func(lo, hi int) {
 		for task := lo; task < hi; task++ {
 			r := (task / outTiles) * 4
 			o0 := (task % outTiles) * 32
@@ -1959,6 +2031,10 @@ func (m *Model) DecodeBatch(ctx context.Context, caches []*KVCache, tokens []int
 // The caller must exclusively own all caches and their pools for this call.
 // Cancellation may populate future KV rows, but never commits cache positions.
 func (m *Model) PrefillBatch(ctx context.Context, caches []*KVCache, chunks [][]int) ([]float32, error) {
+	return m.prefillBatch(ctx, caches, chunks, nil)
+}
+
+func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]int, executor *kernelExecutor) ([]float32, error) {
 	c := m.Config
 	sessions := len(caches)
 	if sessions < 1 || sessions > 256 || len(chunks) != sessions {
@@ -2086,9 +2162,9 @@ func (m *Model) PrefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		}
 		region := trace.StartRegion(ctx, "monolith.prefill_layer")
 		rmsInto(w.N, w.X, b.N1, n, c.NormEps)
-		linearInto(w.Q, w.N, b.Q, n)
-		linearInto(w.K, w.N, b.K, n)
-		linearInto(w.V, w.N, b.V, n)
+		linearIntoWithExecutor(executor, w.Q, w.N, b.Q, n)
+		linearIntoWithExecutor(executor, w.K, w.N, b.K, n)
+		linearIntoWithExecutor(executor, w.V, w.N, b.V, n)
 		for i, cache := range rowCaches {
 			m.rope(w.Q[i*d:(i+1)*d], 1, 1, c.Heads, positions[i], false)
 			m.rope(w.K[i*kd:(i+1)*kd], 1, 1, c.KVHeads, positions[i], false)
@@ -2096,7 +2172,7 @@ func (m *Model) PrefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 			copy(k, w.K[i*kd:(i+1)*kd])
 			copy(v, w.V[i*kd:(i+1)*kd])
 		}
-		parallel(n, n*c.Heads*maxPos*hd, func(lo, hi int) {
+		executor.parallel(n, n*c.Heads*maxPos*hd, func(lo, hi int) {
 			for i := lo; i < hi; i++ {
 				cache := rowCaches[i]
 				scores := w.Scores[i*maxPos : (i+1)*maxPos]
@@ -2111,15 +2187,15 @@ func (m *Model) PrefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 				}
 			}
 		})
-		linearInto(w.Tmp, w.A, b.O, n)
+		linearIntoWithExecutor(executor, w.Tmp, w.A, b.O, n)
 		addInPlace(w.X, w.Tmp)
 		rmsInto(w.N, w.X, b.N2, n, c.NormEps)
-		linearInto(w.G, w.N, b.Gate, n)
-		linearInto(w.U, w.N, b.Up, n)
+		linearIntoWithExecutor(executor, w.G, w.N, b.Gate, n)
+		linearIntoWithExecutor(executor, w.U, w.N, b.Up, n)
 		for i, v := range w.G {
 			w.H[i] = float32(float64(v)/(1+math.Exp(-float64(v)))) * w.U[i]
 		}
-		linearInto(w.Tmp, w.H, b.Down, n)
+		linearIntoWithExecutor(executor, w.Tmp, w.H, b.Down, n)
 		addInPlace(w.X, w.Tmp)
 		region.End()
 	}
@@ -2128,7 +2204,7 @@ func (m *Model) PrefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		copy(w.Tmp[i*d:(i+1)*d], w.X[row*d:(row+1)*d])
 	}
 	rmsInto(w.N[:sessions*d], w.Tmp[:sessions*d], m.Final, sessions, c.NormEps)
-	linearInto(w.Logits, w.N[:sessions*d], m.Emb, sessions)
+	linearIntoWithExecutor(executor, w.Logits, w.N[:sessions*d], m.Emb, sessions)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -3098,6 +3174,7 @@ type EngineConfig struct {
 	MaxBatch, Queue                                            int
 	CacheBytes                                                 int64
 	StreamBuffer, PrefillChunk, MixedPrefillChunk, TokenBudget int
+	KernelWorkers                                              int // 0 captures min(GOMAXPROCS,256); 1 runs inline.
 }
 
 type TokenEvent struct {
@@ -3249,7 +3326,7 @@ type engineSession struct {
 type engineCounters struct {
 	Submitted, Completed, Canceled, Failed, Rejected, Active, Reserved, Allocated atomic.Int64
 	InputTokens, GeneratedTokens, Ticks, SlowConsumers, PeakTickTokens            atomic.Int64
-	Released, Computing                                                           atomic.Int64
+	Released, Computing, KernelWorkers                                            atomic.Int64
 }
 type EngineStats struct {
 	Submitted        int64 `json:"submitted"`
@@ -3269,6 +3346,7 @@ type EngineStats struct {
 	Released         int64 `json:"released"`
 	Computing        int64 `json:"computing"`
 	AdmissionUsed    int   `json:"admission_used"`
+	KernelWorkers    int64 `json:"kernel_workers"`
 }
 
 var latencyBounds = [...]float64{.0001, .0005, .001, .005, .01, .05, .1, .5, 1, 5, 30, 120}
@@ -3340,6 +3418,12 @@ func newEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
 	if c.TokenBudget == 0 {
 		c.TokenBudget = max(c.MaxBatch, 64)
 	}
+	if c.KernelWorkers == 0 {
+		c.KernelWorkers = min(runtime.GOMAXPROCS(0), 256)
+	}
+	if c.KernelWorkers < 1 || c.KernelWorkers > 256 {
+		return nil, errors.New("invalid kernel worker count (1..256, or 0 for automatic)")
+	}
 	if c.MaxBatch < 1 || c.MaxBatch > 256 || c.Queue < 1 || c.Queue > 65536 || c.CacheBytes < 1 || c.CacheBytes > 1<<40 || c.StreamBuffer < 1 || c.StreamBuffer > 4096 || c.PrefillChunk < 1 || c.PrefillChunk > 1024 || c.MixedPrefillChunk < 1 || c.MixedPrefillChunk > 1024 || c.TokenBudget < c.MaxBatch || c.TokenBudget > 1024 {
 		return nil, errors.New("invalid engine capacity or token budget")
 	}
@@ -3360,7 +3444,7 @@ func newEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
 }
 func (e *Engine) Stats() EngineStats {
 	s := &e.stats
-	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load(), Released: s.Released.Load(), Computing: s.Computing.Load(), AdmissionUsed: len(e.admission)}
+	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load(), Released: s.Released.Load(), Computing: s.Computing.Load(), AdmissionUsed: len(e.admission), KernelWorkers: s.KernelWorkers.Load()}
 }
 func (e *Engine) Close() { e.cancel(); <-e.done }
 func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streaming bool) (*engineRequest, error) {
@@ -3499,6 +3583,14 @@ func scheduleTokens(sessions []*engineSession, counts []int, budget, chunk, mixe
 }
 func (e *Engine) run() {
 	defer close(e.done)
+	executor := newKernelExecutor(e.Config.KernelWorkers)
+	if executor.workers > 1 {
+		e.stats.KernelWorkers.Store(int64(executor.workers))
+	}
+	defer func() {
+		executor.close()
+		e.stats.KernelWorkers.Store(0)
+	}()
 	sessions := make([]*engineSession, 0, e.Config.MaxBatch)
 	caches := make([]*KVCache, e.Config.MaxBatch)
 	chunks := make([][]int, e.Config.MaxBatch)
@@ -3641,7 +3733,7 @@ func (e *Engine) run() {
 		var logits []float32
 		var err error
 		trace.WithRegion(e.ctx, "monolith.batch", func() {
-			logits, err = e.Model.PrefillBatch(e.ctx, caches[:n], chunks[:n])
+			logits, err = e.Model.prefillBatch(e.ctx, caches[:n], chunks[:n], executor)
 		})
 		computeDone := time.Now() // PrefillBatch joins all kernels before returning.
 		e.batchCompute.observe(computeDone.Sub(computeStart))
@@ -3850,6 +3942,7 @@ func (e *Engine) Handler() http.Handler {
 		fmt.Fprintf(w, "monolith_submitted_total %d\nmonolith_completed_total %d\nmonolith_canceled_total %d\nmonolith_failed_total %d\nmonolith_rejected_total %d\nmonolith_active %d\nmonolith_queue_depth %d\nmonolith_kv_reserved_bytes %d\nmonolith_kv_allocated_bytes %d\n", s.Submitted, s.Completed, s.Canceled, s.Failed, s.Rejected, s.Active, s.Queue, s.KVReservedBytes, s.KVAllocatedBytes)
 		fmt.Fprintf(w, "monolith_input_tokens_total %d\nmonolith_generated_tokens_total %d\nmonolith_ticks_total %d\nmonolith_slow_consumers_total %d\nmonolith_peak_tick_tokens %d\n", s.InputTokens, s.GeneratedTokens, s.Ticks, s.SlowConsumers, s.PeakTickTokens)
 		fmt.Fprintf(w, "monolith_released_total %d\nmonolith_computing_sessions %d\nmonolith_admission_used %d\n", s.Released, s.Computing, s.AdmissionUsed)
+		fmt.Fprintf(w, "monolith_kernel_workers %d\n", s.KernelWorkers)
 		e.queueLatency.write(w, "monolith_queue_wait_seconds")
 		e.firstTokenLatency.write(w, "monolith_first_token_seconds")
 		e.tokenGap.write(w, "monolith_token_gap_seconds")
@@ -4950,6 +5043,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 	queue := f.Int("queue", 32, "bounded request queue capacity")
 	memory := f.Int64("kv-mib", 256, "hard KV page budget in MiB")
 	tracePath := f.String("trace", "", "new Go execution trace file for this serve invocation (process-wide)")
+	workers := f.Int("kernel-workers", 0, "reusable compute workers per engine (1..256); 0 captures min(threads,256), 1 runs inline")
 	threads := threadFlag(f)
 	if err := parse(f, args); err != nil {
 		return err
@@ -4965,7 +5059,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 		return err
 	}
 	m.DropOptimizer()
-	e, err := NewEngine(m, tok, EngineConfig{MaxBatch: *batch, Queue: *queue, CacheBytes: *memory << 20, PrefillChunk: *chunk, MixedPrefillChunk: *mixedChunk, TokenBudget: *budget, StreamBuffer: *buffer})
+	e, err := NewEngine(m, tok, EngineConfig{MaxBatch: *batch, Queue: *queue, CacheBytes: *memory << 20, PrefillChunk: *chunk, MixedPrefillChunk: *mixedChunk, TokenBudget: *budget, StreamBuffer: *buffer, KernelWorkers: *workers})
 	if err != nil {
 		return err
 	}
@@ -4979,7 +5073,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 	defer server.Close()
 	result := make(chan error, 1)
 	go func() { result <- server.ListenAndServe() }()
-	fmt.Fprintf(os.Stderr, "serving %s parameters=%d max_batch=%d queue=%d kv_mib=%d workers=%d prefill_chunk=%d mixed_prefill_chunk=%d token_budget=%d stream_buffer=%d\n", *addr, m.Config.ParameterCount(), *batch, *queue, *memory, runtime.GOMAXPROCS(0), e.Config.PrefillChunk, e.Config.MixedPrefillChunk, e.Config.TokenBudget, e.Config.StreamBuffer)
+	fmt.Fprintf(os.Stderr, "serving %s parameters=%d max_batch=%d queue=%d kv_mib=%d threads=%d kernel_workers=%d prefill_chunk=%d mixed_prefill_chunk=%d token_budget=%d stream_buffer=%d\n", *addr, m.Config.ParameterCount(), *batch, *queue, *memory, runtime.GOMAXPROCS(0), e.Config.KernelWorkers, e.Config.PrefillChunk, e.Config.MixedPrefillChunk, e.Config.TokenBudget, e.Config.StreamBuffer)
 	select {
 	case err = <-result:
 		if !errors.Is(err, http.ErrServerClosed) {
