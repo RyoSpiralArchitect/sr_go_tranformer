@@ -1,0 +1,41 @@
+File: baseline
+Type: alloc_space
+Time: 2026-10-14 18:02:17 JST
+Showing nodes accounting for 1488.35MB, 99.19% of 1500.45MB total
+Dropped 34 nodes (cum <= 7.50MB)
+      flat  flat%   sum%        cum   cum%
+  461.66MB 30.77% 30.77%   463.16MB 30.87%  main.linear (inline)
+  291.12MB 19.40% 50.17%   291.62MB 19.44%  main.linearBackward
+  165.94MB 11.06% 61.23%   165.94MB 11.06%  main.swigluBackward
+  127.22MB  8.48% 69.71%   127.22MB  8.48%  main.swiglu
+  107.37MB  7.16% 76.86%   107.37MB  7.16%  main.rms
+   93.81MB  6.25% 83.12%    93.81MB  6.25%  main.add (inline)
+   67.25MB  4.48% 87.60%    67.25MB  4.48%  main.rmsBackward
+   53.40MB  3.56% 91.16%    53.40MB  3.56%  main.(*Model).attention
+   51.39MB  3.43% 94.58%    51.39MB  3.43%  main.(*Model).attentionBackward
+   30.46MB  2.03% 96.61%    30.46MB  2.03%  main.ensureMoments (inline)
+   15.14MB  1.01% 97.62%    15.14MB  1.01%  main.allocateModel.func1 (inline)
+   11.64MB  0.78% 98.40%    11.64MB  0.78%  main.(*Model).ZeroGrad (inline)
+   10.94MB  0.73% 99.13%   855.90MB 57.04%  main.(*Model).Forward
+       1MB 0.067% 99.19%    16.14MB  1.08%  main.allocateModel
+         0     0% 99.19%   580.76MB 38.71%  main.(*Model).Backward
+         0     0% 99.19%  1451.34MB 96.73%  main.(*trainingObserver).phase
+         0     0% 99.19%    16.14MB  1.08%  main.NewModel (inline)
+         0     0% 99.19%    16.14MB  1.08%  main.configuredModel
+         0     0% 99.19%   321.54MB 21.43%  main.evaluateDataset (inline)
+         0     0% 99.19%   321.54MB 21.43%  main.evaluateDatasetSplit
+         0     0% 99.19%  1497.95MB 99.83%  main.main
+         0     0% 99.19%  1127.26MB 75.13%  main.observedDatasetUpdate
+         0     0% 99.19%    11.64MB  0.78%  main.observedDatasetUpdate.func1
+         0     0% 99.19%  1115.12MB 74.32%  main.observedMicrobatch
+         0     0% 99.19%   534.36MB 35.61%  main.observedMicrobatch.func1
+         0     0% 99.19%   580.76MB 38.71%  main.observedMicrobatch.func2
+         0     0% 99.19%  1497.95MB 99.83%  main.run
+         0     0% 99.19%  1497.95MB 99.83%  main.runTrain
+         0     0% 99.19%  1481.80MB 98.76%  main.trainDatasetLoop
+         0     0% 99.19%  1127.26MB 75.13%  main.trainDatasetLoop.func1
+         0     0% 99.19%   321.54MB 21.43%  main.trainDatasetLoop.func2
+         0     0% 99.19%  1481.80MB 98.76%  main.trainingLoop
+         0     0% 99.19%   321.54MB 21.43%  main.trainingLoop.func4 (inline)
+         0     0% 99.19%   321.54MB 21.43%  main.trainingLoop.func4.func1
+         0     0% 99.19%  1497.95MB 99.83%  runtime.main

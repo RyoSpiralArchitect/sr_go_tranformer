@@ -1,0 +1,31 @@
+{
+  "baseline_commit": "094c0b83480dd0e158b9d6bfad70e59ae0db34e2",
+  "candidate_source_sha256": {
+    "monolith.go": "42acbfaa1dbe7f36215fec3cca218566b30d411871e9e77e4e74df8140d19f7e",
+    "workspace_exact_test.go": "cffc0c32ec04f3c1b0c37eccc296e6f1c26c77f80c92e94f5d5eaebc5a5f400f",
+    "workspace_boundary_test.go": "611ed722449e76819495ec4eed42827a36508bc6bf51abfbcba1544a778d0b74",
+    "workspace_training_test.go": "37fbabd18005fba97628b3b9fa1872b5ee805975d7ed1eb994bb72b2c6ff2ee6"
+  },
+  "toolchain": "go1.27.1 darwin/arm64",
+  "hardware": "Apple M4",
+  "build": "CGO_ENABLED=0 go build -trimpath",
+  "binaries": {
+    "baseline": "bb78fcfa9f88a9bcfec889a3354f4730a49783b7a93bc771a6f2dbc9992b2462",
+    "candidate": "c43c6d0ccaa2ccf12acc7ab3cb5bc3759df358c87ba9a3eb7606293c04b148ff"
+  },
+  "local_profile_sha256": {
+    "baseline-alloc.pprof": "d73f90383ce25bf7bef434297bd2208ab8dc9e253343db68ba831df538bc1293",
+    "candidate-alloc.pprof": "d5c80fcc00dca6529922e10d20c030dde09efacfb4b72244230d8cb5bc80cb37",
+    "baseline-small-alloc.pprof": "4fe617190e83ad1a1f376441b192a3f42afcda85fe08849ca10489bc178426d8",
+    "candidate-small-alloc.pprof": "787076bb4cda98e386be658f38e6d9ffe7dd9b379a32efa68771860b0b53bddc"
+  },
+  "profile_checkpoint_sha256": {
+    "baseline-profile.mglm": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697",
+    "candidate-profile.mglm": "a1a3847893cde667f245d51dd7a41f22d47dfcfceefd892ebcf8d35722aa3697",
+    "baseline-small-profile.mglm": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31",
+    "candidate-small-profile.mglm": "4ab6d029a17e041e43f867c5b37e1370561a85f957c0c940a34a1eede51e4c31"
+  },
+  "timing_scope": "Five alternating baseline/candidate pairs per preset; unprofiled full training processes. Profiled allocation measurements are separate, one process per preset and implementation.",
+  "benchmark_command": "GOMAXPROCS=4 go test -run '^$' -bench '^BenchmarkBackwardWorkspace' -benchtime=20x -count=3 .",
+  "benchmark_scope": "Both schedules from candidate source, fixed forward tape, three repeats of twenty backward calls; constructor benchmark separate. Not alternating and not used for a speed claim."
+}

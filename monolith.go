@@ -1092,8 +1092,16 @@ func linearInto(y, x []float32, w *Param, n int) {
 
 // Gradients accumulate, which is necessary for tied weights and microbatches.
 func linearBackward(x []float32, w *Param, dy []float32, n int) []float32 {
+	dx := make([]float32, n*w.Cols)
+	linearBackwardInto(dx, x, w, dy, n)
+	return dx
+}
+
+// dx must be disjoint from x, dy and parameter storage. Clear only scratch:
+// parameter gradients retain contributions from tied weights and microbatches.
+func linearBackwardInto(dx, x []float32, w *Param, dy []float32, n int) {
 	in, out := w.Cols, w.Rows
-	dx := make([]float32, n*in)
+	clear(dx)
 	// Four independent rows share each weight load. Each output element still
 	// accumulates o in ascending order, exactly as the scalar kernel did.
 	parallel((n+3)/4, n*in*out, func(lo, hi int) {
@@ -1154,7 +1162,6 @@ func linearBackward(x []float32, w *Param, dy []float32, n int) []float32 {
 			}
 		}
 	})
-	return dx
 }
 func rms(x []float32, w *Param, n int, eps float64) ([]float32, []float32) {
 	d := w.Cols
@@ -1174,8 +1181,12 @@ func rms(x []float32, w *Param, n int, eps float64) ([]float32, []float32) {
 	return y, inv
 }
 func rmsBackward(x []float32, w *Param, inv, dy []float32, n int) []float32 {
-	d := w.Cols
 	dx := make([]float32, len(x))
+	rmsBackwardInto(dx, x, w, inv, dy, n)
+	return dx
+}
+func rmsBackwardInto(dx, x []float32, w *Param, inv, dy []float32, n int) {
+	d := w.Cols
 	for r := 0; r < n; r++ {
 		var dot float64
 		for j := 0; j < d; j++ {
@@ -1190,7 +1201,6 @@ func rmsBackward(x []float32, w *Param, inv, dy []float32, n int) []float32 {
 			dx[i] = float32(a * (float64(dy[i])*float64(w.Data[j]) - float64(x[i])*correction))
 		}
 	}
-	return dx
 }
 func add(a, b []float32) []float32 {
 	y := make([]float32, len(a))
@@ -1214,13 +1224,16 @@ func swiglu(g, u []float32) []float32 {
 }
 func swigluBackward(g, u, dy []float32) ([]float32, []float32) {
 	dg, du := make([]float32, len(g)), make([]float32, len(g))
+	swigluBackwardInto(dg, du, g, u, dy)
+	return dg, du
+}
+func swigluBackwardInto(dg, du, g, u, dy []float32) {
 	for i, v := range g {
 		x := float64(v)
 		s := 1 / (1 + math.Exp(-x))
 		dg[i] = dy[i] * u[i] * float32(s+x*s*(1-s))
 		du[i] = dy[i] * float32(x*s)
 	}
-	return dg, du
 }
 
 // Model owns parameters; each Forward owns its tape and each decoder its cache.
@@ -1370,11 +1383,18 @@ func (m *Model) attention(q, k, v []float32, batch, seq int) ([]float32, []float
 	return out, lse
 }
 func (m *Model) attentionBackward(q, k, v, a []float32, lse []float64, dy []float32, batch, seq int) ([]float32, []float32, []float32) {
+	dq, dk, dv := make([]float32, len(q)), make([]float32, len(k)), make([]float32, len(v))
+	m.attentionBackwardInto(dq, dk, dv, q, k, v, a, lse, dy, batch, seq)
+	return dq, dk, dv
+}
+func (m *Model) attentionBackwardInto(dq, dk, dv, q, k, v, a []float32, lse []float64, dy []float32, batch, seq int) {
+	clear(dq)
+	clear(dk)
+	clear(dv)
 	c := m.Config
 	d, kd, hd := c.Dim, c.KVDim(), c.Dim/c.Heads
 	group := c.Heads / c.KVHeads
 	scale := float32(1 / math.Sqrt(float64(hd)))
-	dq, dk, dv := make([]float32, len(q)), make([]float32, len(k)), make([]float32, len(v))
 	// Partition by KV head, not Q head: grouped queries share K/V gradients.
 	parallel(batch*c.KVHeads, batch*c.Heads*seq*seq*hd, func(lo, hi int) {
 		for bkh := lo; bkh < hi; bkh++ {
@@ -1405,7 +1425,6 @@ func (m *Model) attentionBackward(q, k, v, a []float32, lse []float64, dy []floa
 			}
 		}
 	})
-	return dq, dk, dv
 }
 
 type LayerTape struct {
@@ -1422,15 +1441,82 @@ type Tape struct {
 	Used                 bool
 }
 
+// Conservative FP32-equivalent bound for a Forward tape and allocating Backward.
+// This is a managed activation guard, not an estimate of peak process RSS.
+func activationElements(c Config, batch, seq int) int64 {
+	return int64(batch)*int64(seq)*(int64(c.Layers)*(12*int64(c.Dim)+4*int64(c.KVDim())+6*int64(c.Hidden))+4*int64(c.Vocab)) + 2*int64(batch)*int64(c.Heads)*int64(seq)*int64(c.Layers)
+}
+
+// The serial training loop owns this fixed-shape scratch for its entire run.
+// It never retains a tape or input lease and is not part of Model or TrainState.
+// Buffers are disjoint; Into kernels finish all workers before reuse. Like
+// parameter mutation, workspace use requires exclusive access by its trainer.
+type backwardWorkspace struct {
+	model                      *Model
+	config                     Config
+	batch, seq                 int
+	loss                       []float32
+	residual, projection, temp []float32
+	dq, dh, dg, du, dk, dv     []float32
+}
+
+func backwardWorkspaceElements(c Config, batch, seq int) int64 {
+	return int64(batch) * int64(seq) * (int64(c.Vocab) + 4*int64(c.Dim) + 3*int64(c.Hidden) + 2*int64(c.KVDim()))
+}
+
+func newBackwardWorkspace(m *Model, batch, seq int) (*backwardWorkspace, error) {
+	if m == nil {
+		return nil, errors.New("workspace requires a model")
+	}
+	c := m.Config
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	if batch < 1 || batch > 4096 || seq < 1 || seq > c.Context {
+		return nil, errors.New("invalid workspace shape or context length")
+	}
+	// Keep the existing conservative guard and charge persistent scratch too.
+	// Training validation uses batch=1 and the same sequence length, so it also
+	// fits while scratch is retained. Shapes near the old limit may now fail.
+	if activationElements(c, batch, seq)+backwardWorkspaceElements(c, batch, seq) > maxActivationElements {
+		return nil, errors.New("activation budget including backward workspace exceeded; reduce batch, sequence, or model size")
+	}
+	n := batch * seq
+	return &backwardWorkspace{
+		model: m, config: c, batch: batch, seq: seq,
+		loss: make([]float32, n*c.Vocab), residual: make([]float32, n*c.Dim),
+		projection: make([]float32, n*c.Dim), temp: make([]float32, n*c.Dim), dq: make([]float32, n*c.Dim),
+		dh: make([]float32, n*c.Hidden), dg: make([]float32, n*c.Hidden), du: make([]float32, n*c.Hidden),
+		dk: make([]float32, n*c.KVDim()), dv: make([]float32, n*c.KVDim()),
+	}, nil
+}
+
+func (w *backwardWorkspace) validate(m *Model, batch, seq int) error {
+	if w == nil || w.model != m || w.config != m.Config || w.batch != batch || w.seq != seq {
+		return errors.New("backward workspace owner, configuration, or shape mismatch")
+	}
+	n, c := batch*seq, w.config
+	for _, buffer := range []struct {
+		data []float32
+		size int
+	}{
+		{w.loss, n * c.Vocab}, {w.residual, n * c.Dim}, {w.projection, n * c.Dim}, {w.temp, n * c.Dim}, {w.dq, n * c.Dim},
+		{w.dh, n * c.Hidden}, {w.dg, n * c.Hidden}, {w.du, n * c.Hidden}, {w.dk, n * c.KVDim()}, {w.dv, n * c.KVDim()},
+	} {
+		if len(buffer.data) != buffer.size || cap(buffer.data) != buffer.size {
+			return errors.New("backward workspace storage mismatch")
+		}
+	}
+	return nil
+}
+
 func (m *Model) Forward(ids []int, batch, seq int) (*Tape, error) {
 	c := m.Config
 	if batch < 1 || batch > 4096 || seq < 1 || seq > c.Context || len(ids) != batch*seq {
 		return nil, errors.New("invalid input shape or context length")
 	}
 	n := batch * seq
-	// Conservative bound includes retained tapes plus transient backward arrays.
-	elements := int64(n)*(int64(c.Layers)*(12*int64(c.Dim)+4*int64(c.KVDim())+6*int64(c.Hidden))+4*int64(c.Vocab)) + 2*int64(batch)*int64(c.Heads)*int64(seq)*int64(c.Layers)
-	if elements > maxActivationElements {
+	if activationElements(c, batch, seq) > maxActivationElements {
 		return nil, errors.New("activation budget exceeded; reduce batch, sequence, or model size")
 	}
 	x := make([]float32, n*c.Dim)
@@ -1471,17 +1557,29 @@ func CrossEntropy(logits []float32, targets []int, vocab int, scale float64, gra
 	if gradient {
 		grad = make([]float32, len(logits))
 	}
+	loss, err := crossEntropyInto(grad, logits, targets, vocab, scale)
+	if err != nil {
+		return 0, nil, err
+	}
+	return loss, grad, nil
+}
+
+// A nil destination scores only; a non-nil destination is overwritten in full.
+func crossEntropyInto(grad, logits []float32, targets []int, vocab int, scale float64) (float64, error) {
+	if len(targets) == 0 || vocab < 1 || len(logits) != len(targets)*vocab || !finite(scale) || (grad != nil && len(grad) != len(logits)) {
+		return 0, errors.New("invalid loss input")
+	}
 	var loss float64
 	for r, target := range targets {
 		if target < 0 || target >= vocab {
-			return 0, nil, errors.New("target outside vocabulary")
+			return 0, errors.New("target outside vocabulary")
 		}
 		row := logits[r*vocab : (r+1)*vocab]
 		maxLogit := math.Inf(-1)
 		for _, v := range row {
 			x := float64(v)
 			if !finite(x) {
-				return 0, nil, errors.New("nonfinite logit")
+				return 0, errors.New("nonfinite logit")
 			}
 			if x > maxLogit {
 				maxLogit = x
@@ -1492,7 +1590,7 @@ func CrossEntropy(logits []float32, targets []int, vocab int, scale float64, gra
 			sum += math.Exp(float64(v) - maxLogit)
 		}
 		loss += math.Log(sum) + maxLogit - float64(row[target])
-		if gradient {
+		if grad != nil {
 			for j, v := range row {
 				g := math.Exp(float64(v)-maxLogit) / sum
 				if j == target {
@@ -1502,9 +1600,12 @@ func CrossEntropy(logits []float32, targets []int, vocab int, scale float64, gra
 			}
 		}
 	}
-	return loss / float64(len(targets)), grad, nil
+	return loss / float64(len(targets)), nil
 }
 func (m *Model) Backward(t *Tape, targets []int, scale float64) (float64, error) {
+	return m.backward(t, targets, scale, nil)
+}
+func (m *Model) backward(t *Tape, targets []int, scale float64, w *backwardWorkspace) (float64, error) {
 	if t == nil || t.Model != m || t.Revision != m.Revision || t.Used {
 		return 0, errors.New("tape is foreign, stale, or already consumed")
 	}
@@ -1513,11 +1614,25 @@ func (m *Model) Backward(t *Tape, targets []int, scale float64) (float64, error)
 			return 0, errors.New("call ZeroGrad before Backward")
 		}
 	}
-	loss, dy, err := CrossEntropy(t.Logits, targets, m.Config.Vocab, scale, true)
+	var loss float64
+	var dy []float32
+	var err error
+	if w == nil {
+		loss, dy, err = CrossEntropy(t.Logits, targets, m.Config.Vocab, scale, true)
+	} else {
+		if err = w.validate(m, t.Batch, t.Seq); err != nil {
+			return 0, err
+		}
+		loss, err = crossEntropyInto(w.loss, t.Logits, targets, m.Config.Vocab, scale)
+	}
 	if err != nil {
 		return 0, err
 	}
 	t.Used = true
+	if w != nil {
+		m.backwardInto(t, w)
+		return loss, nil
+	}
 	n := t.Batch * t.Seq
 	dx := linearBackward(t.Norm, m.Emb, dy, n)
 	dx = rmsBackward(t.X, m.Final, t.Inv, dx, n)
@@ -1544,6 +1659,42 @@ func (m *Model) Backward(t *Tape, targets []int, scale float64) (float64, error)
 		}
 	}
 	return loss, nil
+}
+
+func (m *Model) backwardInto(t *Tape, w *backwardWorkspace) {
+	n := t.Batch * t.Seq
+	linearBackwardInto(w.temp, t.Norm, m.Emb, w.loss, n)
+	rmsBackwardInto(w.residual, t.X, m.Final, t.Inv, w.temp, n)
+	for i := len(m.Blocks) - 1; i >= 0; i-- {
+		b, l := m.Blocks[i], t.Layers[i]
+		// The residual gradient lives across the whole block. The projection
+		// sum survives each temporary contribution and its following RMSNorm.
+		linearBackwardInto(w.dh, l.H, b.Down, w.residual, n)
+		swigluBackwardInto(w.dg, w.du, l.Gate, l.Up, w.dh)
+		linearBackwardInto(w.projection, l.N2, b.Gate, w.dg, n)
+		linearBackwardInto(w.temp, l.N2, b.Up, w.du, n)
+		addInPlace(w.projection, w.temp)
+		rmsBackwardInto(w.temp, l.U, b.N2, l.R2, w.projection, n)
+		addInPlace(w.residual, w.temp)
+		linearBackwardInto(w.temp, l.A, b.O, w.residual, n)
+		m.attentionBackwardInto(w.dq, w.dk, w.dv, l.Q, l.K, l.V, l.A, l.LSE, w.temp, t.Batch, t.Seq)
+		m.rope(w.dq, t.Batch, t.Seq, m.Config.Heads, 0, true)
+		m.rope(w.dk, t.Batch, t.Seq, m.Config.KVHeads, 0, true)
+		// Attention has finished reading temp; K/V projections may now reuse it.
+		linearBackwardInto(w.projection, l.N1, b.Q, w.dq, n)
+		linearBackwardInto(w.temp, l.N1, b.K, w.dk, n)
+		addInPlace(w.projection, w.temp)
+		linearBackwardInto(w.temp, l.N1, b.V, w.dv, n)
+		addInPlace(w.projection, w.temp)
+		rmsBackwardInto(w.temp, l.X, b.N1, l.R1, w.projection, n)
+		addInPlace(w.residual, w.temp)
+	}
+	d := m.Config.Dim
+	for r, id := range t.IDs {
+		for j := 0; j < d; j++ {
+			m.Emb.Grad[id*d+j] += w.residual[r*d+j]
+		}
+	}
 }
 
 // KV pages are allocated lazily. The inference actor alone owns its page pool;
@@ -2269,16 +2420,21 @@ func sampleBatch(data []int, batch, seq int, rng *RNG) ([]int, []int) {
 	return x, y
 }
 func trainUpdate(m *Model, s *TrainState, data []int) (float64, float64, error) {
-	return observedTrainUpdate(context.Background(), m, s, data, nil)
+	return observedTrainUpdate(context.Background(), m, s, data, nil, nil)
 }
-func observedTrainUpdate(ctx context.Context, m *Model, s *TrainState, data []int, observer *trainingObserver) (float64, float64, error) {
+func observedTrainUpdate(ctx context.Context, m *Model, s *TrainState, data []int, observer *trainingObserver, w *backwardWorkspace) (float64, float64, error) {
 	spec := s.Spec
+	if w != nil {
+		if err := w.validate(m, spec.Batch, spec.Seq); err != nil {
+			return 0, 0, err
+		}
+	}
 	_ = observer.phase(ctx, "zero_grad", func() error { m.ZeroGrad(); return nil })
 	var loss float64
 	for micro := 0; micro < spec.Accum; micro++ {
 		var x, y []int
 		_ = observer.phase(ctx, "input", func() error { x, y = sampleBatch(data, spec.Batch, spec.Seq, &s.RNG); return nil })
-		l, err := observedMicrobatch(ctx, m, spec, x, y, observer)
+		l, err := observedMicrobatch(ctx, m, spec, x, y, observer, w)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -2330,10 +2486,15 @@ func validateDatasetResume(d *TokenDataset, tok Tokenizer, s *TrainState) error 
 }
 
 func trainDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *TokenPrefetch) (float64, float64, error) {
-	return observedDatasetUpdate(ctx, m, s, p, nil)
+	return observedDatasetUpdate(ctx, m, s, p, nil, nil)
 }
-func observedDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *TokenPrefetch, observer *trainingObserver) (float64, float64, error) {
+func observedDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *TokenPrefetch, observer *trainingObserver, w *backwardWorkspace) (float64, float64, error) {
 	spec := s.Spec
+	if w != nil {
+		if err := w.validate(m, spec.Batch, spec.Seq); err != nil {
+			return 0, 0, err
+		}
+	}
 	_ = observer.phase(ctx, "zero_grad", func() error { m.ZeroGrad(); return nil })
 	var loss float64
 	var after DatasetCursor
@@ -2343,7 +2504,7 @@ func observedDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *Toke
 		if err != nil {
 			return 0, 0, err
 		}
-		l, err := observedMicrobatch(ctx, m, spec, b.X, b.Y, observer)
+		l, err := observedMicrobatch(ctx, m, spec, b.X, b.Y, observer, w)
 		after = b.After
 		b.Release()
 		if err != nil {
@@ -2365,12 +2526,12 @@ func observedDatasetUpdate(ctx context.Context, m *Model, s *TrainState, p *Toke
 	return loss, norm, nil
 }
 
-func observedMicrobatch(ctx context.Context, m *Model, spec TrainSpec, x, y []int, observer *trainingObserver) (float64, error) {
+func observedMicrobatch(ctx context.Context, m *Model, spec TrainSpec, x, y []int, observer *trainingObserver, w *backwardWorkspace) (float64, error) {
 	var tape *Tape
 	err := observer.phase(ctx, "forward", func() (err error) { tape, err = m.Forward(x, spec.Batch, spec.Seq); return err })
 	var loss float64
 	if err == nil {
-		err = observer.phase(ctx, "backward", func() (err error) { loss, err = m.Backward(tape, y, 1/float64(spec.Accum)); return err })
+		err = observer.phase(ctx, "backward", func() (err error) { loss, err = m.backward(tape, y, 1/float64(spec.Accum), w); return err })
 	}
 	return loss, err
 }
@@ -3677,8 +3838,15 @@ type loopOptions struct {
 }
 
 func trainLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, train, val []int, o loopOptions) error {
+	if err := s.Validate(m.Config); err != nil {
+		return err
+	}
+	w, err := newBackwardWorkspace(m, s.Spec.Batch, s.Spec.Seq)
+	if err != nil {
+		return err
+	}
 	return trainingLoop(ctx, m, tok, s, int64(len(train)), int64(len(val)), o,
-		func() (float64, float64, error) { return observedTrainUpdate(ctx, m, s, train, o.Observer) },
+		func() (float64, float64, error) { return observedTrainUpdate(ctx, m, s, train, o.Observer, w) },
 		func() (float64, int, error) { return evaluate(ctx, m, val, s.Spec.Seq, o.EvalBatches) })
 }
 func trainDatasetLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, d *TokenDataset, workers, depth int, o loopOptions) error {
@@ -3686,6 +3854,10 @@ func trainDatasetLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainStat
 		return err
 	}
 	if err := validateDatasetResume(d, tok, s); err != nil {
+		return err
+	}
+	w, err := newBackwardWorkspace(m, s.Spec.Batch, s.Spec.Seq)
+	if err != nil {
 		return err
 	}
 	c := PrefetchConfig{Batch: s.Spec.Batch, Seq: s.Spec.Seq, Workers: workers, Depth: depth, Seed: s.Dataset.OrderSeed, Shuffle: true}
@@ -3702,7 +3874,7 @@ func trainDatasetLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainStat
 		counts[shard.Split] += shard.Tokens
 	}
 	return trainingLoop(ctx, m, tok, s, counts["train"], counts["validation"], o,
-		func() (float64, float64, error) { return observedDatasetUpdate(ctx, m, s, p, o.Observer) },
+		func() (float64, float64, error) { return observedDatasetUpdate(ctx, m, s, p, o.Observer, w) },
 		func() (float64, int, error) { return evaluateDataset(ctx, m, d, s.Spec.Seq, o.EvalBatches) })
 }
 func trainingLoop(ctx context.Context, m *Model, tok Tokenizer, s *TrainState, trainTokens, valTokens int64, o loopOptions, update func() (float64, float64, error), eval func() (float64, int, error)) (result error) {

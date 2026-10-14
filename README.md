@@ -14,6 +14,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Greedy, temperature, top-k, and top-p sampling with repetition penalties.
 - Atomic checkpoints containing model weights, optimizer state, tokenizer, and training progress.
 - Optional JSONL training metrics and standard Go CPU/allocation profiles.
+- Trainer-owned backward scratch with fixed-shape reuse and exact numerical checks.
 
 ## Requirements
 
@@ -98,6 +99,8 @@ Evaluate the same packed dataset independently and retain a reproducible JSON re
 Evaluation defaults to the validation split. Receipts identify the checkpoint, dataset, tokenizer, scoring method and actual target range. With matching settings, standalone dataset evaluation agrees with training validation.
 
 To measure training, add `-metrics runs/train.jsonl`, `-cpu-profile runs/cpu.pprof`, or `-alloc-profile runs/alloc.pprof` to `train`. These require new files in existing directories and also work with `-resume`. See [training measurement](TRAINING_MEASUREMENT.md) for event semantics, phase timing, profile scope and comparison guidance.
+
+Training reuses a fixed-size backward workspace owned by the training loop. See [workspace ownership and validation](TRAINING_WORKSPACE.md) for lifetime rules, the conservative memory guard, and measured allocation changes.
 
 The [held-out training validation](TRAINING_VALIDATION.md) provides a small authored fixture, complete evaluation receipts and matched CPU optimization measurements. The standard-library Go comparison tool can repeat the same checks against two local executables.
 

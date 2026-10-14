@@ -1,0 +1,35 @@
+File: candidate
+Type: alloc_space
+Time: 2026-10-14 18:02:22 JST
+Showing nodes accounting for 904.68MB, 98.83% of 915.42MB total
+Dropped 42 nodes (cum <= 4.58MB)
+      flat  flat%   sum%        cum   cum%
+  443.82MB 48.48% 48.48%   445.32MB 48.65%  main.linear (inline)
+     126MB 13.76% 62.25%      126MB 13.76%  main.swiglu
+  107.07MB 11.70% 73.94%   107.07MB 11.70%  main.add (inline)
+   97.64MB 10.67% 84.61%    97.64MB 10.67%  main.rms
+   60.83MB  6.65% 91.26%    60.83MB  6.65%  main.(*Model).attention
+   30.77MB  3.36% 94.62%    30.77MB  3.36%  main.ensureMoments (inline)
+   15.82MB  1.73% 96.35%    15.82MB  1.73%  main.allocateModel.func1 (inline)
+   14.47MB  1.58% 97.93%    14.47MB  1.58%  main.(*Model).ZeroGrad (inline)
+    7.75MB  0.85% 98.77%   844.62MB 92.27%  main.(*Model).Forward
+    0.50MB 0.055% 98.83%    16.32MB  1.78%  main.allocateModel
+         0     0% 98.83%   864.62MB 94.45%  main.(*trainingObserver).phase
+         0     0% 98.83%    16.32MB  1.78%  main.NewModel (inline)
+         0     0% 98.83%    16.32MB  1.78%  main.configuredModel
+         0     0% 98.83%   316.27MB 34.55%  main.evaluateDataset (inline)
+         0     0% 98.83%   316.27MB 34.55%  main.evaluateDatasetSplit
+         0     0% 98.83%   913.41MB 99.78%  main.main
+         0     0% 98.83%   546.31MB 59.68%  main.observedDatasetUpdate
+         0     0% 98.83%    14.47MB  1.58%  main.observedDatasetUpdate.func1
+         0     0% 98.83%   529.35MB 57.83%  main.observedMicrobatch
+         0     0% 98.83%   528.35MB 57.72%  main.observedMicrobatch.func1
+         0     0% 98.83%   913.41MB 99.78%  main.run
+         0     0% 98.83%   913.41MB 99.78%  main.runTrain
+         0     0% 98.83%   896.08MB 97.89%  main.trainDatasetLoop
+         0     0% 98.83%   546.31MB 59.68%  main.trainDatasetLoop.func1
+         0     0% 98.83%   316.27MB 34.55%  main.trainDatasetLoop.func2
+         0     0% 98.83%   895.39MB 97.81%  main.trainingLoop
+         0     0% 98.83%   316.27MB 34.55%  main.trainingLoop.func4 (inline)
+         0     0% 98.83%   316.27MB 34.55%  main.trainingLoop.func4.func1
+         0     0% 98.83%   913.41MB 99.78%  runtime.main
