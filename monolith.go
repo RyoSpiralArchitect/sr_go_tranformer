@@ -1216,11 +1216,14 @@ func addInPlace(a, b []float32) {
 }
 func swiglu(g, u []float32) []float32 {
 	y := make([]float32, len(g))
+	swigluInto(y, g, u)
+	return y
+}
+func swigluInto(y, g, u []float32) {
 	for i, v := range g {
 		s := 1 / (1 + math.Exp(-float64(v)))
 		y[i] = float32(float64(v)*s) * u[i]
 	}
-	return y
 }
 func swigluBackward(g, u, dy []float32) ([]float32, []float32) {
 	dg, du := make([]float32, len(g)), make([]float32, len(g))
@@ -1476,8 +1479,9 @@ func newBackwardWorkspace(m *Model, batch, seq int) (*backwardWorkspace, error) 
 		return nil, errors.New("invalid workspace shape or context length")
 	}
 	// Keep the existing conservative guard and charge persistent scratch too.
-	// Training validation uses batch=1 and the same sequence length, so it also
-	// fits while scratch is retained. Shapes near the old limit may now fail.
+	// Evaluation owns its workspace only within each validation invocation.
+	// Its batch=1 payload is smaller than this activation estimate, so it also
+	// fits while backward scratch is retained. Shapes near the old limit may fail.
 	if activationElements(c, batch, seq)+backwardWorkspaceElements(c, batch, seq) > maxActivationElements {
 		return nil, errors.New("activation budget including backward workspace exceeded; reduce batch, sequence, or model size")
 	}
@@ -1545,6 +1549,142 @@ func (m *Model) Forward(ids []int, batch, seq int) (*Tape, error) {
 	tape.Norm, tape.Inv = rms(x, m.Final, n, c.NormEps)
 	tape.Logits = linear(tape.Norm, m.Emb, n)
 	return tape, nil
+}
+
+// Each evaluation invocation exclusively owns its workspace. Unlike Forward,
+// it retains neither a tape nor per-layer activations. Separate workspaces may
+// read an immutable model concurrently; parameter mutation requires exclusion.
+type evaluationWorkspace struct {
+	model                                  *Model
+	config                                 Config
+	maxBatch, maxSeq                       int
+	x, norm, q, k, v, attention            []float32
+	gate, up, hidden, temp, logits, scores []float32
+}
+
+func evaluationWorkspaceElements(c Config, batch, seq int) int64 {
+	return int64(batch) * int64(seq) * (5*int64(c.Dim) + 2*int64(c.KVDim()) + 3*int64(c.Hidden) + int64(c.Vocab) + int64(c.Heads))
+}
+
+func newEvaluationWorkspace(m *Model, maxBatch, maxSeq int) (*evaluationWorkspace, error) {
+	if m == nil {
+		return nil, errors.New("evaluation workspace requires a model")
+	}
+	c := m.Config
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	if maxBatch < 1 || maxBatch > 4096 || maxSeq < 1 || maxSeq > c.Context {
+		return nil, errors.New("invalid evaluation workspace shape or context length")
+	}
+	if evaluationWorkspaceElements(c, maxBatch, maxSeq) > maxActivationElements {
+		return nil, errors.New("evaluation workspace budget exceeded; reduce batch, sequence, or model size")
+	}
+	n := maxBatch * maxSeq
+	return &evaluationWorkspace{
+		model: m, config: c, maxBatch: maxBatch, maxSeq: maxSeq,
+		x: make([]float32, n*c.Dim), norm: make([]float32, n*c.Dim), q: make([]float32, n*c.Dim),
+		k: make([]float32, n*c.KVDim()), v: make([]float32, n*c.KVDim()), attention: make([]float32, n*c.Dim),
+		gate: make([]float32, n*c.Hidden), up: make([]float32, n*c.Hidden), hidden: make([]float32, n*c.Hidden),
+		temp: make([]float32, n*c.Dim), logits: make([]float32, n*c.Vocab), scores: make([]float32, n*c.Heads),
+	}, nil
+}
+
+func (w *evaluationWorkspace) validate(m *Model, batch, seq int) error {
+	if w == nil || m == nil || w.model != m || w.config != m.Config || w.maxBatch < 1 || w.maxBatch > 4096 || w.maxSeq < 1 || w.maxSeq > m.Config.Context || batch < 1 || batch > w.maxBatch || seq < 1 || seq > w.maxSeq {
+		return errors.New("evaluation workspace owner, configuration, or shape mismatch")
+	}
+	n, c := w.maxBatch*w.maxSeq, w.config
+	for _, buffer := range []struct {
+		data []float32
+		size int
+	}{
+		{w.x, n * c.Dim}, {w.norm, n * c.Dim}, {w.q, n * c.Dim}, {w.attention, n * c.Dim}, {w.temp, n * c.Dim},
+		{w.k, n * c.KVDim()}, {w.v, n * c.KVDim()}, {w.gate, n * c.Hidden}, {w.up, n * c.Hidden}, {w.hidden, n * c.Hidden},
+		{w.logits, n * c.Vocab}, {w.scores, n * c.Heads},
+	} {
+		if len(buffer.data) != buffer.size || cap(buffer.data) != buffer.size {
+			return errors.New("evaluation workspace storage mismatch")
+		}
+	}
+	return nil
+}
+
+// The result borrows w.logits until the next call using w. Callers score it
+// synchronously or copy it before reusing the workspace. No input is retained.
+func (m *Model) forwardEvaluation(ctx context.Context, ids []int, batch, seq int, w *evaluationWorkspace) ([]float32, error) {
+	if ctx == nil {
+		return nil, errors.New("nil evaluation context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := w.validate(m, batch, seq); err != nil {
+		return nil, err
+	}
+	if len(ids) != batch*seq {
+		return nil, errors.New("invalid evaluation input shape")
+	}
+	c := m.Config
+	for _, id := range ids {
+		if id < 0 || id >= c.Vocab {
+			return nil, fmt.Errorf("token %d outside vocabulary", id)
+		}
+	}
+	n, d, kd, hd := batch*seq, c.Dim, c.KVDim(), c.Dim/c.Heads
+	x, norm, q := w.x[:n*d], w.norm[:n*d], w.q[:n*d]
+	k, v, a := w.k[:n*kd], w.v[:n*kd], w.attention[:n*d]
+	gate, up, hidden := w.gate[:n*c.Hidden], w.up[:n*c.Hidden], w.hidden[:n*c.Hidden]
+	temp, logits := w.temp[:n*d], w.logits[:n*c.Vocab:n*c.Vocab]
+	for r, id := range ids {
+		copy(x[r*d:(r+1)*d], m.Emb.Data[id*d:(id+1)*d])
+	}
+	group := c.Heads / c.KVHeads
+	for _, b := range m.Blocks {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		rmsInto(norm, x, b.N1, n, c.NormEps)
+		linearInto(q, norm, b.Q, n)
+		linearInto(k, norm, b.K, n)
+		linearInto(v, norm, b.V, n)
+		m.rope(q, batch, seq, c.Heads, 0, false)
+		m.rope(k, batch, seq, c.KVHeads, 0, false)
+		parallel(batch*c.Heads, batch*c.Heads*seq*seq*hd, func(lo, hi int) {
+			for bh := lo; bh < hi; bh++ {
+				batchIndex, h := bh/c.Heads, bh%c.Heads
+				kh := h / group
+				// Each head owns a fixed score region, regardless of worker count
+				// or the shorter sequence length of this particular window.
+				scores := w.scores[bh*w.maxSeq : bh*w.maxSeq+seq]
+				kv := func(s int) ([]float32, []float32) {
+					i := (batchIndex*seq+s)*kd + kh*hd
+					return k[i : i+hd], v[i : i+hd]
+				}
+				for t := 0; t < seq; t++ {
+					qi := (batchIndex*seq+t)*d + h*hd
+					attend(q[qi:qi+hd], a[qi:qi+hd], scores, t+1, kv)
+				}
+			}
+		})
+		linearInto(temp, a, b.O, n)
+		addInPlace(x, temp)
+		rmsInto(norm, x, b.N2, n, c.NormEps)
+		linearInto(gate, norm, b.Gate, n)
+		linearInto(up, norm, b.Up, n)
+		swigluInto(hidden, gate, up)
+		linearInto(temp, hidden, b.Down, n)
+		addInPlace(x, temp)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	rmsInto(norm, x, m.Final, n, c.NormEps)
+	linearInto(logits, norm, m.Emb, n)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return logits, nil
 }
 
 // CrossEntropy uses log-sum-exp, including for extremely unlikely targets.
@@ -2543,8 +2683,18 @@ func evaluateDatasetSplit(ctx context.Context, m *Model, d *TokenDataset, split 
 	if seq < 1 || seq > m.Config.Context || maxBatches < 0 {
 		return 0, 0, errors.New("invalid dataset evaluation settings")
 	}
+	if ctx == nil {
+		return 0, 0, errors.New("nil evaluation context")
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, 0, err
+	}
 	c := PrefetchConfig{Batch: 1, Seq: seq, Workers: 1, Depth: 1}
 	planner, err := newTokenPlanner(d, split, c, DatasetCursor{Offset: 1})
+	if err != nil {
+		return 0, 0, err
+	}
+	w, err := newEvaluationWorkspace(m, 1, int(min(int64(seq), planner.perEpoch)))
 	if err != nil {
 		return 0, 0, err
 	}
@@ -2562,10 +2712,10 @@ func evaluateDatasetSplit(ctx context.Context, m *Model, d *TokenDataset, split 
 			return 0, tokens, err
 		}
 		n := int(min(int64(seq), left))
-		t, err := m.Forward(b.X[:n], 1, n)
+		logits, err := m.forwardEvaluation(ctx, b.X[:n], 1, n, w)
 		var loss float64
 		if err == nil {
-			loss, _, err = CrossEntropy(t.Logits, b.Y[:n], m.Config.Vocab, 1, false)
+			loss, _, err = CrossEntropy(logits, b.Y[:n], m.Config.Vocab, 1, false)
 		}
 		b.Release()
 		if err != nil {
@@ -2584,6 +2734,17 @@ func evaluate(ctx context.Context, m *Model, data []int, seq, maxBatches int) (f
 	if len(data) < 2 || data[0] != BOS || seq < 1 || seq > m.Config.Context || maxBatches < 0 {
 		return 0, 0, errors.New("invalid evaluation data/settings (BOS-framed input required)")
 	}
+	if ctx == nil {
+		return 0, 0, errors.New("nil evaluation context")
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, 0, err
+	}
+	w, err := newEvaluationWorkspace(m, 1, min(seq, len(data)-1))
+	if err != nil {
+		return 0, 0, err
+	}
+	input := make([]int, w.maxSeq)
 	var total float64
 	tokens, batches := 0, 0
 	for start := 1; start < len(data) && (maxBatches == 0 || batches < maxBatches); start += seq {
@@ -2591,14 +2752,14 @@ func evaluate(ctx context.Context, m *Model, data []int, seq, maxBatches int) (f
 			return 0, tokens, err
 		}
 		end := min(start+seq, len(data))
-		x := make([]int, end-start)
+		x := input[:end-start]
 		x[0] = BOS
 		copy(x[1:], data[start:end-1])
-		t, err := m.Forward(x, 1, len(x))
+		logits, err := m.forwardEvaluation(ctx, x, 1, len(x), w)
 		if err != nil {
 			return 0, tokens, err
 		}
-		loss, _, err := CrossEntropy(t.Logits, data[start:end], m.Config.Vocab, 1, false)
+		loss, _, err := CrossEntropy(logits, data[start:end], m.Config.Vocab, 1, false)
 		if err != nil {
 			return 0, tokens, err
 		}

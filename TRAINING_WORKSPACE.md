@@ -34,7 +34,7 @@ Before allocating scratch, the constructor adds its payload to the existing cons
 
 This is a managed activation guard, not a process memory ceiling. Parameters, optimizer moments, input prefetch, Go runtime overhead and unreclaimed garbage are separate. A more detailed configurable memory plan is a later change.
 
-The architecture, arithmetic order, optimizer, objective, tokenizer, checkpoint format and resume cursor contract are unchanged. Ordinary forward tapes still own their activations. Evaluation still builds an ordinary tape; evaluation-only forward is a separate next step.
+The architecture, arithmetic order, optimizer, objective, tokenizer, checkpoint format and resume cursor contract are unchanged. Ordinary forward tapes still own their activations. Evaluation now uses a separate [evaluation-only forward workspace](EVALUATION_FORWARD.md), owned within each validation invocation. Its batch-one payload fits inside the existing conservative training activation estimate.
 
 ## Correctness checks
 

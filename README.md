@@ -15,6 +15,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Atomic checkpoints containing model weights, optimizer state, tokenizer, and training progress.
 - Optional JSONL training metrics and standard Go CPU/allocation profiles.
 - Trainer-owned backward scratch with fixed-shape reuse and exact numerical checks.
+- Evaluation-only forward with bounded per-invocation scratch and no backward tape.
 
 ## Requirements
 
@@ -96,7 +97,7 @@ Evaluate the same packed dataset independently and retain a reproducible JSON re
   -seq 96 -batches 8 > runs/evaluation.json
 ```
 
-Evaluation defaults to the validation split. Receipts identify the checkpoint, dataset, tokenizer, scoring method and actual target range. With matching settings, standalone dataset evaluation agrees with training validation.
+Evaluation defaults to the validation split. Receipts identify the checkpoint, dataset, tokenizer, scoring method and actual target range. With matching settings, standalone dataset evaluation agrees with training validation. Both use [evaluation-only forward](EVALUATION_FORWARD.md), which reuses bounded scratch across windows without retaining a backward tape.
 
 To measure training, add `-metrics runs/train.jsonl`, `-cpu-profile runs/cpu.pprof`, or `-alloc-profile runs/alloc.pprof` to `train`. These require new files in existing directories and also work with `-resume`. See [training measurement](TRAINING_MEASUREMENT.md) for event semantics, phase timing, profile scope and comparison guidance.
 

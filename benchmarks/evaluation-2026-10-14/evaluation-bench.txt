@@ -1,0 +1,36 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkEvaluationText/tiny/allocating-4    	       5	  44083367 ns/op	      1584 targets/op	32599744 B/op	    7160 allocs/op
+BenchmarkEvaluationText/tiny/allocating-4    	       5	  45577908 ns/op	      1584 targets/op	32599830 B/op	    7161 allocs/op
+BenchmarkEvaluationText/tiny/allocating-4    	       5	  43739533 ns/op	      1584 targets/op	32600147 B/op	    7161 allocs/op
+BenchmarkEvaluationText/tiny/workspace-4     	       5	  42851433 ns/op	      1584 targets/op	  585072 B/op	    4927 allocs/op
+BenchmarkEvaluationText/tiny/workspace-4     	       5	  42140808 ns/op	      1584 targets/op	  583344 B/op	    4924 allocs/op
+BenchmarkEvaluationText/tiny/workspace-4     	       5	  42914883 ns/op	      1584 targets/op	  583344 B/op	    4924 allocs/op
+BenchmarkEvaluationText/small/allocating-4   	       5	 442341033 ns/op	      1584 targets/op	169562550 B/op	   10626 allocs/op
+BenchmarkEvaluationText/small/allocating-4   	       5	 442402442 ns/op	      1584 targets/op	169562460 B/op	   10625 allocs/op
+BenchmarkEvaluationText/small/allocating-4   	       5	 440595208 ns/op	      1584 targets/op	169562438 B/op	   10625 allocs/op
+BenchmarkEvaluationText/small/workspace-4    	       5	 438389742 ns/op	      1584 targets/op	 1369392 B/op	    7364 allocs/op
+BenchmarkEvaluationText/small/workspace-4    	       5	 444162008 ns/op	      1584 targets/op	 1369392 B/op	    7364 allocs/op
+BenchmarkEvaluationText/small/workspace-4    	       5	 436449475 ns/op	      1584 targets/op	 1369392 B/op	    7364 allocs/op
+BenchmarkEvaluationForward/tiny/threads4/allocating_tape-4         	       5	   1778825 ns/op	         0 retained-B	 1314512 B/op	     287 allocs/op
+BenchmarkEvaluationForward/tiny/threads4/allocating_tape-4         	       5	   1600725 ns/op	         0 retained-B	 1314512 B/op	     287 allocs/op
+BenchmarkEvaluationForward/tiny/threads4/allocating_tape-4         	       5	   1573967 ns/op	         0 retained-B	 1314512 B/op	     287 allocs/op
+BenchmarkEvaluationForward/tiny/threads4/warm_workspace-4          	       5	   1520625 ns/op	    312832 retained-B	   10544 B/op	     198 allocs/op
+BenchmarkEvaluationForward/tiny/threads4/warm_workspace-4          	       5	   1603700 ns/op	    312832 retained-B	   10544 B/op	     198 allocs/op
+BenchmarkEvaluationForward/tiny/threads4/warm_workspace-4          	       5	   1547550 ns/op	    312832 retained-B	   10544 B/op	     198 allocs/op
+BenchmarkEvaluationForward/small/threads4/allocating_tape-4        	       5	  18109917 ns/op	         0 retained-B	 6847216 B/op	     424 allocs/op
+BenchmarkEvaluationForward/small/threads4/allocating_tape-4        	       5	  18066058 ns/op	         0 retained-B	 6847216 B/op	     424 allocs/op
+BenchmarkEvaluationForward/small/threads4/allocating_tape-4        	       5	  17740208 ns/op	         0 retained-B	 6847216 B/op	     424 allocs/op
+BenchmarkEvaluationForward/small/threads4/warm_workspace-4         	       5	  17369150 ns/op	    969216 retained-B	   15664 B/op	     294 allocs/op
+BenchmarkEvaluationForward/small/threads4/warm_workspace-4         	       5	  17791758 ns/op	    969216 retained-B	   15664 B/op	     294 allocs/op
+BenchmarkEvaluationForward/small/threads4/warm_workspace-4         	       5	  17696300 ns/op	    969216 retained-B	   15664 B/op	     294 allocs/op
+BenchmarkEvaluationWorkspaceConstruction/tiny-4                    	       5	      7067 ns/op	    312832 payload-B	  320896 B/op	      13 allocs/op
+BenchmarkEvaluationWorkspaceConstruction/tiny-4                    	       5	      5142 ns/op	    312832 payload-B	  320896 B/op	      13 allocs/op
+BenchmarkEvaluationWorkspaceConstruction/tiny-4                    	       5	      6825 ns/op	    312832 payload-B	  320896 B/op	      13 allocs/op
+BenchmarkEvaluationWorkspaceConstruction/small-4                   	       5	     38550 ns/op	    969216 payload-B	  977280 B/op	      13 allocs/op
+BenchmarkEvaluationWorkspaceConstruction/small-4                   	       5	     35392 ns/op	    969216 payload-B	  977280 B/op	      13 allocs/op
+BenchmarkEvaluationWorkspaceConstruction/small-4                   	       5	     38517 ns/op	    969216 payload-B	  977280 B/op	      13 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	21.944s
