@@ -1,0 +1,33 @@
+File: candidate
+Type: alloc_space
+Time: 2026-10-14 17:57:54 JST
+Showing nodes accounting for 473.82MB, 97.48% of 486.06MB total
+Dropped 51 nodes (cum <= 2.43MB)
+      flat  flat%   sum%        cum   cum%
+  268.33MB 55.20% 55.20%   270.33MB 55.62%  main.linear (inline)
+   67.41MB 13.87% 69.07%    67.41MB 13.87%  main.swiglu
+   63.75MB 13.12% 82.19%    63.75MB 13.12%  main.rms
+   39.64MB  8.16% 90.34%    39.64MB  8.16%  main.add (inline)
+   23.05MB  4.74% 95.09%    23.05MB  4.74%  main.(*Model).attention
+    6.64MB  1.37% 96.45%   470.82MB 96.86%  main.(*Model).Forward
+    3.50MB  0.72% 97.17%     3.50MB  0.72%  main.parallel
+    1.50MB  0.31% 97.48%     3.50MB  0.72%  main.linearBackwardInto
+         0     0% 97.48%     4.50MB  0.93%  main.(*Model).backward
+         0     0% 97.48%     4.50MB  0.93%  main.(*Model).backwardInto
+         0     0% 97.48%   478.91MB 98.53%  main.(*trainingObserver).phase
+         0     0% 97.48%    70.12MB 14.43%  main.evaluateDataset (inline)
+         0     0% 97.48%    70.12MB 14.43%  main.evaluateDatasetSplit
+         0     0% 97.48%   482.06MB 99.18%  main.main
+         0     0% 97.48%   407.26MB 83.79%  main.observedDatasetUpdate
+         0     0% 97.48%   405.20MB 83.36%  main.observedMicrobatch
+         0     0% 97.48%   400.70MB 82.44%  main.observedMicrobatch.func1
+         0     0% 97.48%     4.50MB  0.93%  main.observedMicrobatch.func2
+         0     0% 97.48%   482.06MB 99.18%  main.run
+         0     0% 97.48%   482.06MB 99.18%  main.runTrain
+         0     0% 97.48%   480.48MB 98.85%  main.trainDatasetLoop
+         0     0% 97.48%   407.26MB 83.79%  main.trainDatasetLoop.func1
+         0     0% 97.48%    70.12MB 14.43%  main.trainDatasetLoop.func2
+         0     0% 97.48%   479.41MB 98.63%  main.trainingLoop
+         0     0% 97.48%    70.12MB 14.43%  main.trainingLoop.func4 (inline)
+         0     0% 97.48%    70.12MB 14.43%  main.trainingLoop.func4.func1
+         0     0% 97.48%   482.06MB 99.18%  runtime.main

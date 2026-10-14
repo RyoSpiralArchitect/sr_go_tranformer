@@ -230,7 +230,7 @@ func TestTelemetryCancellationEnd(t *testing.T) {
 	defer cancel()
 	out := filepath.Join(t.TempDir(), "model")
 	err := trainingLoop(ctx, m, Tokenizer{}, s, 1, 1, loopOptions{Out: out, LogEvery: 1, Observer: observer}, func() (float64, float64, error) {
-		loss, norm, err := observedTrainUpdate(ctx, m, s, Tokenizer{}.Encode("some fixture text", true, true), observer)
+		loss, norm, err := observedTrainUpdate(ctx, m, s, Tokenizer{}.Encode("some fixture text", true, true), observer, nil)
 		cancel()
 		return loss, norm, err
 	}, func() (float64, int, error) { return 1, 1, nil })

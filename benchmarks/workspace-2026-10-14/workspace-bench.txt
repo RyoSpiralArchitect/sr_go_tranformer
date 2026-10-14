@@ -1,0 +1,24 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkBackwardWorkspace/tiny/threads4/allocating-4         	      20	   8119394 ns/op	         0 workspace-retained-B	 2716641 B/op	     434 allocs/op
+BenchmarkBackwardWorkspace/tiny/threads4/allocating-4         	      20	   5123062 ns/op	         0 workspace-retained-B	 2715405 B/op	     431 allocs/op
+BenchmarkBackwardWorkspace/tiny/threads4/allocating-4         	      20	   5045635 ns/op	         0 workspace-retained-B	 2715136 B/op	     431 allocs/op
+BenchmarkBackwardWorkspace/tiny/threads4/warm_workspace-4     	      20	   5198548 ns/op	    590848 workspace-retained-B	   19872 B/op	     372 allocs/op
+BenchmarkBackwardWorkspace/tiny/threads4/warm_workspace-4     	      20	   5155133 ns/op	    590848 workspace-retained-B	   19872 B/op	     372 allocs/op
+BenchmarkBackwardWorkspace/tiny/threads4/warm_workspace-4     	      20	   4998017 ns/op	    590848 workspace-retained-B	   19872 B/op	     372 allocs/op
+BenchmarkBackwardWorkspace/small/threads4/allocating-4        	      20	  60761388 ns/op	         0 workspace-retained-B	14390080 B/op	     639 allocs/op
+BenchmarkBackwardWorkspace/small/threads4/allocating-4        	      20	  57749892 ns/op	         0 workspace-retained-B	14390176 B/op	     639 allocs/op
+BenchmarkBackwardWorkspace/small/threads4/allocating-4        	      20	  57182717 ns/op	         0 workspace-retained-B	14390080 B/op	     639 allocs/op
+BenchmarkBackwardWorkspace/small/threads4/warm_workspace-4    	      20	  56434483 ns/op	   1803264 workspace-retained-B	   29504 B/op	     552 allocs/op
+BenchmarkBackwardWorkspace/small/threads4/warm_workspace-4    	      20	  56714362 ns/op	   1803264 workspace-retained-B	   29504 B/op	     552 allocs/op
+BenchmarkBackwardWorkspace/small/threads4/warm_workspace-4    	      20	  57516948 ns/op	   1803264 workspace-retained-B	   29504 B/op	     552 allocs/op
+BenchmarkBackwardWorkspaceConstruction/tiny-4                 	      20	     29990 ns/op	    590848 workspace-retained-B	  598368 B/op	      11 allocs/op
+BenchmarkBackwardWorkspaceConstruction/tiny-4                 	      20	     25479 ns/op	    590848 workspace-retained-B	  598368 B/op	      11 allocs/op
+BenchmarkBackwardWorkspaceConstruction/tiny-4                 	      20	     27260 ns/op	    590848 workspace-retained-B	  598368 B/op	      11 allocs/op
+BenchmarkBackwardWorkspaceConstruction/small-4                	      20	     72196 ns/op	   1803264 workspace-retained-B	 1810784 B/op	      11 allocs/op
+BenchmarkBackwardWorkspaceConstruction/small-4                	      20	     55377 ns/op	   1803264 workspace-retained-B	 1810784 B/op	      11 allocs/op
+BenchmarkBackwardWorkspaceConstruction/small-4                	      20	     61404 ns/op	   1803264 workspace-retained-B	 1810784 B/op	      11 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	12.270s
