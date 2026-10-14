@@ -11,6 +11,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Deterministic parallel dataset prefetch with leased buffers and exact checkpoint resume.
 - Continuous batching with bounded token budgets, chunked prefill, paged KV caches, and request cancellation.
 - SSE token streaming with bounded per-request buffers and slow-consumer isolation.
+- Engine-owned, fixed-size compute workers reused across inference kernels.
 - Greedy, temperature, top-k, and top-p sampling with repetition penalties.
 - Atomic checkpoints containing model weights, optimizer state, tokenizer, and training progress.
 - Optional JSONL training metrics and standard Go CPU/allocation profiles.
@@ -166,12 +167,15 @@ One goroutine owns sessions and KV pages. HTTP handlers drain bounded event chan
 | `-mixed-prefill-chunk` | 1 | Prompt tokens per session when any session is already generating; capped by `prefill-chunk`. |
 | `-token-budget` | `max(max-batch, 64)` | Total tokens processed in a tick, between `max-batch` and 1,024. |
 | `-stream-buffer` | 32 | Pending token events per stream, between 1 and 4,096. |
+| `-kernel-workers` | 0 | Fixed compute parallelism per engine: 0 captures `min(GOMAXPROCS,256)` at startup, 1 runs inline, 2–256 starts that many reusable workers. |
 
 Each active session receives at least one token of work every tick. Remaining capacity is shared among prompt chunks. By default, prompt chunks shrink to one token while any session is generating, preserving a shorter scheduling tick for ongoing output. Set `-mixed-prefill-chunk` equal to `-prefill-chunk` to favor prompt throughput over output cadence. Chunked prefill batches matrix projections across prompt rows and computes vocabulary logits only for each chunk's final row. The token budget bounds rows of work, not wall-clock latency; attention cost still grows with context length.
 
+The engine reuses its compute workers for projections and attention, with small kernels executed inline. Each kernel joins before scratch or KV ownership can end; `Engine.Close()` also joins the workers. `-threads` controls process-wide Go execution parallelism, while `-kernel-workers` fixes each engine's worker capacity for its lifetime. See [inference workers](INFERENCE_WORKERS.md) for ownership rules, exactness tests and scoped allocation/timing measurements.
+
 ### Measurement
 
-The metrics endpoint includes queue-wait, engine first-token, token-gap, batch-compute and cancellation-to-release histograms, processed token counts, KV use, heap allocation, GC counters, and goroutine count. Engine token timing ends when a token is sampled; client timing also includes HTTP and delivery. Heap metrics are not process RSS.
+The metrics endpoint includes queue-wait, engine first-token, token-gap, batch-compute and cancellation-to-release histograms, processed token counts, KV use, heap allocation, GC counters, goroutine count, and owned compute workers (`monolith_kernel_workers`). Engine token timing ends when a token is sampled; client timing also includes HTTP and delivery. Heap metrics are not process RSS.
 
 Streams expose `Released()` separately from their prompt cancellation result: it closes after computation, cancellation observers, KV return and admission release finish. Use `serve -trace runs/serve.trace` to record request lifecycle events and batch/layer regions in a new Go execution trace file. See [serving lifecycle measurement](SERVING_LIFECYCLE.md) for timing definitions, ownership guarantees, bounded drain checks and reproduction.
 

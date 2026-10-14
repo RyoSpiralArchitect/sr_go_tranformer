@@ -21,7 +21,8 @@ separate channel: it closes only after all of the following have happened:
 
 For example, after abandoning a stream, wait on `stream.Released()` with a fresh,
 bounded cleanup context; the original request context may already be canceled.
-`Engine.Close()` waits for all accepted requests and the actor to drain.
+`Engine.Close()` waits for all accepted requests and the actor to drain, then
+joins the engine's reusable compute workers before returning.
 
 Returned pages can remain allocated in the pool for reuse. Caller-held event
 and reply buffers also remain reachable. Release is an ownership guarantee,
@@ -31,8 +32,9 @@ belonging to another request are included in a stream's release notification.
 Individual request cancellation is checked around scheduling ticks. The shared
 batch uses the engine context; it does not abort healthy peers when one request
 cancels. Engine cancellation is checked between layers. A running matrix or
-attention kernel is not interrupted. This stage measures that latency; it does
-not introduce finer cancellation points, a worker pool, or a hard latency bound.
+attention kernel is not interrupted. The [fixed worker executor](INFERENCE_WORKERS.md)
+reuses kernel goroutines while retaining these cancellation points and joins;
+the measurements do not establish a hard latency bound.
 
 ## Metrics
 
@@ -44,6 +46,7 @@ They retain no per-request histories or unbounded label sets.
 | `monolith_released_total` | Accepted requests whose computation, observers, KV and admission ownership have ended, on every terminal path. |
 | `monolith_admission_used` | Occupied admission permits, including prompt preparation, queueing, execution and cleanup. |
 | `monolith_computing_sessions` | Sessions in the current `PrefillBatch` call; this is not a goroutine count. |
+| `monolith_kernel_workers` | Compute worker goroutines owned by this engine, including idle workers. Zero for inline execution and after `Engine.Close()`. |
 | `monolith_batch_compute_seconds` | Wall time inside a shared batch call, including allocation, scheduling and kernel joins; excludes token sampling and delivery. |
 | `monolith_cancel_observed_to_compute_done_seconds` | Time from the first cancellation observation to the end of the last batch containing that request, clamped to zero if no computation followed the observation. |
 | `monolith_cancel_observed_to_release_seconds` | Time from that same observation until the request's KV and admission ownership has ended and its observer callbacks have joined. |
@@ -75,7 +78,8 @@ readers, slow readers and planned cancellations for client-side distributions.
 Stats are independently sampled atomics, not a transactional snapshot. In a
 dedicated, quiescent server, active/queued/computing requests, admission permits
 and KV reservations return to zero, and released equals submitted. Allocated KV
-pages need not return to zero.
+pages need not return to zero. Compute workers stay available while the engine
+is open, so their count is not a request-drain condition.
 
 ## Execution traces
 
