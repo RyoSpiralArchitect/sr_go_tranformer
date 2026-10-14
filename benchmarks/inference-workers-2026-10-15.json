@@ -11,7 +11,12 @@
   "go_version": "go version go1.27.1 darwin/arm64",
   "cpu": "Apple M4",
   "gomaxprocs": 4,
-  "cgo_enabled": false,
+  "cgo_enabled": {
+    "http_baseline_server": false,
+    "http_candidate_server": false,
+    "http_load_client": true,
+    "microbenchmarks": true
+  },
   "trace_enabled": false,
   "validation": {
     "full_race_suite": "passed",
