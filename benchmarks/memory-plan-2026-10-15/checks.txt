@@ -1,0 +1,12 @@
+Full race suite:
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	12.881s
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer/tools/loadtest	2.001s
+?   	github.com/RyoSpiralArchitect/sr_go_tranformer/tools/trainbench	[no test files]
+
+Focused race checks after the text-capacity test addition:
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	2.334s
+
+CLI smoke:
+PASS: CLI memory planning/rejection, BPE/text/dataset training, exact resume across memory/IO/telemetry settings, evaluation, pprof, generation, inspection.
+
+Vet and cgo-free build exited 0.

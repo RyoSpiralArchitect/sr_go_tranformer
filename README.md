@@ -16,6 +16,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Optional JSONL training metrics and standard Go CPU/allocation profiles.
 - Trainer-owned backward scratch with fixed-shape reuse and exact numerical checks.
 - Evaluation-only forward with bounded per-invocation scratch and no backward tape.
+- Startup memory planning and optional training budgets checked before tensor allocation.
 
 ## Requirements
 
@@ -52,6 +53,14 @@ Train a model from a text file:
 ```
 
 Available presets are `demo`, `tiny`, `small`, and `base`. JSON files in [`configs/`](configs/) show how to customize model dimensions using `-config`. Model weights are initialized randomly; pretrained weights are not included.
+
+Inspect the memory plan without allocating model tensors or starting training:
+
+```sh
+./monolith train -data examples/tiny.txt -preset small -memory-plan
+```
+
+Add `-memory-mib 256` to enforce a budget for major arrays and input staging, including on resume. The default `0` disables this additional cap; existing allocation limits still apply. This is a working-set estimate, not a process RSS limit. See [training memory planning](TRAINING_MEMORY.md) for component accounting, dataset examples, and exclusions.
 
 Training reserves the trailing 10% of the input bytes for validation before tokenization. Use separate, unused text for independent evaluation:
 

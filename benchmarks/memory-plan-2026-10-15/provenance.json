@@ -1,0 +1,50 @@
+{
+  "format": "monolith-memory-plan-provenance-v1",
+  "date": "2026-10-15",
+  "baseline_commit": "7ef5a7947c518839f0eef599127c08e628a528f1",
+  "candidate_monolith_sha256": "b6016671ee52f8d3ed2c4aa7170245ca215800e079779a78c02831c829b15bf5",
+  "baseline_binary_sha256": "0fcbe18bfd27191967a2b6effc9e4a0e86f6acdc72650775dd5f610a0e7c3d83",
+  "candidate_binary_sha256": "9d414aa400bf2c24368f288946ad4887a9f4f14767c1615dadef7dd7bd37cffb",
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "os": "Darwin",
+  "arch": "arm64",
+  "text_fixture_sha256": "515245e6e8efa38027c6214889020a099cc9f7ca96341488b8da8b48be3aa544",
+  "dataset_manifest_file_sha256": "7ab6eeeed47ac0fd1e1fda2ce4dde63935a90f3298cbcedc44e14f66659b4dad",
+  "dataset_preparation": [
+    "runs/memory-plan-20261015/baseline",
+    "prepare",
+    "-train",
+    "examples/heldout/train.txt",
+    "-validation",
+    "examples/heldout/validation.txt",
+    "-out",
+    "runs/memory-plan-20261015/comparison/dataset",
+    "-shard-tokens",
+    "2048"
+  ],
+  "notes": [
+    "Memory plans are analytic estimates; larger presets were not trained or allocated for this matrix.",
+    "Comparison runs establish exact checkpoints/evaluation on the authored fixture; timing is retained but no speed claim is made.",
+    "Dataset preparation arguments are copied from the trainbench fixture setup."
+  ],
+  "comparison_command": [
+    "./scripts/go.sh",
+    "run",
+    "./tools/trainbench",
+    "-baseline",
+    "runs/memory-plan-20261015/baseline",
+    "-candidate",
+    "runs/memory-plan-20261015/candidate",
+    "-out",
+    "runs/memory-plan-20261015/comparison",
+    "-repeats",
+    "2"
+  ],
+  "checks": [
+    "go test -race -count=1 ./...",
+    "go vet ./...",
+    "CGO_ENABLED=0 go build -trimpath",
+    "scripts/smoke.sh",
+    "go test -race -count=1 -run Test(TrainingMemory|MemoryPlan|MemoryBudget|CheckpointBudget) ."
+  ]
+}
