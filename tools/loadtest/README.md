@@ -27,6 +27,9 @@ Requests use greedy sampling (`temperature: 0`, `repeat_penalty: 1`).
 The number of in-flight requests is bounded by `-concurrency`. A separate
 connection fetches `/metrics` before the workload, periodically during it, and
 after all client requests finish. There is at most one metrics request in flight.
+By default, `-drain-timeout 5s` waits for zero server admission, computation,
+active requests, queue and KV reservations, and matching submitted/released
+counts, before taking the final snapshot. Set it to `0` to disable this wait.
 `-details` includes individual request results, sorted by request number; prompt
 contents and generated text are omitted from the report.
 
@@ -63,6 +66,18 @@ contents and generated text are omitted from the report.
 - GC and request counter deltas use the before/after snapshots. They include
   any other traffic to the same server. Missing metrics and counter resets are
   reported explicitly. Sampling itself adds HTTP and runtime-observation work.
+- `server_metrics.drain_status` is `drained`, `timeout`, `unavailable`,
+  `interrupted`, or `disabled`. An older server missing lifecycle metrics is
+  `unavailable`, never assumed drained. The drain duration is reported separately
+  and excluded from client latency/throughput. Use a dedicated server: unrelated
+  traffic can keep it busy. A drain failure does not change request-outcome exit
+  status, so check the status explicitly when validating resource return.
+- Lifecycle counter deltas include released requests, batch-compute histogram
+  counts/sums, and cancellation-observation-to-compute-done/release counts/sums.
+  They aggregate server requests; they are not matched to individual client
+  cancellations. Histogram buckets are available at `/metrics`; the client
+  retains scalar counts/sums, not histogram quantiles. See
+  [lifecycle semantics](../../SERVING_LIFECYCLE.md).
 
 The client checks that token IDs, their count, and concatenated event text match
 the terminal `done` event. It rejects truncated streams and events after `done`.

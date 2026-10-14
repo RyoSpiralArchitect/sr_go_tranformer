@@ -43,6 +43,7 @@ type options struct {
 	SlowDelay      time.Duration `json:"-"`
 	Timeout        time.Duration `json:"-"`
 	SampleInterval time.Duration `json:"-"`
+	DrainTimeout   time.Duration `json:"-"`
 	Details        bool          `json:"-"`
 }
 
@@ -61,6 +62,7 @@ func parseOptions(args []string) (options, error) {
 	f.DurationVar(&o.SlowDelay, "slow-delay", 50*time.Millisecond, "read delay after each token event for slow clients")
 	f.DurationVar(&o.Timeout, "timeout", 30*time.Second, "timeout for each request")
 	f.DurationVar(&o.SampleInterval, "sample-interval", 100*time.Millisecond, "interval between server metrics samples")
+	f.DurationVar(&o.DrainTimeout, "drain-timeout", 5*time.Second, "wait for server resource return after clients finish; 0 disables")
 	f.BoolVar(&o.Details, "details", false, "include individual request results")
 	if err := f.Parse(args); err != nil {
 		return o, err
@@ -76,7 +78,7 @@ func parseOptions(args []string) (options, error) {
 	if o.Requests < 1 || o.Requests > 1000000 || o.Concurrency < 1 || o.Concurrency > 4096 || o.MaxTokens < 1 || o.MaxTokens > 65536 {
 		return o, errors.New("requests must be 1..1000000, concurrency 1..4096, and max-tokens 1..65536")
 	}
-	if o.CancelEvery < 0 || o.CancelAfter < 1 || o.SlowEvery < 0 || o.SlowDelay < 0 || o.Timeout <= 0 || o.SampleInterval <= 0 {
+	if o.CancelEvery < 0 || o.CancelAfter < 1 || o.SlowEvery < 0 || o.SlowDelay < 0 || o.Timeout <= 0 || o.SampleInterval <= 0 || o.DrainTimeout < 0 {
 		return o, errors.New("invalid cancellation, delay, timeout, or sample interval")
 	}
 	if o.CancelEvery > 0 && o.CancelAfter >= o.MaxTokens {
@@ -451,11 +453,15 @@ func (s *workloadSummary) add(r requestResult) {
 var peakMetricNames = []string{
 	"monolith_heap_alloc_bytes", "monolith_heap_sys_bytes", "monolith_goroutines",
 	"monolith_active", "monolith_queue_depth", "monolith_kv_reserved_bytes", "monolith_kv_allocated_bytes",
+	"monolith_computing_sessions", "monolith_admission_used",
 }
 var counterMetricNames = []string{
 	"monolith_gc_cycles_total", "monolith_gc_pause_seconds_total", "monolith_submitted_total",
 	"monolith_completed_total", "monolith_canceled_total", "monolith_failed_total", "monolith_rejected_total",
 	"monolith_input_tokens_total", "monolith_generated_tokens_total", "monolith_ticks_total", "monolith_slow_consumers_total",
+	"monolith_released_total", "monolith_batch_compute_seconds_count", "monolith_batch_compute_seconds_sum",
+	"monolith_cancel_observed_to_compute_done_seconds_count", "monolith_cancel_observed_to_compute_done_seconds_sum",
+	"monolith_cancel_observed_to_release_seconds_count", "monolith_cancel_observed_to_release_seconds_sum",
 }
 
 type metricReport struct {
@@ -468,6 +474,67 @@ type metricReport struct {
 	CounterDeltas map[string]float64 `json:"counter_deltas"`
 	CounterResets []string           `json:"counter_resets,omitempty"`
 	Missing       []string           `json:"missing_metrics,omitempty"`
+	DrainStatus   string             `json:"drain_status"`
+	DrainMS       float64            `json:"drain_elapsed_ms"`
+}
+
+// Client completion can precede cancellation cleanup. Take the final snapshot
+// only after a bounded drain, or report why resource return could not be shown.
+// Other traffic on the server contributes to these gauges too.
+func (m *metricReport) drain(ctx context.Context, client *http.Client, o options) {
+	if o.DrainTimeout == 0 {
+		m.After = m.sample(ctx, client, o.URL)
+		m.DrainStatus = "disabled"
+		return
+	}
+	started := time.Now()
+	defer func() { m.DrainMS = float64(time.Since(started)) / float64(time.Millisecond) }()
+	drainCtx, cancel := context.WithTimeout(ctx, o.DrainTimeout)
+	defer cancel()
+	for {
+		m.After = m.sample(drainCtx, client, o.URL)
+		if ctx.Err() != nil {
+			m.DrainStatus = "interrupted"
+			return
+		}
+		if drainCtx.Err() != nil {
+			m.DrainStatus = "timeout"
+			return
+		}
+		drained := true
+		for _, name := range []string{"monolith_active", "monolith_queue_depth", "monolith_kv_reserved_bytes", "monolith_computing_sessions", "monolith_admission_used"} {
+			value, ok := m.After[name]
+			if !ok {
+				m.DrainStatus = "unavailable"
+				return
+			}
+			drained = drained && value == 0
+		}
+		submitted, hasSubmitted := m.After["monolith_submitted_total"]
+		released, hasReleased := m.After["monolith_released_total"]
+		if !hasSubmitted || !hasReleased {
+			m.DrainStatus = "unavailable"
+			return
+		}
+		// A slot is returned just before the final lifecycle counters are
+		// published. Require those counters too, so After includes that tail.
+		drained = drained && submitted == released
+		if drained {
+			m.DrainStatus = "drained"
+			return
+		}
+		timer := time.NewTimer(o.SampleInterval)
+		select {
+		case <-timer.C:
+		case <-drainCtx.Done():
+			timer.Stop()
+			m.DrainStatus = "timeout"
+			if ctx.Err() != nil {
+				m.DrainStatus = "interrupted"
+			}
+			return
+		}
+	}
 }
 
 func parseMetrics(r io.Reader) (map[string]float64, error) {
@@ -551,6 +618,7 @@ type report struct {
 	SlowDelayMS      float64            `json:"slow_delay_ms"`
 	TimeoutMS        float64            `json:"request_timeout_ms"`
 	SampleIntervalMS float64            `json:"metrics_sample_interval_ms"`
+	DrainTimeoutMS   float64            `json:"drain_timeout_ms"`
 	ElapsedSeconds   float64            `json:"elapsed_seconds"`
 	Started          int                `json:"started_requests"`
 	CompletedTokens  int64              `json:"completed_token_events"`
@@ -569,6 +637,7 @@ func run(ctx context.Context, o options) report {
 	defer metricsTransport.CloseIdleConnections()
 	metricsClient := &http.Client{Transport: metricsTransport, Timeout: min(5*time.Second, o.Timeout)}
 	out := report{Options: o, ShortPromptBytes: len(o.ShortPrompt), LongPromptBytes: len(o.LongPrompt), SlowDelayMS: float64(o.SlowDelay) / float64(time.Millisecond), TimeoutMS: float64(o.Timeout) / float64(time.Millisecond), SampleIntervalMS: float64(o.SampleInterval) / float64(time.Millisecond), Outcomes: map[string]int{}}
+	out.DrainTimeoutMS = float64(o.DrainTimeout) / float64(time.Millisecond)
 	out.Metrics.SampledPeaks, out.Metrics.CounterDeltas = map[string]float64{}, map[string]float64{}
 	out.Metrics.Before = out.Metrics.sample(ctx, metricsClient, o.URL)
 	stopSample, sampleDone := make(chan struct{}), make(chan struct{})
@@ -630,7 +699,7 @@ func run(ctx context.Context, o options) report {
 	}
 	close(stopSample)
 	<-sampleDone
-	out.Metrics.After = out.Metrics.sample(ctx, metricsClient, o.URL)
+	out.Metrics.drain(ctx, metricsClient, o)
 	out.Metrics.finish()
 	var keys []string
 	for key := range groups {

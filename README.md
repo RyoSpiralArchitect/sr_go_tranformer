@@ -171,7 +171,9 @@ Each active session receives at least one token of work every tick. Remaining ca
 
 ### Measurement
 
-The metrics endpoint includes queue-wait, engine first-token, and engine token-gap histograms, processed token counts, KV use, heap allocation, GC counters, and goroutine count. Engine timing ends when a token is sampled; client timing also includes HTTP and delivery. Heap metrics are not process RSS.
+The metrics endpoint includes queue-wait, engine first-token, token-gap, batch-compute and cancellation-to-release histograms, processed token counts, KV use, heap allocation, GC counters, and goroutine count. Engine token timing ends when a token is sampled; client timing also includes HTTP and delivery. Heap metrics are not process RSS.
+
+Streams expose `Released()` separately from their prompt cancellation result: it closes after computation, cancellation observers, KV return and admission release finish. Use `serve -trace runs/serve.trace` to record request lifecycle events and batch/layer regions in a new Go execution trace file. See [serving lifecycle measurement](SERVING_LIFECYCLE.md) for timing definitions, ownership guarantees, bounded drain checks and reproduction.
 
 A separate standard-library load client checks stream output and measures mixed requests:
 
