@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"runtime/trace"
 	"sort"
 	"strings"
 	"sync"
@@ -2083,6 +2084,7 @@ func (m *Model) PrefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		region := trace.StartRegion(ctx, "monolith.prefill_layer")
 		rmsInto(w.N, w.X, b.N1, n, c.NormEps)
 		linearInto(w.Q, w.N, b.Q, n)
 		linearInto(w.K, w.N, b.K, n)
@@ -2119,6 +2121,7 @@ func (m *Model) PrefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		}
 		linearInto(w.Tmp, w.H, b.Down, n)
 		addInPlace(w.X, w.Tmp)
+		region.End()
 	}
 	// Gather only each session's final hidden row before the vocabulary head.
 	for i, row := range lastRows {
@@ -3142,7 +3145,59 @@ type engineRequest struct {
 	Cancel            context.CancelFunc
 	release           func()
 	Started, Enqueued time.Time
+	Released          chan struct{}
+	task              *trace.Task
+	cancelContext     context.CancelFunc
+	stopWatches       [2]func()
+	lifecycleMu       sync.Mutex
+	cancelObserved    time.Time
+	terminal          bool
+	computeDone       time.Time // Actor-owned; every kernel has joined at this point.
 }
+
+// Cancellation timestamps are observations, not the instant a remote peer
+// disconnected. Close records synchronously; context callbacks may be scheduled
+// later. There are at most two callbacks per admitted request, with no idle
+// watcher goroutines for standard cancelable contexts.
+func (r *engineRequest) observeCancellation(source string) {
+	r.lifecycleMu.Lock()
+	defer r.lifecycleMu.Unlock()
+	if r.terminal || !r.cancelObserved.IsZero() {
+		return
+	}
+	r.cancelObserved = time.Now()
+	r.log("cancel_observed:" + source)
+}
+func (r *engineRequest) log(event string) {
+	if r.task != nil {
+		trace.Log(r.Ctx, "lifecycle", event)
+	}
+}
+func (r *engineRequest) watchCancellation(ctx context.Context, source string) func() {
+	if ctx == nil { // Only mailbox-only tests construct an engine without a context.
+		return func() {}
+	}
+	done := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		defer close(done)
+		r.observeCancellation(source)
+	})
+	return func() {
+		if !stop() {
+			<-done // AfterFunc's stop alone does not join a running callback.
+		}
+	}
+}
+func (r *engineRequest) stopObservation() time.Time {
+	for _, stop := range r.stopWatches {
+		stop()
+	}
+	r.lifecycleMu.Lock()
+	defer r.lifecycleMu.Unlock()
+	r.terminal = true
+	return r.cancelObserved
+}
+
 type engineReply struct {
 	Completion Completion
 	Err        error
@@ -3154,8 +3209,15 @@ type CompletionStream struct {
 
 func (s *CompletionStream) Close() { s.request.Cancel() }
 
+// Released closes after computation and cancellation observers have stopped,
+// KV reservations/pages have been returned, and the admission slot is free.
+// It does not imply that the caller's event/reply buffers or cached pages have
+// been freed by the GC. Unlike Wait, it never completes merely on cancellation.
+func (s *CompletionStream) Released() <-chan struct{} { return s.request.Released }
+
 // Wait returns the terminal result. Call once, after draining Events, unless
 // abandoning the stream. Cancellation never requires draining its event buffer.
+// Wait may return a context error before Released closes.
 func (s *CompletionStream) Wait() (Completion, error) {
 	select {
 	case r := <-s.request.Reply:
@@ -3187,6 +3249,7 @@ type engineSession struct {
 type engineCounters struct {
 	Submitted, Completed, Canceled, Failed, Rejected, Active, Reserved, Allocated atomic.Int64
 	InputTokens, GeneratedTokens, Ticks, SlowConsumers, PeakTickTokens            atomic.Int64
+	Released, Computing                                                           atomic.Int64
 }
 type EngineStats struct {
 	Submitted        int64 `json:"submitted"`
@@ -3203,6 +3266,9 @@ type EngineStats struct {
 	Ticks            int64 `json:"ticks"`
 	SlowConsumers    int64 `json:"slow_consumers"`
 	PeakTickTokens   int64 `json:"peak_tick_tokens"`
+	Released         int64 `json:"released"`
+	Computing        int64 `json:"computing"`
+	AdmissionUsed    int   `json:"admission_used"`
 }
 
 var latencyBounds = [...]float64{.0001, .0005, .001, .005, .01, .05, .1, .5, 1, 5, 30, 120}
@@ -3233,23 +3299,35 @@ func (h *latencyHistogram) write(w io.Writer, name string) {
 }
 
 type Engine struct {
-	Model                                     *Model
-	Tokenizer                                 Tokenizer
-	Config                                    EngineConfig
-	queue                                     chan *engineRequest
-	admission                                 chan struct{}
-	httpSlots                                 chan struct{}
-	ctx                                       context.Context
-	cancel                                    context.CancelFunc
-	done                                      chan struct{}
-	pool                                      pagePool
-	stats                                     engineCounters
-	pieces                                    [][]byte
-	submitMu                                  sync.Mutex
-	queueLatency, firstTokenLatency, tokenGap latencyHistogram
+	Model                                      *Model
+	Tokenizer                                  Tokenizer
+	Config                                     EngineConfig
+	queue                                      chan *engineRequest
+	admission                                  chan struct{}
+	httpSlots                                  chan struct{}
+	ctx                                        context.Context
+	cancel                                     context.CancelFunc
+	done                                       chan struct{}
+	pool                                       pagePool
+	stats                                      engineCounters
+	pieces                                     [][]byte
+	submitMu                                   sync.Mutex
+	queueLatency, firstTokenLatency, tokenGap  latencyHistogram
+	batchCompute, cancelCompute, cancelRelease latencyHistogram
 }
 
 func NewEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
+	e, err := newEngine(m, tok, c)
+	if err != nil {
+		return nil, err
+	}
+	go e.run()
+	return e, nil
+}
+
+// Construct ownership before starting the actor. Tests can stage a complete
+// cohort before run, without timing assumptions or replacing model kernels.
+func newEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
 	if c.StreamBuffer == 0 {
 		c.StreamBuffer = 32
 	}
@@ -3278,12 +3356,11 @@ func NewEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	e := &Engine{Model: m, Tokenizer: tok, Config: c, queue: make(chan *engineRequest, c.Queue), admission: make(chan struct{}, c.Queue+c.MaxBatch), httpSlots: make(chan struct{}, c.Queue+c.MaxBatch), ctx: ctx, cancel: cancel, done: make(chan struct{}), pool: pagePool{PageElements: elements, Limit: limit}, pieces: tok.Pieces()}
-	go e.run()
 	return e, nil
 }
 func (e *Engine) Stats() EngineStats {
 	s := &e.stats
-	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load()}
+	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load(), Released: s.Released.Load(), Computing: s.Computing.Load(), AdmissionUsed: len(e.admission)}
 }
 func (e *Engine) Close() { e.cancel(); <-e.done }
 func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streaming bool) (*engineRequest, error) {
@@ -3317,7 +3394,26 @@ func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streami
 		return nil, errors.New("request exceeds total KV cache budget")
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	r := &engineRequest{Ctx: ctx, IDs: ids, Sampling: s, Reply: make(chan engineReply, 1), Cancel: cancel, release: func() { <-e.admission }, Started: started, Enqueued: time.Now()}
+	r := &engineRequest{Ctx: ctx, IDs: ids, Sampling: s, Reply: make(chan engineReply, 1), cancelContext: cancel, release: func() { <-e.admission }, Started: started, Enqueued: time.Now(), Released: make(chan struct{})}
+	if trace.IsEnabled() {
+		r.Ctx, r.task = trace.NewTask(ctx, "monolith.request")
+	}
+	r.Cancel = func() {
+		r.observeCancellation("caller")
+		cancel()
+	}
+	r.stopWatches[0] = r.watchCancellation(ctx, "context")
+	r.stopWatches[1] = r.watchCancellation(e.ctx, "shutdown")
+	defer func() {
+		if !handedOff {
+			r.stopObservation()
+			cancel()
+			r.log("not_enqueued")
+			if r.task != nil {
+				r.task.End()
+			}
+		}
+	}()
 	if streaming {
 		r.Events = make(chan TokenEvent, e.Config.StreamBuffer)
 	}
@@ -3339,6 +3435,7 @@ func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streami
 		cancel()
 		return nil, err
 	}
+	r.log("enqueue") // Publication must follow this event; the actor can run immediately.
 	select {
 	case e.queue <- r:
 		handedOff = true
@@ -3412,6 +3509,15 @@ func (e *Engine) run() {
 		e.stats.Allocated.Store(int64(e.pool.Allocated * e.pool.PageElements * 4))
 	}
 	finishRequest := func(r *engineRequest, out Completion, err error) {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrClosed) {
+			r.observeCancellation("actor")
+		}
+		canceled := r.stopObservation()
+		outcome := "completed"
+		if err != nil {
+			_, outcome = inferenceError(err)
+		}
+		r.log("terminal:" + outcome)
 		if err == nil {
 			e.stats.Completed.Add(1)
 		} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrClosed) {
@@ -3424,14 +3530,25 @@ func (e *Engine) run() {
 		if errors.Is(err, ErrSlowConsumer) {
 			e.stats.SlowConsumers.Add(1)
 		}
+		r.release()
+		released := time.Now()
+		if !canceled.IsZero() {
+			e.cancelCompute.observe(max(r.computeDone.Sub(canceled), 0))
+			e.cancelRelease.observe(released.Sub(canceled))
+		}
+		e.stats.Released.Add(1)
+		r.log("released")
+		if r.task != nil {
+			r.task.End()
+		}
 		// The terminal mailbox is independent of the bounded token mailbox.
 		// Neither delivery nor closing it can block the actor on a network reader.
 		r.Reply <- engineReply{out, err}
 		if r.Events != nil {
 			close(r.Events)
 		}
-		r.release()
-		r.Cancel()
+		r.cancelContext() // Publish the reply before cleanup can wake Wait.
+		close(r.Released)
 	}
 	finish := func(s *engineSession, out Completion, err error) {
 		s.Cache.Close()
@@ -3495,6 +3612,7 @@ func (e *Engine) run() {
 			e.pool.Reserved += pages
 			sessions = append(sessions, &engineSession{Request: r, Cache: cache, History: append([]int(nil), r.IDs...), RNG: RNG{r.Sampling.Seed}})
 			e.stats.Active.Add(1)
+			r.log("admitted")
 			e.queueLatency.observe(time.Since(r.Enqueued))
 			accounting()
 		}
@@ -3512,7 +3630,28 @@ func (e *Engine) run() {
 				chunks[i] = s.Output[len(s.Output)-1:]
 			}
 		}
-		logits, err := e.Model.PrefillBatch(e.ctx, caches[:n], chunks[:n])
+		tick := e.stats.Ticks.Load() + 1
+		for i, s := range sessions {
+			if s.Request.task != nil {
+				trace.Logf(s.Request.Ctx, "batch", "%d begin rows=%d", tick, counts[i])
+			}
+		}
+		e.stats.Computing.Store(int64(n))
+		computeStart := time.Now()
+		var logits []float32
+		var err error
+		trace.WithRegion(e.ctx, "monolith.batch", func() {
+			logits, err = e.Model.PrefillBatch(e.ctx, caches[:n], chunks[:n])
+		})
+		computeDone := time.Now() // PrefillBatch joins all kernels before returning.
+		e.batchCompute.observe(computeDone.Sub(computeStart))
+		e.stats.Computing.Store(0)
+		for _, s := range sessions {
+			s.Request.computeDone = computeDone
+			if s.Request.task != nil {
+				trace.Logf(s.Request.Ctx, "batch", "%d compute_done", tick)
+			}
+		}
 		clear(caches[:n])
 		clear(chunks[:n])
 		e.stats.Ticks.Add(1)
@@ -3710,9 +3849,13 @@ func (e *Engine) Handler() http.Handler {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		fmt.Fprintf(w, "monolith_submitted_total %d\nmonolith_completed_total %d\nmonolith_canceled_total %d\nmonolith_failed_total %d\nmonolith_rejected_total %d\nmonolith_active %d\nmonolith_queue_depth %d\nmonolith_kv_reserved_bytes %d\nmonolith_kv_allocated_bytes %d\n", s.Submitted, s.Completed, s.Canceled, s.Failed, s.Rejected, s.Active, s.Queue, s.KVReservedBytes, s.KVAllocatedBytes)
 		fmt.Fprintf(w, "monolith_input_tokens_total %d\nmonolith_generated_tokens_total %d\nmonolith_ticks_total %d\nmonolith_slow_consumers_total %d\nmonolith_peak_tick_tokens %d\n", s.InputTokens, s.GeneratedTokens, s.Ticks, s.SlowConsumers, s.PeakTickTokens)
+		fmt.Fprintf(w, "monolith_released_total %d\nmonolith_computing_sessions %d\nmonolith_admission_used %d\n", s.Released, s.Computing, s.AdmissionUsed)
 		e.queueLatency.write(w, "monolith_queue_wait_seconds")
 		e.firstTokenLatency.write(w, "monolith_first_token_seconds")
 		e.tokenGap.write(w, "monolith_token_gap_seconds")
+		e.batchCompute.write(w, "monolith_batch_compute_seconds")
+		e.cancelCompute.write(w, "monolith_cancel_observed_to_compute_done_seconds")
+		e.cancelRelease.write(w, "monolith_cancel_observed_to_release_seconds")
 		var mem runtime.MemStats
 		runtime.ReadMemStats(&mem)
 		fmt.Fprintf(w, "monolith_heap_alloc_bytes %d\nmonolith_heap_sys_bytes %d\nmonolith_gc_cycles_total %d\nmonolith_gc_pause_seconds_total %.9f\nmonolith_goroutines %d\n", mem.HeapAlloc, mem.HeapSys, mem.NumGC, float64(mem.PauseTotalNs)/1e9, runtime.NumGoroutine())
@@ -4766,7 +4909,36 @@ func shutdownInferenceServer(ctx context.Context, server *http.Server, e *Engine
 	}
 }
 
-func runServe(ctx context.Context, args []string) error {
+type inferenceTrace struct {
+	file   *os.File
+	writer *profileWriter
+}
+
+func startInferenceTrace(path string) (*inferenceTrace, error) {
+	if path == "" {
+		return nil, nil
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		return nil, err
+	}
+	t := &inferenceTrace{file: f, writer: &profileWriter{Writer: f}}
+	if err := trace.Start(t.writer); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return nil, err
+	}
+	return t, nil
+}
+func (t *inferenceTrace) close() error {
+	if t == nil {
+		return nil
+	}
+	trace.Stop() // Joins the trace writer before checking its error or closing the file.
+	return errors.Join(t.writer.err, t.file.Close())
+}
+
+func runServe(ctx context.Context, args []string) (err error) {
 	f := flags("serve")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
 	addr := f.String("addr", "127.0.0.1:8080", "HTTP listen address")
@@ -4777,6 +4949,7 @@ func runServe(ctx context.Context, args []string) error {
 	buffer := f.Int("stream-buffer", 32, "buffered token events per stream before slow-consumer termination")
 	queue := f.Int("queue", 32, "bounded request queue capacity")
 	memory := f.Int64("kv-mib", 256, "hard KV page budget in MiB")
+	tracePath := f.String("trace", "", "new Go execution trace file for this serve invocation (process-wide)")
 	threads := threadFlag(f)
 	if err := parse(f, args); err != nil {
 		return err
@@ -4797,6 +4970,11 @@ func runServe(ctx context.Context, args []string) error {
 		return err
 	}
 	defer e.cancel() // A deferred blocking Close would bypass the shutdown deadline.
+	recorder, err := startInferenceTrace(*tracePath)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, recorder.close()) }()
 	server := &http.Server{Addr: *addr, Handler: e.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 125 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	defer server.Close()
 	result := make(chan error, 1)

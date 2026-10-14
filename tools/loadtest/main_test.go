@@ -52,6 +52,49 @@ func TestReadEvents(t *testing.T) {
 	}
 }
 
+func TestMetricsDrainWaitsForAdmissionAndCompute(t *testing.T) {
+	for _, scenario := range []string{"drained", "timeout", "unavailable", "counter_tail"} {
+		t.Run(scenario, func(t *testing.T) {
+			var calls atomic.Int64
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				call := calls.Add(1)
+				fmt.Fprint(w, "monolith_active 0\nmonolith_queue_depth 0\nmonolith_kv_reserved_bytes 0\n")
+				if scenario == "unavailable" {
+					return
+				}
+				pending := 1
+				if (scenario == "drained" || scenario == "counter_tail") && call > 1 {
+					pending = 0
+				}
+				gauge := pending
+				if scenario == "counter_tail" {
+					gauge = 0
+				}
+				fmt.Fprintf(w, "monolith_computing_sessions %d\nmonolith_admission_used %d\n", gauge, gauge)
+				fmt.Fprintf(w, "monolith_submitted_total 1\nmonolith_released_total %d\n", 1-pending)
+			}))
+			defer server.Close()
+			o := testOptions(server.URL)
+			o.DrainTimeout = time.Second
+			if scenario == "timeout" {
+				o.DrainTimeout = 30 * time.Millisecond
+			}
+			m := metricReport{SampledPeaks: map[string]float64{}}
+			m.drain(context.Background(), server.Client(), o)
+			want := scenario
+			if scenario == "counter_tail" {
+				want = "drained"
+			}
+			if m.DrainStatus != want {
+				t.Fatalf("drain = %s, want %s", m.DrainStatus, want)
+			}
+			if want == "drained" && (calls.Load() < 2 || m.After["monolith_admission_used"] != 0) {
+				t.Fatal("client completion was mistaken for server resource return")
+			}
+		})
+	}
+}
+
 func TestExecuteRequestChecksProtocolAndUTF8(t *testing.T) {
 	tests := []struct {
 		name    string
