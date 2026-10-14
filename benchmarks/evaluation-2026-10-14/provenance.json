@@ -1,0 +1,25 @@
+{
+  "baseline_commit": "511ab2f8572b722a389ab0899482d987b2eb66aa",
+  "candidate_source_sha256": {
+    "monolith.go": "52fe787c284d86e1d15dd9d5b054560474156ee6079e9575b0b5bd067d447de8",
+    "eval_forward_exact_test.go": "da208e96782368b91d1d5156c69cf39225065b21b6051116b8606d4c7c9e3bbc",
+    "eval_forward_boundary_test.go": "f3c03200a6afb8bc1ce1133227d36cdfc04771438660800a07afe0ad4d8864dc",
+    "eval_forward_cancellation_test.go": "2d725fad345a59c6d1d1146e34b053cc9fcc640fc48d811a66a74b087e724e41"
+  },
+  "hardware": "Apple M4",
+  "toolchain": "go1.27.1 darwin/arm64",
+  "build": "CGO_ENABLED=0 go build -trimpath",
+  "binaries": {
+    "baseline": "c23f7d16aac70c00cdb7fe350fc755b70a2c7147226fa612a28060f4e91c7e95",
+    "candidate": "71fce1d8cec4a3927e2985eb51491a20581155ef67867911ff580d40eb5a9980"
+  },
+  "validation_text_sha256": "8b06b0ded345523df8b8762c11c20014826b9e631e61130a7a05323012436d56",
+  "benchmark_command": "GOMAXPROCS=4 go test -run '^$' -bench '^BenchmarkEvaluation' -benchtime=5x -count=3 .",
+  "benchmark_scope": "Grouped repeats in one test process; allocating Forward reference and workspace path share candidate arithmetic. Allocation evidence, not a general speed claim. Text benchmark includes complete evaluation invocation; forward benchmark excludes initialization and loss; constructor benchmark separate.",
+  "training_command": "go run ./tools/trainbench -baseline runs/eval-forward-20261014/baseline -candidate runs/eval-forward-20261014/candidate -out runs/eval-forward-20261014/comparison -repeats 5",
+  "training_scope": "Five alternating unprofiled full training processes per implementation/preset; checkpoint and evaluation-receipt equality enforced by harness.",
+  "text_receipt_sha256": {
+    "small-text-eval.json": "2972fad247cbba68eabc9de581578696f8dead666063f3d582ba2b8b57ab09a6",
+    "tiny-text-eval.json": "7c59083342621bf88ccaa3b68c441de0672925280554f1978323215e7186230a"
+  }
+}
