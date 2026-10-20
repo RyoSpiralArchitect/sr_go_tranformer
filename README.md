@@ -19,6 +19,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Evaluation-only forward with bounded per-invocation scratch and no backward tape.
 - Startup memory planning and optional training budgets checked before tensor allocation.
 - Bounded inspection and F32/F16/BF16 decoding of a restricted Hugging Face Llama Safetensors profile.
+- Llama token-ID inference with Transformers reference tests for logits and KV caches.
 
 ## Requirements
 
