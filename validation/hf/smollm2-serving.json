@@ -10,7 +10,7 @@
     "tokenizer.json": "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c",
     "tokenizer_config.json": "4ec77d44f62efeb38d7e044a1db318f6a939438425312dfa333b8382dbad98df"
   },
-  "binary_sha256": "106f1e2fc8193cb0bdb80fd5f32f9493497bf0a8eb8a3096bcedc78e247d5fd7",
+  "binary_sha256": "a5ef8a4ace28b47576762f9adead92bb6e64e480dc928e007f468f17916eabce",
   "context": 512,
   "kernel_workers": 2,
   "cases": [
@@ -126,9 +126,9 @@
     "kv_allocated_bytes": 2949120,
     "input_tokens": 84,
     "generated_tokens": 32,
-    "ticks": 38,
+    "ticks": 39,
     "slow_consumers": 0,
-    "peak_tick_tokens": 13,
+    "peak_tick_tokens": 8,
     "released": 4,
     "computing": 0,
     "admission_used": 0,

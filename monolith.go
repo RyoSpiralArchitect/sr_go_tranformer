@@ -679,7 +679,7 @@ func inferencePrompt(f *flag.FlagSet, tok inferenceTokenizer, prompt string, cha
 		if chat || flagSet(f, "prompt") {
 			return "", errors.New("-messages is mutually exclusive with -prompt/-chat")
 		}
-		if err := readBoundedJSON(messagesPath, 1<<20, &messages); err != nil {
+		if err := readStrictBoundedJSON(messagesPath, 1<<20, &messages); err != nil {
 			return "", err
 		}
 	}
@@ -874,7 +874,9 @@ func readStrictBoundedJSON(path string, limit int64, v any) error {
 	if err := readBoundedJSON(path, limit, &raw); err != nil {
 		return err
 	}
-	return strictJSON(raw, v)
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	return d.Decode(v)
 }
 func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 	var raw struct {

@@ -164,6 +164,28 @@ func TestHFTokenizerBoundariesAndConcurrentUse(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestHFChatFileRejectsUnknownFields(t *testing.T) {
+	tok := testHFTokenizer(t, "testdata/hf-tokenizer")
+	path := filepath.Join(t.TempDir(), "messages.json")
+	for _, body := range []string{
+		`[{"role":"user","content":"hi","tool_calls":[]}]`,
+		`[{"role":"user","role":"assistant","content":"hi"}]`,
+	} {
+		if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := inferencePrompt(flags("test"), tok, "", false, path); err == nil {
+			t.Fatal("accepted ambiguous/unsupported chat file")
+		}
+	}
+	if err := os.WriteFile(path, []byte(`[{"role":"user","content":"hi"}]`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := inferencePrompt(flags("test"), tok, "", false, path); err != nil {
+		t.Fatal(err)
+	}
+}
 func TestHFTokenizerRejectUnsupported(t *testing.T) {
 	for _, kind := range []string{"normalizer", "post_processor", "padding", "pipeline", "dropout", "vocab", "special", "config special", "template"} {
 		t.Run(kind, func(t *testing.T) {
