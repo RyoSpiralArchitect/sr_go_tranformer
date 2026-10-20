@@ -20,6 +20,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Startup memory planning and optional training budgets checked before tensor allocation.
 - Bounded inspection and F32/F16/BF16 decoding of a restricted Hugging Face Llama Safetensors profile.
 - Llama token-ID inference with Transformers reference tests for logits and KV caches.
+- SmolLM2-compatible byte-level BPE, chat formatting, and local HF text generation over CLI/HTTP/SSE.
 
 ## Requirements
 
@@ -30,6 +31,14 @@ The project runs on the CPU using FP32 tensors. It does not require cgo, Python,
 
 See [Hugging Face inference](HF_INFERENCE.md) for supported model files, memory
 planning and compatibility boundaries.
+
+After downloading the documented pinned SmolLM2-135M-Instruct files:
+
+```sh
+go run . generate -hf-model runs/smollm2 -context 512 \
+  -chat -prompt 'Write one short sentence about cats.' \
+  -max-tokens 32 -temperature 0 -repeat-penalty 1
+```
 
 ## Quick start
 
@@ -120,7 +129,7 @@ Training reuses a fixed-size backward workspace owned by the training loop. See 
 
 The [held-out training validation](TRAINING_VALIDATION.md) provides a small authored fixture, complete evaluation receipts and matched CPU optimization measurements. The standard-library Go comparison tool can repeat the same checks against two local executables.
 
-Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, and `serve`.
+Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, `inspect-hf`, `infer-hf`, `tokenize-hf`, and `serve`.
 
 ## HTTP inference
 

@@ -1,0 +1,3 @@
+testdata/hf-llama/*/reference.json linguist-generated=true
+testdata/hf-tokenizer/*.json linguist-generated=true
+validation/hf/*.json linguist-generated=true

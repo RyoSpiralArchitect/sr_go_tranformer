@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"container/heap"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -30,6 +31,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -624,6 +626,95 @@ func runInferHF(ctx context.Context, args []string) error {
 	return json.NewEncoder(os.Stdout).Encode(out)
 }
 
+func flagSet(f *flag.FlagSet, name string) bool {
+	set := false
+	f.Visit(func(v *flag.Flag) {
+		if v.Name == name {
+			set = true
+		}
+	})
+	return set
+}
+func loadInference(ctx context.Context, f *flag.FlagSet, model, dir string, limit int, budget int64) (*Model, inferenceTokenizer, error) {
+	if dir != "" {
+		if flagSet(f, "model") {
+			return nil, nil, errors.New("-model and -hf-model are mutually exclusive")
+		}
+		h, _, err := readHFConfig(dir, limit)
+		if err != nil {
+			return nil, nil, err
+		}
+		tok, err := loadHFTokenizer(dir, h)
+		if err != nil {
+			return nil, nil, err
+		}
+		m, _, err := loadHFModel(ctx, dir, limit, budget)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := validateInferenceTokenizer(m, tok); err != nil {
+			return nil, nil, err
+		}
+		return m, tok, nil
+	}
+	if flagSet(f, "context") || flagSet(f, "weight-mib") {
+		return nil, nil, errors.New("-context/-weight-mib require -hf-model")
+	}
+	m, tok, _, err := LoadCheckpoint(model)
+	return m, tok, err
+}
+func chatFlags(f *flag.FlagSet) (*bool, *string) {
+	return f.Bool("chat", false, "format -prompt as a user message with the supported HF chat template"), f.String("messages", "", "JSON array of chat messages; mutually exclusive with -prompt/-chat")
+}
+func inferencePrompt(f *flag.FlagSet, tok inferenceTokenizer, prompt string, chat bool, messagesPath string) (string, error) {
+	if !chat && messagesPath == "" {
+		return prompt, nil
+	}
+	t, ok := tok.(*hfTokenizer)
+	if !ok {
+		return "", errors.New("chat formatting requires a compatible HF tokenizer")
+	}
+	messages := []ChatMessage{{Role: "user", Content: prompt}}
+	if messagesPath != "" {
+		if chat || flagSet(f, "prompt") {
+			return "", errors.New("-messages is mutually exclusive with -prompt/-chat")
+		}
+		if err := readStrictBoundedJSON(messagesPath, 1<<20, &messages); err != nil {
+			return "", err
+		}
+	}
+	return t.formatChat(messages)
+}
+func runTokenizeHF(ctx context.Context, args []string) error {
+	f := flags("tokenize-hf")
+	dir := f.String("hf-model", "", "local HF model/tokenizer directory")
+	prompt := f.String("prompt", "", "text to encode")
+	chat, messages := chatFlags(f)
+	if err := parse(f, args); err != nil {
+		return err
+	}
+	if *dir == "" {
+		return errors.New("provide -hf-model")
+	}
+	h, c, err := readHFConfig(*dir, 0)
+	if err != nil {
+		return err
+	}
+	t, err := loadHFTokenizer(*dir, h)
+	if err != nil {
+		return err
+	}
+	text, err := inferencePrompt(f, t, *prompt, *chat, *messages)
+	if err != nil {
+		return err
+	}
+	ids, err := t.encodePrompt(ctx, text, c.Context)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"prompt": text, "token_ids": ids, "text": t.Decode(ids)})
+}
+
 // SplitMix64 has one serializable state. No hidden normal-distribution cache.
 type RNG struct {
 	State uint64 `json:"state"`
@@ -662,6 +753,494 @@ type Pair struct {
 }
 type Tokenizer struct {
 	Merges []Pair `json:"merges"`
+}
+
+// Training/checkpoint tokenizers remain concrete. Only inference depends on
+// this read-only interface, so native serialization and framing stay unchanged.
+type inferenceTokenizer interface {
+	Vocab() int
+	Validate() error
+	Pieces() [][]byte
+	Decode([]int) string
+	encodePrompt(context.Context, string, int) ([]int, error)
+	eosID() int
+	blockedID() int
+}
+
+func (t Tokenizer) eosID() int     { return EOS }
+func (t Tokenizer) blockedID() int { return BOS }
+func (t Tokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]int, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	ids := t.Encode(s, true, false)
+	if len(ids) > limit {
+		return nil, errors.New("prompt plus generation exceeds context")
+	}
+	return ids, ctx.Err()
+}
+
+type hfAddedToken struct {
+	ID         int    `json:"id"`
+	Content    string `json:"content"`
+	SingleWord bool   `json:"single_word"`
+	LStrip     bool   `json:"lstrip"`
+	RStrip     bool   `json:"rstrip"`
+	Normalized bool   `json:"normalized"`
+	Special    bool   `json:"special"`
+}
+type hfMerge struct{ rank, id int }
+type hfTokenizer struct {
+	pieces   [][]byte
+	bytes    [256]int
+	merges   map[Pair]hfMerge
+	specials []hfAddedToken
+	bos, eos int
+	chat     bool
+}
+
+func (t *hfTokenizer) Vocab() int { return len(t.pieces) }
+func (t *hfTokenizer) Validate() error {
+	if t == nil || t.Vocab() < 258 || t.eos < 0 || t.eos >= t.Vocab() || t.bos < 0 || t.bos >= t.Vocab() {
+		return errors.New("invalid HF tokenizer")
+	}
+	return nil // All tables are validated once, before this immutable object escapes.
+}
+func (t *hfTokenizer) Pieces() [][]byte { return t.pieces }
+func (t *hfTokenizer) eosID() int       { return t.eos }
+func (t *hfTokenizer) blockedID() int   { return -1 }
+func (t *hfTokenizer) Decode(ids []int) string {
+	var b []byte
+	for _, id := range ids {
+		if id >= 0 && id < len(t.pieces) {
+			b = append(b, t.pieces[id]...)
+		}
+	}
+	d := incrementalText{hf: true}
+	return d.Push(b, true) // Special pieces are empty: generation skips special tokens.
+}
+
+const smolChatTemplate = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful AI assistant named SmolLM, trained by Hugging Face<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
+
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+func (t *hfTokenizer) formatChat(messages []ChatMessage) (string, error) {
+	if !t.chat {
+		return "", errors.New("unsupported chat template")
+	}
+	if len(messages) == 0 || len(messages) > 128 {
+		return "", errors.New("chat requires 1..128 messages")
+	}
+	var b strings.Builder
+	if messages[0].Role != "system" {
+		b.WriteString("<|im_start|>system\nYou are a helpful AI assistant named SmolLM, trained by Hugging Face<|im_end|>\n")
+	}
+	for _, m := range messages {
+		if m.Role != "system" && m.Role != "user" && m.Role != "assistant" {
+			return "", errors.New("chat role must be system, user or assistant")
+		}
+		if !utf8.ValidString(m.Content) || b.Len()+len(m.Content)+len(m.Role)+64 > 1<<20 {
+			return "", errors.New("chat exceeds UTF-8/1 MiB limit")
+		}
+		b.WriteString("<|im_start|>")
+		b.WriteString(m.Role)
+		b.WriteByte('\n')
+		b.WriteString(m.Content)
+		b.WriteString("<|im_end|>\n")
+	}
+	b.WriteString("<|im_start|>assistant\n")
+	return b.String(), nil
+}
+func hfByteAlphabet() ([256]rune, map[rune]byte) {
+	var forward [256]rune
+	reverse := map[rune]byte{}
+	extra := rune(256)
+	for i := 0; i < 256; i++ {
+		r := rune(i)
+		if !(i >= 33 && i <= 126 || i >= 161 && i <= 172 || i >= 174) {
+			r = extra
+			extra++
+		}
+		forward[i] = r
+		reverse[r] = byte(i)
+	}
+	return forward, reverse
+}
+func readStrictBoundedJSON(path string, limit int64, v any) error {
+	var raw json.RawMessage
+	if err := readBoundedJSON(path, limit, &raw); err != nil {
+		return err
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	return d.Decode(v)
+}
+func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
+	var raw struct {
+		Version       string          `json:"version"`
+		Truncation    json.RawMessage `json:"truncation"`
+		Padding       json.RawMessage `json:"padding"`
+		Added         []hfAddedToken  `json:"added_tokens"`
+		Normalizer    json.RawMessage `json:"normalizer"`
+		PreTokenizer  json.RawMessage `json:"pre_tokenizer"`
+		PostProcessor json.RawMessage `json:"post_processor"`
+		Decoder       json.RawMessage `json:"decoder"`
+		Model         struct {
+			Type     string            `json:"type"`
+			Dropout  *float64          `json:"dropout"`
+			Unk      *string           `json:"unk_token"`
+			Prefix   *string           `json:"continuing_subword_prefix"`
+			Suffix   *string           `json:"end_of_word_suffix"`
+			Fuse     bool              `json:"fuse_unk"`
+			Fallback bool              `json:"byte_fallback"`
+			Ignore   bool              `json:"ignore_merges"`
+			Vocab    map[string]int    `json:"vocab"`
+			Merges   []json.RawMessage `json:"merges"`
+		} `json:"model"`
+	}
+	if err := readStrictBoundedJSON(filepath.Join(dir, "tokenizer.json"), 16<<20, &raw); err != nil {
+		return nil, err
+	}
+	null := func(b json.RawMessage) bool { return len(b) == 0 || string(b) == "null" }
+	if raw.Version != "1.0" || !null(raw.Normalizer) || !null(raw.PostProcessor) || !null(raw.Truncation) || !null(raw.Padding) || raw.Model.Type != "BPE" || raw.Model.Dropout != nil || raw.Model.Unk != nil || raw.Model.Prefix != nil || raw.Model.Suffix != nil || raw.Model.Fuse || raw.Model.Fallback || raw.Model.Ignore {
+		return nil, errors.New("unsupported HF tokenizer normalization/BPE options")
+	}
+	// Exact supported pipelines; object key order is immaterial.
+	canonical := func(b []byte) string {
+		var v any
+		if json.Unmarshal(b, &v) != nil {
+			return ""
+		}
+		x, _ := json.Marshal(v)
+		return string(x)
+	}
+	pre := `{"type":"Sequence","pretokenizers":[{"type":"Digits","individual_digits":true},{"type":"ByteLevel","add_prefix_space":false,"trim_offsets":true,"use_regex":true}]}`
+	dec := `{"type":"ByteLevel","add_prefix_space":true,"trim_offsets":true,"use_regex":true}`
+	if canonical(raw.PreTokenizer) != canonical([]byte(pre)) || canonical(raw.Decoder) != canonical([]byte(dec)) {
+		return nil, errors.New("unsupported HF tokenizer pipeline (require Digits + ByteLevel)")
+	}
+	var cfg struct {
+		AddPrefix  bool                    `json:"add_prefix_space"`
+		Added      map[string]hfAddedToken `json:"added_tokens_decoder"`
+		Additional []string                `json:"additional_special_tokens"`
+		BOS        string                  `json:"bos_token"`
+		EOS        string                  `json:"eos_token"`
+		Pad        string                  `json:"pad_token"`
+		Unk        string                  `json:"unk_token"`
+		Chat       string                  `json:"chat_template"`
+		Cleanup    bool                    `json:"clean_up_tokenization_spaces"`
+		MaxLength  int                     `json:"model_max_length"`
+		Class      string                  `json:"tokenizer_class"`
+		Vocab      int                     `json:"vocab_size"`
+	}
+	if err := readStrictBoundedJSON(filepath.Join(dir, "tokenizer_config.json"), 1<<20, &cfg); err != nil {
+		return nil, err
+	}
+	if cfg.AddPrefix || cfg.Cleanup || cfg.Class != "GPT2Tokenizer" || cfg.Vocab != h.Vocab || cfg.MaxLength != h.Context || len(raw.Model.Vocab) != h.Vocab || h.Vocab > 65536 || h.Vocab < 258 || len(raw.Added) > 256 || len(raw.Model.Merges) > 65536 {
+		return nil, errors.New("HF tokenizer config/model mismatch or unsupported options")
+	}
+	t := &hfTokenizer{pieces: make([][]byte, h.Vocab), merges: map[Pair]hfMerge{}, bos: h.BOS, eos: h.EOS}
+	seen := make([]bool, h.Vocab)
+	special := map[int]bool{}
+	specialNames := map[string]bool{}
+	if len(cfg.Added) != len(raw.Added) {
+		return nil, errors.New("HF added token table mismatch")
+	}
+	for _, s := range raw.Added {
+		id, ok := raw.Model.Vocab[s.Content]
+		configured, found := cfg.Added[strconv.Itoa(s.ID)]
+		configured.ID = s.ID
+		if !ok || id != s.ID || id < 0 || id >= h.Vocab || special[id] || len(s.Content) == 0 || len(s.Content) > 256 || !s.Special || s.SingleWord || s.LStrip || s.RStrip || s.Normalized || !found || configured != s {
+			return nil, errors.New("unsupported or inconsistent HF added token")
+		}
+		special[id] = true
+		specialNames[s.Content] = true
+		t.specials = append(t.specials, s)
+	}
+	for _, s := range append(append([]string{}, cfg.Additional...), cfg.BOS, cfg.EOS, cfg.Pad, cfg.Unk) {
+		if !specialNames[s] {
+			return nil, errors.New("HF special token not registered")
+		}
+	}
+	if raw.Model.Vocab[cfg.BOS] != h.BOS || raw.Model.Vocab[cfg.EOS] != h.EOS {
+		return nil, errors.New("HF BOS/EOS mismatch")
+	}
+	sort.Slice(t.specials, func(i, j int) bool {
+		if len(t.specials[i].Content) == len(t.specials[j].Content) {
+			return t.specials[i].ID < t.specials[j].ID
+		}
+		return len(t.specials[i].Content) > len(t.specials[j].Content)
+	})
+	alphabet, reverse := hfByteAlphabet()
+	total := 0
+	for word, id := range raw.Model.Vocab {
+		if id < 0 || id >= h.Vocab || seen[id] || word == "" || len(word) > 65536 {
+			return nil, errors.New("invalid HF vocabulary IDs/pieces")
+		}
+		seen[id] = true
+		if special[id] {
+			continue
+		}
+		for _, r := range word {
+			b, ok := reverse[r]
+			if !ok {
+				return nil, errors.New("HF vocabulary outside byte alphabet")
+			}
+			t.pieces[id] = append(t.pieces[id], b)
+		}
+		total += len(t.pieces[id])
+		if total > 16<<20 {
+			return nil, errors.New("HF vocabulary expansion limit")
+		}
+	}
+	for b, r := range alphabet {
+		id, ok := raw.Model.Vocab[string(r)]
+		t.bytes[b] = -1
+		if ok {
+			if special[id] {
+				return nil, errors.New("HF byte token is marked special")
+			}
+			t.bytes[b] = id
+		}
+	}
+	for rank, v := range raw.Model.Merges {
+		var pair []string
+		if len(v) > 0 && v[0] == '"' {
+			var s string
+			if err := json.Unmarshal(v, &s); err != nil {
+				return nil, err
+			}
+			pair = strings.Split(s, " ")
+		} else {
+			if err := json.Unmarshal(v, &pair); err != nil {
+				return nil, err
+			}
+		}
+		if len(pair) != 2 {
+			return nil, errors.New("invalid HF BPE merge")
+		}
+		a, okA := raw.Model.Vocab[pair[0]]
+		b, okB := raw.Model.Vocab[pair[1]]
+		id, okC := raw.Model.Vocab[pair[0]+pair[1]]
+		key := Pair{a, b}
+		_, exists := t.merges[key]
+		if !okA || !okB || !okC || special[a] || special[b] || special[id] || exists {
+			return nil, errors.New("invalid or duplicate HF merge")
+		}
+		t.merges[key] = hfMerge{rank, id}
+	}
+	t.chat = cfg.Chat == smolChatTemplate && cfg.BOS == "<|im_start|>" && cfg.EOS == "<|im_end|>"
+	return t, t.Validate()
+}
+
+type hfBPENode struct {
+	id, prev, next int
+	live           bool
+}
+type hfBPEJob struct{ left, right, a, b, rank, id int }
+type hfBPEHeap []hfBPEJob
+
+func (h hfBPEHeap) Len() int { return len(h) }
+func (h hfBPEHeap) Less(i, j int) bool {
+	if h[i].rank == h[j].rank {
+		return h[i].left < h[j].left
+	}
+	return h[i].rank < h[j].rank
+}
+func (h hfBPEHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h *hfBPEHeap) Push(x any)   { *h = append(*h, x.(hfBPEJob)) }
+func (h *hfBPEHeap) Pop() any     { x := *h; n := len(x) - 1; v := x[n]; *h = x[:n]; return v }
+func (t *hfTokenizer) bpe(ctx context.Context, s string) ([]int, error) {
+	if len(s) > 65536 {
+		return nil, errors.New("HF pre-token exceeds 64 KiB")
+	}
+	if len(s) == 0 {
+		return nil, nil
+	}
+	nodes := make([]hfBPENode, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		// With unk_token=null and byte_fallback=false, HF BPE drops
+		// alphabet bytes absent from the vocabulary (the target has some).
+		if id := t.bytes[s[i]]; id >= 0 {
+			n := len(nodes)
+			nodes = append(nodes, hfBPENode{id, n - 1, n + 1, true})
+		}
+	}
+	if len(nodes) == 0 {
+		return nil, ctx.Err()
+	}
+	nodes[len(nodes)-1].next = -1
+	h := &hfBPEHeap{}
+	add := func(left int) {
+		if left < 0 || !nodes[left].live {
+			return
+		}
+		right := nodes[left].next
+		if right < 0 {
+			return
+		}
+		a, b := nodes[left].id, nodes[right].id
+		if m, ok := t.merges[Pair{a, b}]; ok {
+			heap.Push(h, hfBPEJob{left, right, a, b, m.rank, m.id})
+		}
+	}
+	for i := range nodes {
+		add(i)
+	}
+	for step := 0; h.Len() > 0; step++ {
+		if step%256 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+		}
+		x := heap.Pop(h).(hfBPEJob)
+		a, b := &nodes[x.left], &nodes[x.right]
+		if !a.live || !b.live || a.next != x.right || a.id != x.a || b.id != x.b {
+			continue
+		}
+		a.id = x.id
+		a.next = b.next
+		b.live = false
+		if b.next >= 0 {
+			nodes[b.next].prev = x.left
+		}
+		add(a.prev)
+		add(x.left)
+	}
+	out := make([]int, 0, len(s))
+	for i := 0; i >= 0; i = nodes[i].next {
+		out = append(out, nodes[i].id)
+	}
+	return out, ctx.Err()
+}
+
+// The GPT-2 regex has a whitespace lookahead unavailable in Go's RE2. Scan the
+// same alternatives directly, after Digits has isolated each Unicode number.
+func hfWordEnd(s string, start int) int {
+	for _, suffix := range []string{"'s", "'t", "'re", "'ve", "'m", "'ll", "'d"} {
+		if strings.HasPrefix(s[start:], suffix) {
+			return start + len(suffix)
+		}
+	}
+	class := func(r rune) int {
+		if unicode.IsLetter(r) {
+			return 1
+		}
+		if unicode.IsNumber(r) {
+			return 2
+		}
+		if unicode.IsSpace(r) {
+			return 3
+		}
+		return 4
+	}
+	at := start
+	if s[at] == ' ' && at+1 < len(s) {
+		r, _ := utf8.DecodeRuneInString(s[at+1:])
+		if class(r) != 3 {
+			at++
+		}
+	}
+	r, n := utf8.DecodeRuneInString(s[at:])
+	kind := class(r)
+	end := at + n
+	previous := at
+	for end < len(s) {
+		r, n = utf8.DecodeRuneInString(s[end:])
+		if class(r) != kind {
+			break
+		}
+		previous = end
+		end += n
+	}
+	if kind == 3 && end < len(s) && previous > at {
+		return previous
+	}
+	return end
+}
+func (t *hfTokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]int, error) {
+	if !utf8.ValidString(s) || len(s) > 1<<20 {
+		return nil, errors.New("HF prompt must be valid UTF-8 and at most 1 MiB")
+	}
+	out := make([]int, 0, min(len(s), max(limit, 0)))
+	appendIDs := func(ids []int) error {
+		if len(ids) > limit-len(out) {
+			return errors.New("prompt plus generation exceeds context")
+		}
+		out = append(out, ids...)
+		return nil
+	}
+	// Longest matching special token wins at the earliest byte position.
+	for pos := 0; pos < len(s); {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		end, matched := len(s), -1
+		var first [256]bool
+		for _, sp := range t.specials {
+			first[sp.Content[0]] = true
+		}
+	searchSpecial:
+		for at := pos; at < len(s); at++ {
+			if at%4096 == 0 {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+			}
+			if !first[s[at]] {
+				continue
+			}
+			for i, sp := range t.specials {
+				if strings.HasPrefix(s[at:], sp.Content) {
+					end, matched = at, i
+					break searchSpecial
+				}
+			}
+		}
+		plain := s[pos:end]
+		// Digits is applied before the byte-level regex, including whitespace.
+		for lo := 0; lo < len(plain); {
+			r, n := utf8.DecodeRuneInString(plain[lo:])
+			hi := lo + n
+			if !unicode.IsNumber(r) {
+				for hi < len(plain) {
+					r, n = utf8.DecodeRuneInString(plain[hi:])
+					if unicode.IsNumber(r) {
+						break
+					}
+					hi += n
+				}
+			}
+			segment := plain[lo:hi]
+			for a := 0; a < len(segment); {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+				b := hfWordEnd(segment, a)
+				ids, err := t.bpe(ctx, segment[a:b])
+				if err != nil {
+					return nil, err
+				}
+				if err = appendIDs(ids); err != nil {
+					return nil, err
+				}
+				a = b
+			}
+			lo = hi
+		}
+		pos = end
+		if matched >= 0 {
+			sp := t.specials[matched]
+			if err := appendIDs([]int{sp.ID}); err != nil {
+				return nil, err
+			}
+			pos += len(sp.Content)
+		}
+	}
+	return out, ctx.Err()
 }
 
 func (t Tokenizer) Vocab() int { return baseVocab + len(t.Merges) }
@@ -3597,6 +4176,9 @@ type candidate struct {
 }
 
 func sample(logits []float32, history []int, s Sampling, rng *RNG) (int, error) {
+	return sampleWithBlocked(logits, history, s, rng, BOS)
+}
+func sampleWithBlocked(logits []float32, history []int, s Sampling, rng *RNG, blocked int) (int, error) {
 	seen := make(map[int]bool, len(history))
 	for _, id := range history {
 		seen[id] = true
@@ -3606,7 +4188,7 @@ func sample(logits []float32, history []int, s Sampling, rng *RNG) (int, error) 
 		if !finite(float64(v)) {
 			return 0, errors.New("nonfinite sampling logit")
 		}
-		if id == BOS {
+		if id == blocked {
 			continue
 		}
 		x := float64(v)
@@ -3669,9 +4251,25 @@ type Completion struct {
 	FinishReason     string `json:"finish_reason"`
 }
 
-func preparePrompt(m *Model, tok Tokenizer, prompt string, s Sampling) ([]int, error) {
+func validateInferenceTokenizer(m *Model, tok inferenceTokenizer) error {
+	if tok == nil {
+		return errors.New("nil inference tokenizer")
+	}
+	h, ok := tok.(*hfTokenizer)
+	if ok && h == nil {
+		return errors.New("nil HF tokenizer")
+	}
+	if (m.hf != nil) != ok || ok && (h.bos != m.hf.BOS || h.eos != m.hf.EOS) {
+		return errors.New("incompatible model/tokenizer inference profiles")
+	}
 	if tok.Vocab() != m.Config.Vocab {
-		return nil, errors.New("tokenizer/model mismatch")
+		return errors.New("tokenizer/model mismatch")
+	}
+	return nil
+}
+func preparePrompt(ctx context.Context, m *Model, tok inferenceTokenizer, prompt string, s Sampling) ([]int, error) {
+	if err := validateInferenceTokenizer(m, tok); err != nil {
+		return nil, err
 	}
 	if err := s.Validate(m.Config); err != nil {
 		return nil, err
@@ -3679,17 +4277,23 @@ func preparePrompt(m *Model, tok Tokenizer, prompt string, s Sampling) ([]int, e
 	if len(prompt) > 1024*1024 {
 		return nil, errors.New("prompt exceeds 1 MiB")
 	}
-	ids := tok.Encode(prompt, true, false)
+	ids, err := tok.encodePrompt(ctx, prompt, m.Config.Context-s.MaxTokens)
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return nil, errors.New("prompt must encode at least one token")
+	}
 	if len(ids)+s.MaxTokens > m.Config.Context {
 		return nil, fmt.Errorf("prompt (%d) + generation (%d) exceeds context (%d)", len(ids), s.MaxTokens, m.Config.Context)
 	}
 	return ids, nil
 }
-func completion(tok Tokenizer, output []int, prompt int, reason string) Completion {
+func completion(tok inferenceTokenizer, output []int, prompt int, reason string) Completion {
 	return Completion{strings.ToValidUTF8(tok.Decode(output), "\ufffd"), output, prompt, len(output), reason}
 }
-func Generate(ctx context.Context, m *Model, tok Tokenizer, prompt string, s Sampling) (Completion, error) {
-	ids, err := preparePrompt(m, tok, prompt, s)
+func Generate(ctx context.Context, m *Model, tok inferenceTokenizer, prompt string, s Sampling) (Completion, error) {
+	ids, err := preparePrompt(ctx, m, tok, prompt, s)
 	if err != nil {
 		return Completion{}, err
 	}
@@ -3713,13 +4317,13 @@ func Generate(ctx context.Context, m *Model, tok Tokenizer, prompt string, s Sam
 		if err = ctx.Err(); err != nil {
 			return Completion{}, err
 		}
-		id, e := sample(logits, history, s, rng)
+		id, e := sampleWithBlocked(logits, history, s, rng, tok.blockedID())
 		if e != nil {
 			return Completion{}, e
 		}
 		out = append(out, id)
 		history = append(history, id)
-		if id == EOS {
+		if id == tok.eosID() {
 			reason = "eos"
 			break
 		}
@@ -3756,9 +4360,13 @@ type TokenEvent struct {
 type incrementalText struct {
 	pending []byte
 	invalid bool
+	hf      bool
 }
 
 func (d *incrementalText) Push(piece []byte, final bool) string {
+	if d.hf {
+		return d.pushHF(piece, final)
+	}
 	data := append(d.pending, piece...)
 	d.pending = nil
 	var out strings.Builder
@@ -3778,6 +4386,50 @@ func (d *incrementalText) Push(piece []byte, final bool) string {
 			d.invalid = false
 		}
 		data = data[n:]
+	}
+	return out.String()
+}
+
+// Match the ByteLevel decoder's UTF-8 lossy conversion, including one
+// replacement for an incomplete valid prefix and separate invalid lead bytes.
+func (d *incrementalText) pushHF(piece []byte, final bool) string {
+	data := append(d.pending, piece...)
+	d.pending = nil
+	var out strings.Builder
+	for pos := 0; pos < len(data); {
+		b := data[pos]
+		need := 1
+		switch {
+		case b < 0x80:
+			out.WriteByte(b)
+			pos++
+			continue
+		case b >= 0xc2 && b <= 0xdf:
+			need = 2
+		case b >= 0xe0 && b <= 0xef:
+			need = 3
+		case b >= 0xf0 && b <= 0xf4:
+			need = 4
+		}
+		n := 1
+		for n < need && pos+n < len(data) {
+			c := data[pos+n]
+			if c < 0x80 || c > 0xbf || n == 1 && (b == 0xe0 && c < 0xa0 || b == 0xed && c >= 0xa0 || b == 0xf0 && c < 0x90 || b == 0xf4 && c >= 0x90) {
+				break
+			}
+			n++
+		}
+		if need > 1 && n == need {
+			out.Write(data[pos : pos+n])
+			pos += n
+			continue
+		}
+		if need > 1 && pos+n == len(data) && n < need && !final {
+			d.pending = append(d.pending, data[pos:]...)
+			break
+		}
+		out.WriteRune(utf8.RuneError)
+		pos += n
 	}
 	return out.String()
 }
@@ -3947,7 +4599,7 @@ func (h *latencyHistogram) write(w io.Writer, name string) {
 
 type Engine struct {
 	Model                                      *Model
-	Tokenizer                                  Tokenizer
+	Tokenizer                                  inferenceTokenizer
 	Config                                     EngineConfig
 	queue                                      chan *engineRequest
 	admission                                  chan struct{}
@@ -3963,7 +4615,7 @@ type Engine struct {
 	batchCompute, cancelCompute, cancelRelease latencyHistogram
 }
 
-func NewEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
+func NewEngine(m *Model, tok inferenceTokenizer, c EngineConfig) (*Engine, error) {
 	e, err := newEngine(m, tok, c)
 	if err != nil {
 		return nil, err
@@ -3974,7 +4626,10 @@ func NewEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
 
 // Construct ownership before starting the actor. Tests can stage a complete
 // cohort before run, without timing assumptions or replacing model kernels.
-func newEngine(m *Model, tok Tokenizer, c EngineConfig) (*Engine, error) {
+func newEngine(m *Model, tok inferenceTokenizer, c EngineConfig) (*Engine, error) {
+	if err := validateInferenceTokenizer(m, tok); err != nil {
+		return nil, err
+	}
 	if c.StreamBuffer == 0 {
 		c.StreamBuffer = 32
 	}
@@ -4038,7 +4693,7 @@ func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streami
 			<-e.admission
 		}
 	}()
-	ids, err := preparePrompt(e.Model, e.Tokenizer, prompt, s)
+	ids, err := preparePrompt(ctx, e.Model, e.Tokenizer, prompt, s)
 	if err != nil {
 		return nil, err
 	}
@@ -4271,7 +4926,7 @@ func (e *Engine) run() {
 			cache := e.Model.NewCache()
 			cache.pool, cache.reserved = &e.pool, pages
 			e.pool.Reserved += pages
-			sessions = append(sessions, &engineSession{Request: r, Cache: cache, History: append([]int(nil), r.IDs...), RNG: RNG{r.Sampling.Seed}})
+			sessions = append(sessions, &engineSession{Request: r, Cache: cache, History: append([]int(nil), r.IDs...), RNG: RNG{r.Sampling.Seed}, Text: incrementalText{hf: e.Model.hf != nil}})
 			e.stats.Active.Add(1)
 			r.log("admitted")
 			e.queueLatency.observe(time.Since(r.Enqueued))
@@ -4345,7 +5000,7 @@ func (e *Engine) run() {
 				alive = append(alive, s)
 				continue
 			}
-			id, err := sample(logits[i*e.Model.Config.Vocab:(i+1)*e.Model.Config.Vocab], s.History, s.Request.Sampling, &s.RNG)
+			id, err := sampleWithBlocked(logits[i*e.Model.Config.Vocab:(i+1)*e.Model.Config.Vocab], s.History, s.Request.Sampling, &s.RNG, e.Tokenizer.blockedID())
 			if err != nil {
 				finish(s, Completion{}, err)
 				continue
@@ -4361,7 +5016,7 @@ func (e *Engine) run() {
 			s.Output = append(s.Output, id)
 			s.History = append(s.History, id)
 			reason := ""
-			if id == EOS {
+			if id == e.Tokenizer.eosID() {
 				reason = "eos"
 			} else if len(s.Output) == s.Request.Sampling.MaxTokens {
 				reason = "length"
@@ -4541,21 +5196,38 @@ func (e *Engine) Handler() http.Handler {
 			return
 		}
 		req := struct {
-			Prompt string `json:"prompt"`
-			Stream bool   `json:"stream"`
+			Prompt   *string       `json:"prompt"`
+			Messages []ChatMessage `json:"messages"`
+			Stream   bool          `json:"stream"`
 			Sampling
 		}{Sampling: defaultSampling()}
 		if err = strictJSON(body, &req); err != nil {
 			writeInferenceError(w, err)
 			return
 		}
+		prompt := ""
+		if req.Prompt != nil {
+			prompt = *req.Prompt
+		}
+		if req.Messages != nil {
+			t, ok := e.Tokenizer.(*hfTokenizer)
+			if !ok || req.Prompt != nil {
+				writeInferenceError(w, errors.New("messages require HF chat support and cannot be combined with prompt"))
+				return
+			}
+			prompt, err = t.formatChat(req.Messages)
+			if err != nil {
+				writeInferenceError(w, err)
+				return
+			}
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 		defer cancel()
 		if req.Stream {
-			e.serveStream(w, r, ctx, req.Prompt, req.Sampling)
+			e.serveStream(w, r, ctx, prompt, req.Sampling)
 			return
 		}
-		out, err := e.Generate(ctx, req.Prompt, req.Sampling)
+		out, err := e.Generate(ctx, prompt, req.Sampling)
 		if err != nil {
 			writeInferenceError(w, err)
 			return
@@ -5373,6 +6045,8 @@ func runDemo(ctx context.Context, args []string) error {
 func runGenerate(ctx context.Context, args []string) error {
 	f := flags("generate")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
+	dir, limit, budget := hfFlags(f)
+	chat, messages := chatFlags(f)
 	prompt := f.String("prompt", "", "text prompt")
 	asJSON := f.Bool("json", false, "emit structured completion")
 	threads := threadFlag(f)
@@ -5384,12 +6058,16 @@ func runGenerate(ctx context.Context, args []string) error {
 	if err := setThreads(*threads); err != nil {
 		return err
 	}
-	m, tok, _, err := LoadCheckpoint(*model)
+	m, tok, err := loadInference(ctx, f, *model, *dir, *limit, *budget)
 	if err != nil {
 		return err
 	}
 	m.DropOptimizer()
-	out, err := Generate(ctx, m, tok, *prompt, s)
+	formatted, err := inferencePrompt(f, tok, *prompt, *chat, *messages)
+	if err != nil {
+		return err
+	}
+	out, err := Generate(ctx, m, tok, formatted, s)
 	if err != nil {
 		return err
 	}
@@ -5603,6 +6281,7 @@ func (t *inferenceTrace) close() error {
 func runServe(ctx context.Context, args []string) (err error) {
 	f := flags("serve")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
+	dir, limit, weightBudget := hfFlags(f)
 	addr := f.String("addr", "127.0.0.1:8080", "HTTP listen address")
 	batch := f.Int("max-batch", 8, "maximum simultaneous sessions per scheduling tick")
 	chunk := f.Int("prefill-chunk", 16, "maximum prompt tokens per session per tick; 1 is the sequential baseline")
@@ -5623,7 +6302,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 	if *memory < 1 || *memory > 1<<20 {
 		return errors.New("invalid -kv-mib")
 	}
-	m, tok, _, err := LoadCheckpoint(*model)
+	m, tok, err := loadInference(ctx, f, *model, *dir, *limit, *weightBudget)
 	if err != nil {
 		return err
 	}
@@ -5656,7 +6335,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 }
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, inspect-hf, infer-hf, serve\nusage: monolith <command> -h")
+		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, inspect-hf, infer-hf, tokenize-hf, serve\nusage: monolith <command> -h")
 		return nil
 	}
 	switch args[0] {
@@ -5678,6 +6357,8 @@ func run(ctx context.Context, args []string) error {
 		return runInspectHF(args[1:])
 	case "infer-hf":
 		return runInferHF(ctx, args[1:])
+	case "tokenize-hf":
+		return runTokenizeHF(ctx, args[1:])
 	case "serve":
 		return runServe(ctx, args[1:])
 	case "help", "-h", "--help":
