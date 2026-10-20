@@ -90,8 +90,99 @@ python scripts/hf_reference.py --model runs/smollm2 \
 ```
 
 The probe verifies the pinned config and weight hashes. No pretrained model
-weights are checked into this repository. Text tokenization and serving
-integration are a separate layer.
+weights are checked into this repository.
+
+## Text generation and chat
+
+The text layer supports the SmolLM2 tokenizer profile: `Digits` (individual
+Unicode numbers), GPT-2 `ByteLevel` splitting, BPE, no normalization or post
+processor, and explicitly registered special tokens. It reads `tokenizer.json`
+and `tokenizer_config.json`; arbitrary tokenizer pipelines are rejected.
+
+```sh
+go run . tokenize-hf -hf-model runs/smollm2 -prompt 'Goと猫 🐈‍⬛ 2026'
+go run . generate -hf-model runs/smollm2 -context 512 \
+  -prompt 'The capital of France is' -max-tokens 8 \
+  -temperature 0 -repeat-penalty 1 -json
+go run . generate -hf-model runs/smollm2 -context 512 \
+  -chat -prompt 'Write one short sentence about cats.' \
+  -max-tokens 32 -temperature 0 -repeat-penalty 1 -json
+```
+
+Plain prompts receive no implicit BOS. Empty encoded prompts are rejected for
+generation. Chat formatting adds the exact supported SmolLM2 template,
+including its default system message when no system message is supplied, and
+the assistant generation prefix. Only this recognized template is implemented;
+Jinja is never executed. A different template remains usable for plain prompts
+but fails explicitly when chat formatting is requested.
+
+Use `-messages path/to/messages.json` instead of `-prompt/-chat` for a JSON array
+of `{ "role": "user", "content": "..." }` objects. Roles are `system`, `user` and
+`assistant`; at most 128 messages are accepted. `tokenize-hf` accepts the same
+chat flags and reports the formatted prompt, IDs and decoded text.
+
+Generation uses the model's scalar EOS and the existing Go sampling flags;
+`generation_config.json` sampling settings are not applied. ID 256 is an
+ordinary HF vocabulary ID. Generated text skips registered special tokens.
+The HF decoder matches ByteLevel's lossy UTF-8 replacement behavior, including
+across streamed token boundaries. Native tokenization and native UTF-8 behavior
+are unchanged.
+
+Vocabulary tables are immutable after loading and shared across requests.
+Each encoding owns a priority queue of BPE merge candidates and checks context
+cancellation. Prompts are limited to 1 MiB, individual regex pre-tokens to
+64 KiB, tokenizer JSON to 16 MiB and expanded vocabulary pieces to 16 MiB.
+Context overflow is rejected without truncation. Unicode categories follow
+Go's Unicode tables. Some byte-alphabet entries are absent from SmolLM2's
+vocabulary; with its null BPE unknown token, those bytes are omitted exactly as
+in Hugging Face Tokenizers. Thus this tokenizer is not byte-lossless for every
+input, unlike the native tokenizer.
+
+## Serve the imported model
+
+```sh
+go run . serve -hf-model runs/smollm2 -context 512 -weight-mib 600 \
+  -threads 4 -kernel-workers 2 -max-batch 2 -queue 4 -kv-mib 64
+
+curl -N http://127.0.0.1:8080/v1/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Write one short sentence about cats."}],"max_tokens":32,"temperature":0,"repeat_penalty":1,"stream":true}'
+```
+
+The existing project-specific `/v1/completions` accepts either `prompt` or
+`messages`, with the same completion JSON and SSE token/done/error events.
+`messages` requires supported HF chat formatting; the two input forms cannot
+be combined. This endpoint is not an OpenAI Chat Completions implementation.
+`-model` and `-hf-model` are mutually exclusive.
+
+Imported models use the same actor, fixed per-engine workers, bounded admission,
+KV page pool, cancellation, slow-consumer handling and shutdown lifecycle as
+native models. No Python, cgo, external server or ML runtime participates in
+Go inference.
+
+The [text-serving receipt](validation/hf/smollm2-serving.json) records matching
+CLI, HTTP and two concurrent SSE outputs against Transformers for a raw prompt
+and a 37-token chat prompt, with eight generated tokens each. All four HTTP
+requests released admission and KV reservations; retained allocated pages are
+reusable pool storage. Server shutdown completed normally. This small probe is
+a compatibility/lifecycle check, not a production load benchmark.
+
+The [tokenizer reference](validation/hf/smollm2-tokenizer.json) contains
+147 encoding cases, three chat cases and six decoding cases, including numbers,
+whitespace, contractions, Japanese, emoji, combining marks, special tokens and
+missing byte entries. All matched Go locally. CI runs equivalent tests on a
+small synthetic tokenizer fixture without downloading a model.
+
+```sh
+python scripts/hf_tokenizer_reference.py --fixture testdata/hf-tokenizer
+python scripts/hf_tokenizer_reference.py --model runs/smollm2 \
+  --output runs/tokenizer-reference.json
+MONOLITH_HF_MODEL=runs/smollm2 \
+MONOLITH_HF_TOKENIZER_REFERENCE=runs/tokenizer-reference.json \
+  go test -race -run TestHFLocalTokenizerReference -v .
+python scripts/hf_serving_reference.py --model runs/smollm2 \
+  --binary ./monolith --output runs/hf-serving.json
+```
 
 Format reference: [Safetensors specification](https://github.com/huggingface/safetensors#format).
 Model source: [SmolLM2-135M-Instruct, pinned revision](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/tree/12fd25f77366fa6b3b4b768ec3050bf629380bac).
