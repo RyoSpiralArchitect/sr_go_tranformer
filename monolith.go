@@ -24,6 +24,7 @@ import (
 	"runtime/pprof"
 	"runtime/trace"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -526,6 +527,101 @@ func runInspectHF(args []string) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(a.Plan)
+}
+
+type HFIDResult struct {
+	PromptTokens int         `json:"prompt_tokens"`
+	TokenIDs     []int       `json:"token_ids"`
+	FinishReason string      `json:"finish_reason"`
+	Logits       [][]float32 `json:"logits,omitempty"`
+}
+
+// inferHFIDs is a bounded numerical probe. IDs are already framed by the caller;
+// no token (including the native BOS ID 256) is implicitly inserted or masked.
+func inferHFIDs(ctx context.Context, m *Model, ids []int, count, chunk int, logits bool) (HFIDResult, error) {
+	out := HFIDResult{PromptTokens: len(ids), TokenIDs: []int{}, FinishReason: "length"}
+	if m.hf == nil || len(ids) == 0 || count < 1 || count > 256 || chunk < 1 || chunk > 1024 || len(ids) > m.Config.Context-count {
+		return out, errors.New("invalid HF probe: nonempty IDs, 1..256 outputs, 1..1024 chunk, total within context")
+	}
+	for _, id := range ids {
+		if id < 0 || id >= m.Config.Vocab {
+			return out, errors.New("HF token ID outside vocabulary")
+		}
+	}
+	cache := m.NewCache()
+	defer cache.Close()
+	var next []float32
+	var err error
+	for lo := 0; lo < len(ids); lo += chunk {
+		next, err = m.PrefillBatch(ctx, []*KVCache{cache}, [][]int{ids[lo:min(lo+chunk, len(ids))]})
+		if err != nil {
+			return out, err
+		}
+	}
+	for i := 0; i < count; i++ {
+		if err := ctx.Err(); err != nil {
+			return out, err
+		}
+		best := 0
+		for j, v := range next {
+			if !finite(float64(v)) {
+				return out, errors.New("non-finite HF logits")
+			}
+			if v > next[best] {
+				best = j
+			}
+		}
+		if logits {
+			out.Logits = append(out.Logits, next)
+		}
+		out.TokenIDs = append(out.TokenIDs, best)
+		if best == m.hf.EOS {
+			out.FinishReason = "eos"
+			break
+		}
+		if i+1 < count {
+			next, err = m.DecodeBatch(ctx, []*KVCache{cache}, []int{best})
+			if err != nil {
+				return out, err
+			}
+		}
+	}
+	return out, nil
+}
+func runInferHF(ctx context.Context, args []string) error {
+	f := flags("infer-hf")
+	dir, limit, budget := hfFlags(f)
+	input := f.String("ids", "", "comma-separated token IDs, already framed")
+	count := f.Int("max-tokens", 8, "greedy outputs (1..256)")
+	chunk := f.Int("prefill-chunk", 16, "prompt tokens per call (1..1024)")
+	logits := f.Bool("logits", false, "include full FP32 logits for numerical comparison")
+	threads := threadFlag(f)
+	if err := parse(f, args); err != nil {
+		return err
+	}
+	if err := setThreads(*threads); err != nil {
+		return err
+	}
+	if len(*input) > 1<<20 {
+		return errors.New("ID input exceeds 1 MiB")
+	}
+	var ids []int
+	for _, s := range strings.Split(*input, ",") {
+		id, err := strconv.Atoi(strings.TrimSpace(s))
+		if err != nil {
+			return fmt.Errorf("invalid token ID: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	m, _, err := loadHFModel(ctx, *dir, *limit, *budget)
+	if err != nil {
+		return err
+	}
+	out, err := inferHFIDs(ctx, m, ids, *count, *chunk, *logits)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(os.Stdout).Encode(out)
 }
 
 // SplitMix64 has one serializable state. No hidden normal-distribution cache.
@@ -1761,6 +1857,39 @@ type Model struct {
 	Cos, Sin   []float32
 	Revision   uint64
 	decodePool sync.Pool
+	hf         *hfConfig // Non-nil marks imported, inference-only half-split RoPE.
+}
+
+func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model, HFPlan, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, HFPlan{}, err
+	}
+	a, err := openHFFlags(dir, limit, mib)
+	if err != nil {
+		return nil, HFPlan{}, err
+	}
+	defer a.Close()
+	m, err := allocateModel(a.Plan.Config, nil)
+	if err != nil {
+		return nil, a.Plan, err
+	}
+	m.hf = &a.Config
+	// HF computes default RoPE frequencies and position products in FP32.
+	hd := m.Config.Dim / m.Config.Heads
+	for pos := 0; pos < m.Config.Context; pos++ {
+		for j := 0; j < hd/2; j++ {
+			inv := float32(1) / float32(math.Pow(m.Config.RopeTheta, float64(float32(2*j)/float32(hd))))
+			angle := float64(float32(pos) * inv)
+			m.Cos[pos*hd/2+j] = float32(math.Cos(angle))
+			m.Sin[pos*hd/2+j] = float32(math.Sin(angle))
+		}
+	}
+	for i, s := range hfTensorSpecs(m.Config) {
+		if err := a.readTensor(ctx, s.Name, m.Params[i].Data); err != nil {
+			return nil, a.Plan, err
+		}
+	}
+	return m, a.Plan, nil
 }
 
 func NewModel(c Config, seed uint64) (*Model, error) { r := &RNG{seed}; return allocateModel(c, r) }
@@ -1830,14 +1959,19 @@ func (m *Model) rope(x []float32, batch, seq, heads, offset int, inverse bool) {
 			for h := 0; h < heads; h++ {
 				for j := 0; j < hd/2; j++ {
 					i := (b*seq+t)*width + h*hd + 2*j
+					zidx := i + 1
+					if m.hf != nil {
+						i = (b*seq+t)*width + h*hd + j
+						zidx = i + hd/2
+					}
 					ri := (offset+t)*hd/2 + j
 					c, s := m.Cos[ri], m.Sin[ri]
 					if inverse {
 						s = -s
 					}
-					a, z := x[i], x[i+1]
+					a, z := x[i], x[zidx]
 					x[i] = a*c - z*s
-					x[i+1] = a*s + z*c
+					x[zidx] = a*s + z*c
 				}
 			}
 		}
@@ -2968,6 +3102,9 @@ func readFloats(r io.Reader, x []float32, nonnegative bool) error {
 	return nil
 }
 func SaveCheckpoint(path string, m *Model, tok Tokenizer, state *TrainState) error {
+	if m.hf != nil {
+		return errors.New("HF models are inference-only; native checkpoints use a different RoPE/tokenizer contract")
+	}
 	if err := m.Config.Validate(); err != nil {
 		return err
 	}
@@ -5519,7 +5656,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 }
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, inspect-hf, serve\nusage: monolith <command> -h")
+		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, inspect-hf, infer-hf, serve\nusage: monolith <command> -h")
 		return nil
 	}
 	switch args[0] {
@@ -5539,6 +5676,8 @@ func run(ctx context.Context, args []string) error {
 		return runInspect(args[1:])
 	case "inspect-hf":
 		return runInspectHF(args[1:])
+	case "infer-hf":
+		return runInferHF(ctx, args[1:])
 	case "serve":
 		return runServe(ctx, args[1:])
 	case "help", "-h", "--help":

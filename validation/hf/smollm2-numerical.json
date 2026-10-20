@@ -1,0 +1,166 @@
+{
+  "format": "monolith-hf-numerical-v1",
+  "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+  "revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+  "versions": {
+    "torch": "2.8.0",
+    "transformers": "4.57.1",
+    "safetensors": "0.6.2"
+  },
+  "dtype": "source BF16 -> CPU FP32",
+  "attention": "eager",
+  "binary_sha256": "3f3c40eca715b4d229ea6a700029038ac2161e8bd1bc7b822e002e6b0dde389a",
+  "tolerance": 0.002,
+  "files": {
+    "config.json": "8eb740e8bbe4cff95ea7b4588d17a2432deb16e8075bc5828ff7ba9be94d982a",
+    "generation_config.json": "87b916edaaab66b3899b9d0dd0752727dff6666686da0504d89ae0a6e055a013",
+    "model.safetensors": "5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c",
+    "special_tokens_map.json": "2b7379f3ae813529281a5c602bc5a11c1d4e0a99107aaa597fe936c1e813ca52",
+    "tokenizer.json": "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c",
+    "tokenizer_config.json": "4ec77d44f62efeb38d7e044a1db318f6a939438425312dfa333b8382dbad98df"
+  },
+  "cases": [
+    {
+      "prompt": "The capital of France is",
+      "prompt_ids": [
+        504,
+        3575,
+        282,
+        4649,
+        314
+      ],
+      "chunk": 1,
+      "token_ids": [
+        7042,
+        30,
+        7042,
+        314,
+        260,
+        3995,
+        2240,
+        281
+      ],
+      "reference_ids": [
+        7042,
+        30,
+        7042,
+        314,
+        260,
+        3995,
+        2240,
+        281
+      ],
+      "max_abs_error": 5.340576171875e-05,
+      "mean_abs_error": 1.0049737284134608e-05,
+      "greedy_match": true,
+      "text": " Paris. Paris is the largest city in"
+    },
+    {
+      "prompt": "The capital of France is",
+      "prompt_ids": [
+        504,
+        3575,
+        282,
+        4649,
+        314
+      ],
+      "chunk": 16,
+      "token_ids": [
+        7042,
+        30,
+        7042,
+        314,
+        260,
+        3995,
+        2240,
+        281
+      ],
+      "reference_ids": [
+        7042,
+        30,
+        7042,
+        314,
+        260,
+        3995,
+        2240,
+        281
+      ],
+      "max_abs_error": 5.340576171875e-05,
+      "mean_abs_error": 1.0049737284134608e-05,
+      "greedy_match": true,
+      "text": " Paris. Paris is the largest city in"
+    },
+    {
+      "prompt": "Go is a programming language that",
+      "prompt_ids": [
+        6044,
+        314,
+        253,
+        6256,
+        1789,
+        338
+      ],
+      "chunk": 1,
+      "token_ids": [
+        314,
+        804,
+        327,
+        2194,
+        3877,
+        3253,
+        30,
+        657
+      ],
+      "reference_ids": [
+        314,
+        804,
+        327,
+        2194,
+        3877,
+        3253,
+        30,
+        657
+      ],
+      "max_abs_error": 5.054473876953125e-05,
+      "mean_abs_error": 8.623570465715602e-06,
+      "greedy_match": true,
+      "text": " is used for building web applications. It"
+    },
+    {
+      "prompt": "Go is a programming language that",
+      "prompt_ids": [
+        6044,
+        314,
+        253,
+        6256,
+        1789,
+        338
+      ],
+      "chunk": 16,
+      "token_ids": [
+        314,
+        804,
+        327,
+        2194,
+        3877,
+        3253,
+        30,
+        657
+      ],
+      "reference_ids": [
+        314,
+        804,
+        327,
+        2194,
+        3877,
+        3253,
+        30,
+        657
+      ],
+      "max_abs_error": 5.054473876953125e-05,
+      "mean_abs_error": 8.623570465715602e-06,
+      "greedy_match": true,
+      "text": " is used for building web applications. It"
+    }
+  ]
+}
