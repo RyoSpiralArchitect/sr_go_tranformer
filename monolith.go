@@ -96,6 +96,438 @@ func (c Config) ParameterCount() int64 {
 	return int64(c.Vocab)*d + l*(2*d+2*d*d+2*d*k+3*d*h) + d
 }
 
+// HF imports deliberately accept one explicit inference profile. Metadata is
+// inspected on open file descriptors before any parameter storage is allocated.
+const maxHFHeader = 4 << 20
+
+type hfConfig struct {
+	Architectures []string `json:"architectures"`
+	ModelType     string   `json:"model_type"`
+	Vocab         int      `json:"vocab_size"`
+	Dim           int      `json:"hidden_size"`
+	Hidden        int      `json:"intermediate_size"`
+	Layers        int      `json:"num_hidden_layers"`
+	Heads         int      `json:"num_attention_heads"`
+	KVHeads       int      `json:"num_key_value_heads"`
+	Context       int      `json:"max_position_embeddings"`
+	Theta         float64  `json:"rope_theta"`
+	Eps           float64  `json:"rms_norm_eps"`
+	Act           string   `json:"hidden_act"`
+	Tied          bool     `json:"tie_word_embeddings"`
+	AttentionBias bool     `json:"attention_bias"`
+	MLPBias       bool     `json:"mlp_bias"`
+	Interleaved   bool     `json:"rope_interleaved"`
+	Dropout       float64  `json:"attention_dropout"`
+	TP            int      `json:"pretraining_tp"`
+	BOS           int      `json:"bos_token_id"`
+	EOS           int      `json:"eos_token_id"`
+}
+
+// encoding/json otherwise accepts duplicate keys and invalid UTF-8. Reject
+// ambiguous metadata, excessive nesting and trailing documents at the boundary.
+func uniqueJSON(data []byte, dst any) error {
+	if !utf8.Valid(data) {
+		return errors.New("invalid JSON UTF-8")
+	}
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.UseNumber()
+	var walk func(int) error
+	nodes := 0
+	walk = func(depth int) error {
+		nodes++
+		if depth > 32 || nodes > 2_000_000 {
+			return errors.New("JSON complexity limit")
+		}
+		t, err := d.Token()
+		if err != nil {
+			return err
+		}
+		switch t {
+		case json.Delim('{'):
+			seen := map[string]bool{}
+			for d.More() {
+				k, err := d.Token()
+				if err != nil {
+					return err
+				}
+				key, ok := k.(string)
+				if !ok || seen[key] {
+					return fmt.Errorf("duplicate/invalid JSON key %v", k)
+				}
+				seen[key] = true
+				if err := walk(depth + 1); err != nil {
+					return err
+				}
+			}
+			_, err = d.Token()
+		case json.Delim('['):
+			for d.More() {
+				if err := walk(depth + 1); err != nil {
+					return err
+				}
+			}
+			_, err = d.Token()
+		}
+		return err
+	}
+	if err := walk(0); err != nil {
+		return err
+	}
+	if _, err := d.Token(); err != io.EOF {
+		return errors.New("trailing JSON data")
+	}
+	return json.Unmarshal(data, dst)
+}
+
+func readBoundedJSON(path string, limit int64, dst any) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if !st.Mode().IsRegular() || st.Size() > limit {
+		return fmt.Errorf("%s: metadata size/type limit", filepath.Base(path))
+	}
+	b, err := io.ReadAll(io.LimitReader(f, limit+1))
+	if err != nil {
+		return err
+	}
+	if int64(len(b)) > limit {
+		return errors.New("metadata size limit")
+	}
+	return uniqueJSON(b, dst)
+}
+
+func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
+	var raw map[string]json.RawMessage
+	var h hfConfig
+	if err := readBoundedJSON(filepath.Join(dir, "config.json"), 1<<20, &raw); err != nil {
+		return h, Config{}, err
+	}
+	// Unknown computational fields must not silently change model semantics.
+	allowed := strings.Fields("architectures model_type vocab_size hidden_size intermediate_size num_hidden_layers num_attention_heads num_key_value_heads max_position_embeddings rope_theta rms_norm_eps hidden_act tie_word_embeddings attention_bias mlp_bias rope_interleaved attention_dropout pretraining_tp bos_token_id eos_token_id pad_token_id initializer_range is_llama_config torch_dtype dtype transformers_version transformers.js_config use_cache _name_or_path _attn_implementation")
+	keys := map[string]bool{}
+	for _, k := range allowed {
+		keys[k] = true
+	}
+	for k, v := range raw {
+		if k == "rope_scaling" && string(v) == "null" {
+			continue
+		}
+		if !keys[k] {
+			return h, Config{}, fmt.Errorf("unsupported HF config field %q", k)
+		}
+	}
+	b, _ := json.Marshal(raw)
+	if err := json.Unmarshal(b, &h); err != nil {
+		return h, Config{}, err
+	}
+	if len(h.Architectures) != 1 || h.Architectures[0] != "LlamaForCausalLM" || h.ModelType != "llama" || h.Act != "silu" || !h.Tied || h.AttentionBias || h.MLPBias || h.Interleaved || h.Dropout != 0 || (h.TP != 0 && h.TP != 1) {
+		return h, Config{}, errors.New("unsupported HF profile: require tied, bias-free Llama, SiLU, default half-split RoPE, no dropout")
+	}
+	if raw["bos_token_id"] == nil || raw["eos_token_id"] == nil || string(raw["bos_token_id"]) == "null" || string(raw["eos_token_id"]) == "null" || h.BOS < 0 || h.BOS >= h.Vocab || h.EOS < 0 || h.EOS >= h.Vocab {
+		return h, Config{}, errors.New("HF profile requires scalar BOS/EOS IDs within vocabulary")
+	}
+	c := Config{Vocab: h.Vocab, Dim: h.Dim, Hidden: h.Hidden, Layers: h.Layers, Heads: h.Heads, KVHeads: h.KVHeads, Context: h.Context, RopeTheta: h.Theta, NormEps: h.Eps}
+	if contextLimit < 0 || contextLimit > h.Context {
+		return h, c, errors.New("HF context limit must be within model context")
+	}
+	if contextLimit > 0 {
+		c.Context = contextLimit
+	}
+	return h, c, c.Validate()
+}
+
+type hfTensorSpec struct {
+	Name  string
+	Shape []int
+}
+
+func hfTensorSpecs(c Config) []hfTensorSpec {
+	out := []hfTensorSpec{{"model.embed_tokens.weight", []int{c.Vocab, c.Dim}}}
+	for i := 0; i < c.Layers; i++ {
+		p := fmt.Sprintf("model.layers.%d.", i)
+		out = append(out,
+			hfTensorSpec{p + "input_layernorm.weight", []int{c.Dim}},
+			hfTensorSpec{p + "self_attn.q_proj.weight", []int{c.Dim, c.Dim}},
+			hfTensorSpec{p + "self_attn.k_proj.weight", []int{c.KVDim(), c.Dim}},
+			hfTensorSpec{p + "self_attn.v_proj.weight", []int{c.KVDim(), c.Dim}},
+			hfTensorSpec{p + "self_attn.o_proj.weight", []int{c.Dim, c.Dim}},
+			hfTensorSpec{p + "post_attention_layernorm.weight", []int{c.Dim}},
+			hfTensorSpec{p + "mlp.gate_proj.weight", []int{c.Hidden, c.Dim}},
+			hfTensorSpec{p + "mlp.up_proj.weight", []int{c.Hidden, c.Dim}},
+			hfTensorSpec{p + "mlp.down_proj.weight", []int{c.Dim, c.Hidden}})
+	}
+	return append(out, hfTensorSpec{"model.norm.weight", []int{c.Dim}})
+}
+
+type hfTensor struct {
+	DType   string  `json:"dtype"`
+	Shape   []int   `json:"shape"`
+	Offsets []int64 `json:"data_offsets"`
+	file    *os.File
+	start   int64
+	count   int
+}
+type HFPlan struct {
+	Format                string         `json:"format"`
+	Config                Config         `json:"config"`
+	Parameters            int64          `json:"parameters"`
+	WeightBytes           int64          `json:"weight_bytes"`
+	RopeBytes             int64          `json:"rope_bytes"`
+	KVBytesPerToken       int64          `json:"kv_bytes_per_token"`
+	FullContextKVBytes    int64          `json:"full_context_kv_bytes"`
+	ConversionBufferBytes int            `json:"conversion_buffer_bytes"`
+	SourceBytes           int64          `json:"source_bytes"`
+	Shards                int            `json:"shards"`
+	DTypes                map[string]int `json:"tensor_dtypes"`
+}
+type hfArchive struct {
+	Config  hfConfig
+	Plan    HFPlan
+	tensors map[string]hfTensor
+	files   []*os.File
+}
+
+func (a *hfArchive) Close() {
+	for _, f := range a.files {
+		_ = f.Close()
+	}
+	a.files = nil
+}
+func hfWidth(dtype string) int {
+	switch dtype {
+	case "F32":
+		return 4
+	case "F16", "BF16":
+		return 2
+	}
+	return 0
+}
+
+func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchive, err error) {
+	h, c, err := readHFConfig(dir, contextLimit)
+	if err != nil {
+		return nil, err
+	}
+	if weightBudget < c.ParameterCount()*4 {
+		return nil, errors.New("HF FP32 weights exceed weight budget")
+	}
+	a := &hfArchive{Config: h, tensors: map[string]hfTensor{}}
+	defer func() {
+		if err != nil {
+			a.Close()
+		}
+	}()
+	a.Plan = HFPlan{Format: "monolith-hf-plan-v1", Config: c, Parameters: c.ParameterCount(), WeightBytes: c.ParameterCount() * 4, RopeBytes: int64(c.Context) * (int64(c.Dim) / int64(c.Heads)) * 4, KVBytesPerToken: int64(c.Layers*c.KVDim()) * 8, ConversionBufferBytes: 64 << 10, DTypes: map[string]int{}}
+	a.Plan.FullContextKVBytes = int64(c.Context) * a.Plan.KVBytesPerToken
+	specs := hfTensorSpecs(c)
+	expected := map[string][]int{}
+	for _, s := range specs {
+		expected[s.Name] = s.Shape
+	}
+	var index struct {
+		WeightMap map[string]string `json:"weight_map"`
+	}
+	shards := map[string]bool{}
+	indexPath := filepath.Join(dir, "model.safetensors.index.json")
+	if _, e := os.Stat(indexPath); e == nil {
+		if err = readBoundedJSON(indexPath, maxHFHeader, &index); err != nil {
+			return nil, err
+		}
+		if len(index.WeightMap) != len(expected) {
+			return nil, errors.New("HF shard index tensor count mismatch")
+		}
+		for name, file := range index.WeightMap {
+			if expected[name] == nil || file == "" || filepath.Base(file) != file || strings.ContainsAny(file, `/\`) || !strings.HasSuffix(file, ".safetensors") {
+				return nil, errors.New("unsupported HF shard index name/path")
+			}
+			shards[file] = true
+		}
+	} else if errors.Is(e, os.ErrNotExist) {
+		shards["model.safetensors"] = true
+	} else {
+		return nil, e
+	}
+	if len(shards) == 0 || len(shards) > 128 {
+		return nil, errors.New("HF shard count limit")
+	}
+	names := make([]string, 0, len(shards))
+	for name := range shards {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		f, e := os.Open(filepath.Join(dir, name))
+		if e != nil {
+			return nil, e
+		}
+		a.files = append(a.files, f)
+		st, e := f.Stat()
+		if e != nil {
+			return nil, e
+		}
+		if !st.Mode().IsRegular() || st.Size() < 10 || st.Size() > c.ParameterCount()*4+maxHFHeader+8 {
+			return nil, errors.New("Safetensors file size/type limit")
+		}
+		var prefix [8]byte
+		if _, e = io.ReadFull(f, prefix[:]); e != nil {
+			return nil, e
+		}
+		n := binary.LittleEndian.Uint64(prefix[:])
+		if n < 2 || n > maxHFHeader || n > uint64(st.Size()-8) {
+			return nil, errors.New("Safetensors header length limit")
+		}
+		header := make([]byte, int(n))
+		if _, e = io.ReadFull(f, header); e != nil {
+			return nil, e
+		}
+		if header[0] != '{' {
+			return nil, errors.New("Safetensors header must start with object")
+		}
+		var raw map[string]json.RawMessage
+		if e = uniqueJSON(header, &raw); e != nil {
+			return nil, e
+		}
+		var ordered []hfTensor
+		for key, value := range raw {
+			if key == "__metadata__" {
+				var metadata map[string]string
+				if e = json.Unmarshal(value, &metadata); e != nil {
+					return nil, e
+				}
+				continue
+			}
+			shape, ok := expected[key]
+			if !ok || a.tensors[key].file != nil || (index.WeightMap != nil && index.WeightMap[key] != name) {
+				return nil, fmt.Errorf("unexpected or duplicate HF tensor %q", key)
+			}
+			var t hfTensor
+			d := json.NewDecoder(bytes.NewReader(value))
+			d.DisallowUnknownFields()
+			if e = d.Decode(&t); e != nil {
+				return nil, e
+			}
+			if len(t.Shape) != len(shape) {
+				return nil, fmt.Errorf("HF tensor shape mismatch: %s", key)
+			}
+			t.count = 1
+			for i, v := range shape {
+				if t.Shape[i] != v {
+					return nil, fmt.Errorf("HF tensor shape mismatch: %s", key)
+				}
+				t.count *= v
+			}
+			w := hfWidth(t.DType)
+			if w == 0 || len(t.Offsets) != 2 || t.Offsets[0] < 0 || t.Offsets[1] < t.Offsets[0] || t.Offsets[1] > st.Size()-8-int64(n) || t.Offsets[1]-t.Offsets[0] != int64(t.count)*int64(w) {
+				return nil, fmt.Errorf("invalid HF tensor dtype/extent: %s", key)
+			}
+			t.file, t.start = f, 8+int64(n)+t.Offsets[0]
+			a.tensors[key] = t
+			a.Plan.DTypes[t.DType]++
+			ordered = append(ordered, t)
+		}
+		sort.Slice(ordered, func(i, j int) bool { return ordered[i].Offsets[0] < ordered[j].Offsets[0] })
+		end := int64(0)
+		for _, t := range ordered {
+			if t.Offsets[0] != end {
+				return nil, errors.New("Safetensors overlapping or unindexed bytes")
+			}
+			end = t.Offsets[1]
+		}
+		if end != st.Size()-8-int64(n) {
+			return nil, errors.New("Safetensors trailing/unindexed bytes")
+		}
+		a.Plan.SourceBytes += st.Size()
+	}
+	if len(a.tensors) != len(expected) {
+		return nil, errors.New("missing HF tensors")
+	}
+	a.Plan.Shards = len(a.files)
+	return a, nil
+}
+
+func halfFloat(v uint16) float32 {
+	sign := uint32(v&0x8000) << 16
+	exp, frac := (v>>10)&31, uint32(v&1023)
+	if exp == 0 {
+		// Includes signed zero and exact half subnormals.
+		x := float32(math.Ldexp(float64(frac), -24))
+		return math.Float32frombits(math.Float32bits(x) | sign)
+	}
+	if exp == 31 {
+		return math.Float32frombits(sign | 0x7f800000 | frac<<13)
+	}
+	return math.Float32frombits(sign | uint32(exp+112)<<23 | frac<<13)
+}
+func (a *hfArchive) readTensor(ctx context.Context, name string, dst []float32) error {
+	t, ok := a.tensors[name]
+	if !ok || len(dst) != t.count {
+		return errors.New("HF tensor destination mismatch")
+	}
+	buf := make([]byte, a.Plan.ConversionBufferBytes)
+	w := hfWidth(t.DType)
+	for off := 0; off < len(dst); {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		n := min(len(buf)/w, len(dst)-off)
+		b := buf[:n*w]
+		if _, err := t.file.ReadAt(b, t.start+int64(off)*int64(w)); err != nil {
+			return err
+		}
+		for i := 0; i < n; i++ {
+			var v float32
+			switch t.DType {
+			case "F32":
+				v = math.Float32frombits(binary.LittleEndian.Uint32(b[i*w:]))
+			case "BF16":
+				v = math.Float32frombits(uint32(binary.LittleEndian.Uint16(b[i*w:])) << 16)
+			case "F16":
+				v = halfFloat(binary.LittleEndian.Uint16(b[i*w:]))
+			}
+			if !finite(float64(v)) {
+				return fmt.Errorf("non-finite HF weight in %s", name)
+			}
+			dst[off+i] = v
+		}
+		off += n
+	}
+	return ctx.Err()
+}
+
+func hfFlags(f *flag.FlagSet) (*string, *int, *int64) {
+	dir := f.String("hf-model", "", "local Hugging Face model directory (restricted Llama profile)")
+	limit := f.Int("context", 0, "HF context cap; 0 uses model maximum")
+	budget := f.Int64("weight-mib", 1024, "maximum FP32 HF weight storage in MiB")
+	return dir, limit, budget
+}
+func openHFFlags(dir string, limit int, mib int64) (*hfArchive, error) {
+	if dir == "" || mib < 1 || mib > 1<<20 {
+		return nil, errors.New("provide -hf-model and a valid -weight-mib (1..1048576)")
+	}
+	return openHFArchive(dir, limit, mib<<20)
+}
+func runInspectHF(args []string) error {
+	f := flags("inspect-hf")
+	dir, limit, budget := hfFlags(f)
+	if err := parse(f, args); err != nil {
+		return err
+	}
+	a, err := openHFFlags(*dir, *limit, *budget)
+	if err != nil {
+		return err
+	}
+	defer a.Close()
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(a.Plan)
+}
+
 // SplitMix64 has one serializable state. No hidden normal-distribution cache.
 type RNG struct {
 	State uint64 `json:"state"`
@@ -5087,7 +5519,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 }
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, serve\nusage: monolith <command> -h")
+		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, inspect-hf, serve\nusage: monolith <command> -h")
 		return nil
 	}
 	switch args[0] {
@@ -5105,6 +5537,8 @@ func run(ctx context.Context, args []string) error {
 		return runGenerate(ctx, args[1:])
 	case "inspect":
 		return runInspect(args[1:])
+	case "inspect-hf":
+		return runInspectHF(args[1:])
 	case "serve":
 		return runServe(ctx, args[1:])
 	case "help", "-h", "--help":

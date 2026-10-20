@@ -18,6 +18,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Trainer-owned backward scratch with fixed-shape reuse and exact numerical checks.
 - Evaluation-only forward with bounded per-invocation scratch and no backward tape.
 - Startup memory planning and optional training budgets checked before tensor allocation.
+- Bounded inspection and F32/F16/BF16 decoding of a restricted Hugging Face Llama Safetensors profile.
 
 ## Requirements
 
@@ -25,6 +26,9 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - A 64-bit system.
 
 The project runs on the CPU using FP32 tensors. It does not require cgo, Python, or an external machine-learning library.
+
+See [Hugging Face inference](HF_INFERENCE.md) for supported model files, memory
+planning and compatibility boundaries.
 
 ## Quick start
 
