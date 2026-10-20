@@ -1,0 +1,36 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkInferenceLinearWorkers/rows1/spawn-4         	    5170	     61120 ns/op	     314 B/op	       6 allocs/op
+BenchmarkInferenceLinearWorkers/rows1/spawn-4         	    6002	     60404 ns/op	     304 B/op	       6 allocs/op
+BenchmarkInferenceLinearWorkers/rows1/spawn-4         	    6061	     59930 ns/op	     304 B/op	       6 allocs/op
+BenchmarkInferenceLinearWorkers/rows1/reuse-4         	    5926	     61592 ns/op	      96 B/op	       1 allocs/op
+BenchmarkInferenceLinearWorkers/rows1/reuse-4         	    5878	     60828 ns/op	      96 B/op	       1 allocs/op
+BenchmarkInferenceLinearWorkers/rows1/reuse-4         	    5924	     60684 ns/op	      96 B/op	       1 allocs/op
+BenchmarkInferenceLinearWorkers/rows4/spawn-4         	    5150	     71666 ns/op	     304 B/op	       6 allocs/op
+BenchmarkInferenceLinearWorkers/rows4/spawn-4         	    4855	     70949 ns/op	     304 B/op	       6 allocs/op
+BenchmarkInferenceLinearWorkers/rows4/spawn-4         	    6235	     56696 ns/op	     304 B/op	       6 allocs/op
+BenchmarkInferenceLinearWorkers/rows4/reuse-4         	    7279	     68881 ns/op	      97 B/op	       1 allocs/op
+BenchmarkInferenceLinearWorkers/rows4/reuse-4         	    4958	     69243 ns/op	      96 B/op	       1 allocs/op
+BenchmarkInferenceLinearWorkers/rows4/reuse-4         	    5528	     58065 ns/op	      96 B/op	       1 allocs/op
+BenchmarkInferenceLinearWorkers/rows64/spawn-4        	     552	    758431 ns/op	     304 B/op	       6 allocs/op
+BenchmarkInferenceLinearWorkers/rows64/spawn-4        	     468	    775402 ns/op	     304 B/op	       6 allocs/op
+BenchmarkInferenceLinearWorkers/rows64/spawn-4        	     470	    736231 ns/op	     304 B/op	       6 allocs/op
+BenchmarkInferenceLinearWorkers/rows64/reuse-4        	     559	    640281 ns/op	      96 B/op	       1 allocs/op
+BenchmarkInferenceLinearWorkers/rows64/reuse-4        	     549	    674794 ns/op	      96 B/op	       1 allocs/op
+BenchmarkInferenceLinearWorkers/rows64/reuse-4        	     469	    706662 ns/op	      96 B/op	       1 allocs/op
+BenchmarkInferenceBatchWorkers/rows1/spawn-4          	     129	   2748418 ns/op	   16576 B/op	     209 allocs/op
+BenchmarkInferenceBatchWorkers/rows1/spawn-4          	     126	   2878198 ns/op	   16598 B/op	     209 allocs/op
+BenchmarkInferenceBatchWorkers/rows1/spawn-4          	     124	   2723304 ns/op	   16595 B/op	     209 allocs/op
+BenchmarkInferenceBatchWorkers/rows1/reuse-4          	     126	   2705058 ns/op	   10128 B/op	      54 allocs/op
+BenchmarkInferenceBatchWorkers/rows1/reuse-4          	     135	   2958256 ns/op	   10128 B/op	      54 allocs/op
+BenchmarkInferenceBatchWorkers/rows1/reuse-4          	     133	   2707451 ns/op	   10128 B/op	      54 allocs/op
+BenchmarkInferenceBatchWorkers/rows16/spawn-4         	      15	  25096703 ns/op	   21280 B/op	     299 allocs/op
+BenchmarkInferenceBatchWorkers/rows16/spawn-4         	      18	  22836912 ns/op	   21281 B/op	     299 allocs/op
+BenchmarkInferenceBatchWorkers/rows16/spawn-4         	      12	  26443392 ns/op	   21280 B/op	     299 allocs/op
+BenchmarkInferenceBatchWorkers/rows16/reuse-4         	      15	  26139678 ns/op	   11089 B/op	      54 allocs/op
+BenchmarkInferenceBatchWorkers/rows16/reuse-4         	      15	  23207164 ns/op	   11088 B/op	      54 allocs/op
+BenchmarkInferenceBatchWorkers/rows16/reuse-4         	      16	  24848797 ns/op	   11089 B/op	      54 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	22.254s
