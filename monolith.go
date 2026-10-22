@@ -264,6 +264,8 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	}
 	if contextLimit > 0 {
 		c.Context = contextLimit
+	} else {
+		c.Context = min(h.Context, 2048)
 	}
 	if err := c.validateLimits(maxHFVocab, maxHFParameters); err != nil {
 		return h, c, err
@@ -563,9 +565,9 @@ func (a *hfArchive) readTensor(ctx context.Context, name string, dst []float32) 
 }
 
 func hfFlags(f *flag.FlagSet) (*string, *int, *int64) {
-	dir := f.String("hf-model", "", "local Hugging Face model directory (restricted Llama profile)")
-	limit := f.Int("context", 0, "HF context cap; 0 uses model maximum")
-	budget := f.Int64("weight-mib", 1024, "maximum FP32 HF weight storage in MiB")
+	dir := f.String("hf-model", "", "local Hugging Face model directory (supported Llama/Qwen2 profiles)")
+	limit := f.Int("context", 0, "HF context cap; 0 uses min(model maximum, 2048)")
+	budget := f.Int64("weight-mib", 2048, "maximum FP32 HF weight storage in MiB (not RSS)")
 	return dir, limit, budget
 }
 func openHFFlags(dir string, limit int, mib int64) (*hfArchive, error) {
@@ -588,6 +590,113 @@ func runInspectHF(args []string) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(a.Plan)
+}
+
+type hfCheck struct {
+	Format              string `json:"format"`
+	Weights             HFPlan `json:"weights"`
+	TokenizerProfile    string `json:"tokenizer_profile"`
+	ChatSupported       bool   `json:"chat_supported"`
+	ModelContext        int    `json:"model_context"`
+	WeightBudgetBytes   int64  `json:"weight_budget_bytes"`
+	KVPageAlignedBytes  int64  `json:"kv_page_aligned_bytes_per_session"`
+	WeightValuesChecked bool   `json:"weight_values_checked"`
+}
+
+func checkHF(dir string, limit int, budget int64, requireChat bool) (hfCheck, error) {
+	a, err := openHFFlags(dir, limit, budget)
+	if err != nil {
+		return hfCheck{}, err
+	}
+	defer a.Close()
+	tok, err := loadHFTokenizer(dir, a.Config)
+	if err != nil {
+		return hfCheck{}, err
+	}
+	if requireChat && !tok.chat {
+		return hfCheck{}, errors.New("unsupported chat template; plain text inference remains available")
+	}
+	profile := "smollm-bytelevel"
+	if tok.qwen {
+		profile = "qwen2-bytelevel-nfc"
+	}
+	return hfCheck{Format: "monolith-hf-check-v1", Weights: a.Plan, TokenizerProfile: profile,
+		ChatSupported: tok.chat, ModelContext: a.Config.Context, WeightBudgetBytes: budget << 20,
+		KVPageAlignedBytes: int64((a.Plan.Config.Context+pageTokens-1)/pageTokens*pageTokens) * a.Plan.KVBytesPerToken}, nil
+}
+
+func runCheckHF(args []string) error {
+	f := flags("check-hf")
+	dir, limit, budget := hfFlags(f)
+	asJSON := f.Bool("json", false, "emit machine-readable preflight report")
+	chat := f.Bool("chat", false, "require a supported chat template")
+	if err := parse(f, args); err != nil {
+		return err
+	}
+	report, err := checkHF(*dir, *limit, *budget, *chat)
+	if err != nil {
+		return err
+	}
+	if *asJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(report)
+	}
+	fmt.Printf("Compatible metadata: %s / %s\n", report.Weights.ModelType, report.TokenizerProfile)
+	fmt.Printf("Context: %d (model maximum %d); chat supported: %t\n", report.Weights.Config.Context, report.ModelContext, report.ChatSupported)
+	fmt.Printf("FP32 weights: %.1f MiB / %d MiB budget; paged KV per full session: %.1f MiB\n", float64(report.Weights.WeightBytes)/(1<<20), *budget, float64(report.KVPageAlignedBytes)/(1<<20))
+	fmt.Println("Weights are not loaded; payload values are checked at load time. Scratch, tokenizer and Go runtime memory are additional.")
+	return nil
+}
+
+// An inherited stdin descriptor may block even after Close. One input pump per
+// CLI invocation lets cancellation return through normal engine cleanup. Its
+// copy buffer is bounded; a blocked OS read can live only until process exit.
+// Closing the reader releases any blocked pipe write without waiting on stdin.
+func cliInput(ctx context.Context, in io.Reader) (io.Reader, func()) {
+	r, w := io.Pipe()
+	stop := context.AfterFunc(ctx, func() { _ = w.CloseWithError(ctx.Err()) })
+	go func() {
+		_, err := io.CopyBuffer(w, struct{ io.Reader }{in}, make([]byte, 4096))
+		_ = w.CloseWithError(err)
+	}()
+	return r, func() {
+		stop()
+		_ = r.Close()
+	}
+}
+
+// Prompt files and stdin share the same byte bound. Only explicitly selected
+// stdin is consumed, and JSON parsing is performed by the messages caller.
+func readCLIInput(ctx context.Context, path string, stdin io.Reader) ([]byte, error) {
+	r := stdin
+	if path == "-" {
+		var closeInput func()
+		r, closeInput = cliInput(ctx, stdin)
+		defer closeInput()
+	} else {
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		st, err := f.Stat()
+		if err != nil {
+			return nil, err
+		}
+		if !st.Mode().IsRegular() || st.Size() > 1<<20 {
+			return nil, errors.New("CLI input must be a regular file of at most 1 MiB, or - for stdin")
+		}
+		r = f
+	}
+	b, err := io.ReadAll(io.LimitReader(r, (1<<20)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(b) > 1<<20 {
+		return nil, errors.New("CLI input exceeds 1 MiB")
+	}
+	return b, nil
 }
 
 type HFIDResult struct {
@@ -725,7 +834,17 @@ func loadInference(ctx context.Context, f *flag.FlagSet, model, dir string, limi
 func chatFlags(f *flag.FlagSet) (*bool, *string) {
 	return f.Bool("chat", false, "format -prompt as a user message with the supported HF chat template"), f.String("messages", "", "JSON array of chat messages; mutually exclusive with -prompt/-chat")
 }
-func inferencePrompt(f *flag.FlagSet, tok inferenceTokenizer, prompt string, chat bool, messagesPath string) (string, error) {
+func inferencePrompt(ctx context.Context, f *flag.FlagSet, tok inferenceTokenizer, prompt string, chat bool, messagesPath string) (string, error) {
+	if source := f.Lookup("prompt-file"); source != nil && source.Value.String() != "" {
+		if flagSet(f, "prompt") || messagesPath != "" {
+			return "", errors.New("-prompt-file is mutually exclusive with -prompt/-messages")
+		}
+		b, err := readCLIInput(ctx, source.Value.String(), os.Stdin)
+		if err != nil {
+			return "", err
+		}
+		prompt = string(b)
+	}
 	if !chat && messagesPath == "" {
 		return prompt, nil
 	}
@@ -738,7 +857,16 @@ func inferencePrompt(f *flag.FlagSet, tok inferenceTokenizer, prompt string, cha
 		if chat || flagSet(f, "prompt") {
 			return "", errors.New("-messages is mutually exclusive with -prompt/-chat")
 		}
-		if err := readStrictBoundedJSON(messagesPath, 1<<20, &messages); err != nil {
+		b, err := readCLIInput(ctx, messagesPath, os.Stdin)
+		if err != nil {
+			return "", err
+		}
+		if err := uniqueJSON(b, &messages); err != nil {
+			return "", err
+		}
+		d := json.NewDecoder(bytes.NewReader(b))
+		d.DisallowUnknownFields()
+		if err := d.Decode(&messages); err != nil {
 			return "", err
 		}
 	}
@@ -748,6 +876,8 @@ func runTokenizeHF(ctx context.Context, args []string) error {
 	f := flags("tokenize-hf")
 	dir := f.String("hf-model", "", "local HF model/tokenizer directory")
 	prompt := f.String("prompt", "", "text to encode")
+	f.String("prompt-file", "", "UTF-8 prompt file; - reads stdin (at most 1 MiB)")
+	limit := f.Int("context", 0, "token limit; 0 uses min(model maximum, 2048)")
 	chat, messages := chatFlags(f)
 	if err := parse(f, args); err != nil {
 		return err
@@ -755,7 +885,7 @@ func runTokenizeHF(ctx context.Context, args []string) error {
 	if *dir == "" {
 		return errors.New("provide -hf-model")
 	}
-	h, c, err := readHFConfig(*dir, 0)
+	h, c, err := readHFConfig(*dir, *limit)
 	if err != nil {
 		return err
 	}
@@ -763,7 +893,7 @@ func runTokenizeHF(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	text, err := inferencePrompt(f, t, *prompt, *chat, *messages)
+	text, err := inferencePrompt(ctx, f, t, *prompt, *chat, *messages)
 	if err != nil {
 		return err
 	}
@@ -6330,6 +6460,7 @@ func runGenerate(ctx context.Context, args []string) error {
 	dir, limit, budget := hfFlags(f)
 	chat, messages := chatFlags(f)
 	prompt := f.String("prompt", "", "text prompt")
+	f.String("prompt-file", "", "prompt file; - reads stdin (at most 1 MiB)")
 	asJSON := f.Bool("json", false, "emit structured completion")
 	threads := threadFlag(f)
 	s := defaultSampling()
@@ -6345,7 +6476,7 @@ func runGenerate(ctx context.Context, args []string) error {
 		return err
 	}
 	m.DropOptimizer()
-	formatted, err := inferencePrompt(f, tok, *prompt, *chat, *messages)
+	formatted, err := inferencePrompt(ctx, f, tok, *prompt, *chat, *messages)
 	if err != nil {
 		return err
 	}
@@ -6356,8 +6487,129 @@ func runGenerate(ctx context.Context, args []string) error {
 	if *asJSON {
 		return json.NewEncoder(os.Stdout).Encode(out)
 	}
-	fmt.Print(*prompt + out.Text + "\n")
+	if *chat || *messages != "" {
+		fmt.Println(out.Text)
+	} else {
+		fmt.Print(formatted + out.Text + "\n")
+	}
 	return nil
+}
+
+// chatLoop owns only bounded text history. The engine retains immutable model
+// weights and workers across turns; every stream is released before the next.
+func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s Sampling, in io.Reader, out, status io.Writer) error {
+	initial := []ChatMessage{}
+	if system != "" {
+		initial = append(initial, ChatMessage{Role: "system", Content: system})
+	}
+	history := append([]ChatMessage(nil), initial...)
+	scan := bufio.NewScanner(in)
+	scan.Buffer(make([]byte, 4096), (1<<20)+2)
+	fmt.Fprintln(status, "Chat ready. One message per line; /reset clears history, /exit quits. Ctrl-C cancels and exits.")
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		fmt.Fprint(status, "you> ")
+		if !scan.Scan() {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			return scan.Err()
+		}
+		line := scan.Text()
+		if len(line) > 1<<20 {
+			return errors.New("chat input exceeds 1 MiB")
+		}
+		switch strings.TrimSpace(line) {
+		case "":
+			continue
+		case "/exit", "/quit":
+			return nil
+		case "/reset":
+			history = append([]ChatMessage(nil), initial...)
+			fmt.Fprintln(status, "History cleared.")
+			continue
+		}
+		trial := append(append([]ChatMessage(nil), history...), ChatMessage{Role: "user", Content: line})
+		prompt, err := tok.formatChat(trial)
+		if err != nil {
+			fmt.Fprintf(status, "Cannot add turn: %v. Use /reset to start again.\n", err)
+			continue
+		}
+		stream, err := e.Stream(ctx, prompt, s)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			fmt.Fprintf(status, "Cannot add turn: %v. Use /reset or reduce -max-tokens.\n", err)
+			continue
+		}
+		fmt.Fprint(status, "assistant> ")
+		var writeErr error
+		for event := range stream.Events {
+			if _, writeErr = io.WriteString(out, event.Text); writeErr != nil {
+				break
+			}
+		}
+		if writeErr != nil {
+			stream.Close()
+			<-stream.Released()
+			return writeErr
+		}
+		result, err := stream.Wait()
+		stream.Close()
+		<-stream.Released()
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(out); err != nil {
+			return err
+		}
+		history = append(trial, ChatMessage{Role: "assistant", Content: result.Text})
+	}
+}
+
+func runChat(ctx context.Context, args []string) error {
+	f := flags("chat")
+	dir, limit, budget := hfFlags(f)
+	system := f.String("system", "", "system message; empty uses the model template default")
+	memory := f.Int64("kv-mib", 256, "KV cache budget in MiB")
+	workers := f.Int("kernel-workers", 0, "fixed kernel workers; 0 selects automatically")
+	threads := threadFlag(f)
+	s := defaultSampling()
+	samplingFlags(f, &s)
+	if err := parse(f, args); err != nil {
+		return err
+	}
+	if err := setThreads(*threads); err != nil {
+		return err
+	}
+	if *dir == "" || *memory < 1 || *memory > 1<<20 {
+		return errors.New("chat requires -hf-model and valid -kv-mib")
+	}
+	report, err := checkHF(*dir, *limit, *budget, true)
+	if err != nil {
+		return err
+	}
+	if err := s.Validate(report.Weights.Config); err != nil {
+		return err
+	}
+	if !utf8.ValidString(*system) || len(*system) > 1<<20 {
+		return errors.New("system message must be valid UTF-8 and at most 1 MiB")
+	}
+	m, tok, err := loadInference(ctx, f, "", *dir, *limit, *budget)
+	if err != nil {
+		return err
+	}
+	e, err := NewEngine(m, tok, EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: *memory << 20, KernelWorkers: *workers})
+	if err != nil {
+		return err
+	}
+	defer e.Close()
+	in, closeInput := cliInput(ctx, os.Stdin)
+	defer closeInput()
+	return chatLoop(ctx, e, tok.(*hfTokenizer), *system, s, in, os.Stdout, os.Stderr)
 }
 
 type evaluationOptions struct {
@@ -6617,7 +6869,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 }
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, inspect-hf, infer-hf, tokenize-hf, serve\nusage: monolith <command> -h")
+		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, inspect-hf, check-hf, infer-hf, tokenize-hf, chat, serve\nusage: monolith <command> -h")
 		return nil
 	}
 	switch args[0] {
@@ -6641,6 +6893,10 @@ func run(ctx context.Context, args []string) error {
 		return runInferHF(ctx, args[1:])
 	case "tokenize-hf":
 		return runTokenizeHF(ctx, args[1:])
+	case "check-hf":
+		return runCheckHF(args[1:])
+	case "chat":
+		return runChat(ctx, args[1:])
 	case "serve":
 		return runServe(ctx, args[1:])
 	case "help", "-h", "--help":
