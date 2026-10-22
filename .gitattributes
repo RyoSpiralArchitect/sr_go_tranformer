@@ -1,3 +1,5 @@
 testdata/hf-llama/*/reference.json linguist-generated=true
 testdata/hf-tokenizer/*.json linguist-generated=true
 validation/hf/*.json linguist-generated=true
+testdata/hf-qwen2/*/reference.json linguist-generated=true
+testdata/hf-qwen-tokenizer/*.json linguist-generated=true

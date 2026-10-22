@@ -33,6 +33,17 @@ type hfTokenizerReference struct {
 
 func testHFTokenizer(t *testing.T, dir string) *hfTokenizer {
 	t.Helper()
+	if _, err := os.Stat(filepath.Join(dir, "config.json")); err == nil {
+		h, _, err := readHFConfig(dir, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tok, err := loadHFTokenizer(dir, h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tok
+	}
 	var cfg struct {
 		Vocab   int `json:"vocab_size"`
 		Context int `json:"model_max_length"`
@@ -115,6 +126,9 @@ func testHFTokenizerReference(t *testing.T, dir, path string) {
 }
 func TestHFTokenizerReference(t *testing.T) {
 	testHFTokenizerReference(t, "testdata/hf-tokenizer", "testdata/hf-tokenizer/reference.json")
+}
+func TestHFQwenTokenizerReference(t *testing.T) {
+	testHFTokenizerReference(t, "testdata/hf-qwen-tokenizer", "testdata/hf-qwen-tokenizer/reference.json")
 }
 func TestHFLocalTokenizerReference(t *testing.T) {
 	dir := os.Getenv("MONOLITH_HF_MODEL")

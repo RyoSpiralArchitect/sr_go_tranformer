@@ -33,6 +33,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -40,6 +42,8 @@ const (
 	EOS                   = 257
 	baseVocab             = 258
 	maxParameters         = 250_000_000
+	maxHFParameters       = 1_000_000_000
+	maxHFVocab            = 262144
 	maxActivationElements = 128 * 1024 * 1024
 	checkpointMagic       = "MGLM0001"
 )
@@ -76,7 +80,10 @@ func preset(name string) (Config, error) {
 }
 func finite(x float64) bool { return !math.IsNaN(x) && !math.IsInf(x, 0) }
 func (c Config) Validate() error {
-	if c.Vocab < baseVocab || c.Vocab > 65536 || c.Dim < 2 || c.Dim > 8192 || c.Hidden < 1 || c.Hidden > 32768 || c.Layers < 1 || c.Layers > 128 || c.Heads < 1 || c.Heads > c.Dim || c.KVHeads < 1 || c.KVHeads > c.Heads || c.Context < 1 || c.Context > 32768 {
+	return c.validateLimits(65536, maxParameters)
+}
+func (c Config) validateLimits(vocab int, parameters int64) error {
+	if c.Vocab < baseVocab || c.Vocab > vocab || c.Dim < 2 || c.Dim > 8192 || c.Hidden < 1 || c.Hidden > 32768 || c.Layers < 1 || c.Layers > 128 || c.Heads < 1 || c.Heads > c.Dim || c.KVHeads < 1 || c.KVHeads > c.Heads || c.Context < 1 || c.Context > 32768 {
 		return errors.New("invalid model dimensions (see README limits)")
 	}
 	if c.Dim%c.Heads != 0 || c.Heads%c.KVHeads != 0 || (c.Dim/c.Heads)%2 != 0 {
@@ -85,8 +92,8 @@ func (c Config) Validate() error {
 	if !finite(c.RopeTheta) || c.RopeTheta <= 1 || !finite(c.NormEps) || c.NormEps < 1e-12 || c.NormEps > 1 {
 		return errors.New("invalid RoPE theta or RMS epsilon")
 	}
-	if c.ParameterCount() > maxParameters {
-		return fmt.Errorf("model exceeds %d parameter allocation limit", maxParameters)
+	if c.ParameterCount() > parameters {
+		return fmt.Errorf("model exceeds %d parameter allocation limit", parameters)
 	}
 	if int64(c.Context)*int64(c.KVDim())*int64(c.Layers)*2 > maxActivationElements {
 		return errors.New("KV cache exceeds allocation limit")
@@ -124,6 +131,8 @@ type hfConfig struct {
 	TP            int      `json:"pretraining_tp"`
 	BOS           int      `json:"bos_token_id"`
 	EOS           int      `json:"eos_token_id"`
+	Sliding       bool     `json:"use_sliding_window,omitempty"`
+	LayerTypes    []string `json:"layer_types,omitempty"`
 }
 
 // encoding/json otherwise accepts duplicate keys and invalid UTF-8. Reject
@@ -217,6 +226,11 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	for _, k := range allowed {
 		keys[k] = true
 	}
+	if string(raw["model_type"]) == `"qwen2"` {
+		for _, k := range strings.Fields("use_sliding_window sliding_window max_window_layers layer_types") {
+			keys[k] = true
+		}
+	}
 	for k, v := range raw {
 		if k == "rope_scaling" && string(v) == "null" {
 			continue
@@ -229,8 +243,17 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	if err := json.Unmarshal(b, &h); err != nil {
 		return h, Config{}, err
 	}
-	if len(h.Architectures) != 1 || h.Architectures[0] != "LlamaForCausalLM" || h.ModelType != "llama" || h.Act != "silu" || !h.Tied || h.AttentionBias || h.MLPBias || h.Interleaved || h.Dropout != 0 || (h.TP != 0 && h.TP != 1) {
-		return h, Config{}, errors.New("unsupported HF profile: require tied, bias-free Llama, SiLU, default half-split RoPE, no dropout")
+	arch := map[string]string{"llama": "LlamaForCausalLM", "qwen2": "Qwen2ForCausalLM"}[h.ModelType]
+	if arch == "" || len(h.Architectures) != 1 || h.Architectures[0] != arch || h.Act != "silu" || h.AttentionBias || h.MLPBias || h.Interleaved || h.Dropout != 0 || (h.TP != 0 && h.TP != 1) || h.Sliding {
+		return h, Config{}, errors.New("unsupported HF profile: require Llama or Qwen2, SiLU, unscaled half-split RoPE and full causal attention")
+	}
+	if len(h.LayerTypes) != 0 && len(h.LayerTypes) != h.Layers {
+		return h, Config{}, errors.New("HF layer_types count mismatch")
+	}
+	for _, kind := range h.LayerTypes {
+		if kind != "full_attention" {
+			return h, Config{}, errors.New("unsupported HF attention layer type")
+		}
 	}
 	if raw["bos_token_id"] == nil || raw["eos_token_id"] == nil || string(raw["bos_token_id"]) == "null" || string(raw["eos_token_id"]) == "null" || h.BOS < 0 || h.BOS >= h.Vocab || h.EOS < 0 || h.EOS >= h.Vocab {
 		return h, Config{}, errors.New("HF profile requires scalar BOS/EOS IDs within vocabulary")
@@ -242,7 +265,24 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	if contextLimit > 0 {
 		c.Context = contextLimit
 	}
-	return h, c, c.Validate()
+	if err := c.validateLimits(maxHFVocab, maxHFParameters); err != nil {
+		return h, c, err
+	}
+	if hfParameterCount(c, h) > maxHFParameters {
+		return h, c, fmt.Errorf("HF model exceeds %d parameters including biases and output head", maxHFParameters)
+	}
+	return h, c, nil
+}
+
+func hfParameterCount(c Config, h hfConfig) int64 {
+	n := c.ParameterCount()
+	if h.ModelType == "qwen2" {
+		n += int64(c.Layers) * int64(c.Dim+2*c.KVDim())
+	}
+	if !h.Tied {
+		n += int64(c.Vocab) * int64(c.Dim)
+	}
+	return n
 }
 
 type hfTensorSpec struct {
@@ -268,6 +308,22 @@ func hfTensorSpecs(c Config) []hfTensorSpec {
 	return append(out, hfTensorSpec{"model.norm.weight", []int{c.Dim}})
 }
 
+// Extra inference parameters follow the unchanged native parameter ordering.
+func hfProfileSpecs(c Config, h hfConfig) []hfTensorSpec {
+	out := hfTensorSpecs(c)
+	if h.ModelType == "qwen2" {
+		for i := 0; i < c.Layers; i++ {
+			p := fmt.Sprintf("model.layers.%d.self_attn.", i)
+			out = append(out, hfTensorSpec{p + "q_proj.bias", []int{c.Dim}},
+				hfTensorSpec{p + "k_proj.bias", []int{c.KVDim()}}, hfTensorSpec{p + "v_proj.bias", []int{c.KVDim()}})
+		}
+	}
+	if !h.Tied {
+		out = append(out, hfTensorSpec{"lm_head.weight", []int{c.Vocab, c.Dim}})
+	}
+	return out
+}
+
 type hfTensor struct {
 	DType   string  `json:"dtype"`
 	Shape   []int   `json:"shape"`
@@ -278,6 +334,8 @@ type hfTensor struct {
 }
 type HFPlan struct {
 	Format                string         `json:"format"`
+	ModelType             string         `json:"model_type"`
+	TiedEmbeddings        bool           `json:"tied_embeddings"`
 	Config                Config         `json:"config"`
 	Parameters            int64          `json:"parameters"`
 	WeightBytes           int64          `json:"weight_bytes"`
@@ -317,8 +375,9 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 	if err != nil {
 		return nil, err
 	}
-	if weightBudget < c.ParameterCount()*4 {
-		return nil, errors.New("HF FP32 weights exceed weight budget")
+	parameters := hfParameterCount(c, h)
+	if weightBudget < parameters*4 {
+		return nil, fmt.Errorf("HF FP32 weights require %d MiB, exceed weight budget %d MiB; raise -weight-mib", (parameters*4+(1<<20)-1)>>20, weightBudget>>20)
 	}
 	a := &hfArchive{Config: h, tensors: map[string]hfTensor{}}
 	defer func() {
@@ -326,9 +385,9 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 			a.Close()
 		}
 	}()
-	a.Plan = HFPlan{Format: "monolith-hf-plan-v1", Config: c, Parameters: c.ParameterCount(), WeightBytes: c.ParameterCount() * 4, RopeBytes: int64(c.Context) * (int64(c.Dim) / int64(c.Heads)) * 4, KVBytesPerToken: int64(c.Layers*c.KVDim()) * 8, ConversionBufferBytes: 64 << 10, DTypes: map[string]int{}}
+	a.Plan = HFPlan{Format: "monolith-hf-plan-v1", ModelType: h.ModelType, TiedEmbeddings: h.Tied, Config: c, Parameters: parameters, WeightBytes: parameters * 4, RopeBytes: int64(c.Context) * (int64(c.Dim) / int64(c.Heads)) * 4, KVBytesPerToken: int64(c.Layers*c.KVDim()) * 8, ConversionBufferBytes: 64 << 10, DTypes: map[string]int{}}
 	a.Plan.FullContextKVBytes = int64(c.Context) * a.Plan.KVBytesPerToken
-	specs := hfTensorSpecs(c)
+	specs := hfProfileSpecs(c, h)
 	expected := map[string][]int{}
 	for _, s := range specs {
 		expected[s.Name] = s.Shape
@@ -374,7 +433,7 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 		if e != nil {
 			return nil, e
 		}
-		if !st.Mode().IsRegular() || st.Size() < 10 || st.Size() > c.ParameterCount()*4+maxHFHeader+8 {
+		if !st.Mode().IsRegular() || st.Size() < 10 || st.Size() > parameters*4+maxHFHeader+8 {
 			return nil, errors.New("Safetensors file size/type limit")
 		}
 		var prefix [8]byte
@@ -797,6 +856,7 @@ type hfTokenizer struct {
 	specials []hfAddedToken
 	bos, eos int
 	chat     bool
+	qwen     bool
 }
 
 func (t *hfTokenizer) Vocab() int { return len(t.pieces) }
@@ -827,6 +887,11 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
+// Exact Qwen2.5 template identity. Only its system/user/assistant, no-tools
+// path is implemented; arbitrary Jinja and tool-call input are never executed.
+const qwenChatTemplateSHA = "cd8e9439f0570856fd70470bf8889ebd8b5d1107207f67a5efb46e342330527f"
+const qwenSplitPattern = "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+
 func (t *hfTokenizer) formatChat(messages []ChatMessage) (string, error) {
 	if !t.chat {
 		return "", errors.New("unsupported chat template")
@@ -836,7 +901,11 @@ func (t *hfTokenizer) formatChat(messages []ChatMessage) (string, error) {
 	}
 	var b strings.Builder
 	if messages[0].Role != "system" {
-		b.WriteString("<|im_start|>system\nYou are a helpful AI assistant named SmolLM, trained by Hugging Face<|im_end|>\n")
+		system := "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
+		if t.qwen {
+			system = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
+		}
+		b.WriteString("<|im_start|>system\n" + system + "<|im_end|>\n")
 	}
 	for _, m := range messages {
 		if m.Role != "system" && m.Role != "user" && m.Role != "assistant" {
@@ -901,11 +970,12 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 			Merges   []json.RawMessage `json:"merges"`
 		} `json:"model"`
 	}
-	if err := readStrictBoundedJSON(filepath.Join(dir, "tokenizer.json"), 16<<20, &raw); err != nil {
+	if err := readStrictBoundedJSON(filepath.Join(dir, "tokenizer.json"), 32<<20, &raw); err != nil {
 		return nil, err
 	}
 	null := func(b json.RawMessage) bool { return len(b) == 0 || string(b) == "null" }
-	if raw.Version != "1.0" || !null(raw.Normalizer) || !null(raw.PostProcessor) || !null(raw.Truncation) || !null(raw.Padding) || raw.Model.Type != "BPE" || raw.Model.Dropout != nil || raw.Model.Unk != nil || raw.Model.Prefix != nil || raw.Model.Suffix != nil || raw.Model.Fuse || raw.Model.Fallback || raw.Model.Ignore {
+	empty := func(s *string) bool { return s == nil || *s == "" }
+	if raw.Version != "1.0" || !null(raw.Truncation) || !null(raw.Padding) || raw.Model.Type != "BPE" || raw.Model.Dropout != nil || raw.Model.Unk != nil || !empty(raw.Model.Prefix) || !empty(raw.Model.Suffix) || raw.Model.Fuse || raw.Model.Fallback || raw.Model.Ignore {
 		return nil, errors.New("unsupported HF tokenizer normalization/BPE options")
 	}
 	// Exact supported pipelines; object key order is immaterial.
@@ -919,7 +989,17 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 	}
 	pre := `{"type":"Sequence","pretokenizers":[{"type":"Digits","individual_digits":true},{"type":"ByteLevel","add_prefix_space":false,"trim_offsets":true,"use_regex":true}]}`
 	dec := `{"type":"ByteLevel","add_prefix_space":true,"trim_offsets":true,"use_regex":true}`
-	if canonical(raw.PreTokenizer) != canonical([]byte(pre)) || canonical(raw.Decoder) != canonical([]byte(dec)) {
+	qwenByte := []byte("{\"type\":\"ByteLevel\",\"add_prefix_space\":false,\"trim_offsets\":false,\"use_regex\":false}")
+	qwenPre, _ := json.Marshal(map[string]any{"type": "Sequence", "pretokenizers": []any{
+		map[string]any{"type": "Split", "pattern": map[string]string{"Regex": qwenSplitPattern}, "behavior": "Isolated", "invert": false},
+		json.RawMessage(qwenByte),
+	}})
+	qwen := canonical(raw.PreTokenizer) == canonical(qwenPre) &&
+		canonical(raw.Normalizer) == "{\"type\":\"NFC\"}" &&
+		canonical(raw.PostProcessor) == canonical(qwenByte) && canonical(raw.Decoder) == canonical(qwenByte)
+	smol := null(raw.Normalizer) && null(raw.PostProcessor) &&
+		canonical(raw.PreTokenizer) == canonical([]byte(pre)) && canonical(raw.Decoder) == canonical([]byte(dec))
+	if !qwen && !smol {
 		return nil, errors.New("unsupported HF tokenizer pipeline (require Digits + ByteLevel)")
 	}
 	var cfg struct {
@@ -935,37 +1015,51 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		MaxLength  int                     `json:"model_max_length"`
 		Class      string                  `json:"tokenizer_class"`
 		Vocab      int                     `json:"vocab_size"`
+		AddBOS     bool                    `json:"add_bos_token"`
+		Split      bool                    `json:"split_special_tokens"`
+		Errors     string                  `json:"errors"`
 	}
 	if err := readStrictBoundedJSON(filepath.Join(dir, "tokenizer_config.json"), 1<<20, &cfg); err != nil {
 		return nil, err
 	}
-	if cfg.AddPrefix || cfg.Cleanup || cfg.Class != "GPT2Tokenizer" || cfg.Vocab != h.Vocab || cfg.MaxLength != h.Context || len(raw.Model.Vocab) != h.Vocab || h.Vocab > 65536 || h.Vocab < 258 || len(raw.Added) > 256 || len(raw.Model.Merges) > 65536 {
+	if cfg.AddPrefix || cfg.Cleanup || cfg.AddBOS || cfg.Split || (cfg.Errors != "" && cfg.Errors != "replace") ||
+		(smol && (cfg.Class != "GPT2Tokenizer" || cfg.Vocab != h.Vocab || cfg.MaxLength != h.Context)) ||
+		(qwen && (cfg.Class != "Qwen2Tokenizer" || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.MaxLength < h.Context)) ||
+		h.Vocab > maxHFVocab || h.Vocab < 258 || h.BOS < 0 || h.BOS >= h.Vocab || h.EOS < 0 || h.EOS >= h.Vocab ||
+		len(raw.Model.Vocab) > h.Vocab || len(raw.Added) > 256 || len(raw.Model.Merges) > maxHFVocab {
 		return nil, errors.New("HF tokenizer config/model mismatch or unsupported options")
 	}
-	t := &hfTokenizer{pieces: make([][]byte, h.Vocab), merges: map[Pair]hfMerge{}, bos: h.BOS, eos: h.EOS}
+	t := &hfTokenizer{pieces: make([][]byte, h.Vocab), merges: map[Pair]hfMerge{}, bos: h.BOS, eos: h.EOS, qwen: qwen}
 	seen := make([]bool, h.Vocab)
 	special := map[int]bool{}
 	specialNames := map[string]bool{}
+	added := map[int]hfAddedToken{}
 	if len(cfg.Added) != len(raw.Added) {
 		return nil, errors.New("HF added token table mismatch")
 	}
 	for _, s := range raw.Added {
-		id, ok := raw.Model.Vocab[s.Content]
+		id, inVocab := raw.Model.Vocab[s.Content]
 		configured, found := cfg.Added[strconv.Itoa(s.ID)]
 		configured.ID = s.ID
-		if !ok || id != s.ID || id < 0 || id >= h.Vocab || special[id] || len(s.Content) == 0 || len(s.Content) > 256 || !s.Special || s.SingleWord || s.LStrip || s.RStrip || s.Normalized || !found || configured != s {
+		_, repeated := added[s.ID]
+		if (inVocab && id != s.ID) || s.ID < 0 || s.ID >= h.Vocab || repeated || len(s.Content) == 0 || len(s.Content) > 256 || s.SingleWord || s.LStrip || s.RStrip || s.Normalized || !found || configured != s {
 			return nil, errors.New("unsupported or inconsistent HF added token")
 		}
-		special[id] = true
-		specialNames[s.Content] = true
+		raw.Model.Vocab[s.Content] = s.ID
+		added[s.ID] = s
+		special[s.ID] = s.Special
+		specialNames[s.Content] = s.Special
 		t.specials = append(t.specials, s)
 	}
 	for _, s := range append(append([]string{}, cfg.Additional...), cfg.BOS, cfg.EOS, cfg.Pad, cfg.Unk) {
+		if qwen && s == "" {
+			continue
+		}
 		if !specialNames[s] {
 			return nil, errors.New("HF special token not registered")
 		}
 	}
-	if raw.Model.Vocab[cfg.BOS] != h.BOS || raw.Model.Vocab[cfg.EOS] != h.EOS {
+	if (cfg.BOS != "" && raw.Model.Vocab[cfg.BOS] != h.BOS) || raw.Model.Vocab[cfg.EOS] != h.EOS {
 		return nil, errors.New("HF BOS/EOS mismatch")
 	}
 	sort.Slice(t.specials, func(i, j int) bool {
@@ -981,7 +1075,10 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 			return nil, errors.New("invalid HF vocabulary IDs/pieces")
 		}
 		seen[id] = true
-		if special[id] {
+		if s, ok := added[id]; ok {
+			if !s.Special {
+				t.pieces[id] = []byte(s.Content)
+			}
 			continue
 		}
 		for _, r := range word {
@@ -994,6 +1091,16 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		total += len(t.pieces[id])
 		if total > 16<<20 {
 			return nil, errors.New("HF vocabulary expansion limit")
+		}
+	}
+	// A tokenizer may omit trailing model padding IDs (e.g. Qwen2.5).
+	// They decode to empty text, as HF does, but are not fabricated tokens.
+	if len(raw.Model.Vocab) > h.Vocab || !seen[h.BOS] || !seen[h.EOS] {
+		return nil, errors.New("HF tokenizer vocabulary exceeds model or lacks BOS/EOS")
+	}
+	for id := 0; id < len(raw.Model.Vocab); id++ {
+		if !seen[id] {
+			return nil, errors.New("HF tokenizer has a non-padding vocabulary hole")
 		}
 	}
 	for b, r := range alphabet {
@@ -1027,12 +1134,20 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		id, okC := raw.Model.Vocab[pair[0]+pair[1]]
 		key := Pair{a, b}
 		_, exists := t.merges[key]
-		if !okA || !okB || !okC || special[a] || special[b] || special[id] || exists {
+		_, addedA := added[a]
+		_, addedB := added[b]
+		_, addedC := added[id]
+		if !okA || !okB || !okC || addedA || addedB || addedC || exists {
 			return nil, errors.New("invalid or duplicate HF merge")
 		}
 		t.merges[key] = hfMerge{rank, id}
 	}
 	t.chat = cfg.Chat == smolChatTemplate && cfg.BOS == "<|im_start|>" && cfg.EOS == "<|im_end|>"
+	if qwen {
+		sum := sha256.Sum256([]byte(cfg.Chat))
+		t.chat = hex.EncodeToString(sum[:]) == qwenChatTemplateSHA &&
+			specialNames["<|im_start|>"] && cfg.EOS == "<|im_end|>"
+	}
 	return t, t.Validate()
 }
 
@@ -1161,6 +1276,104 @@ func hfWordEnd(s string, start int) int {
 	}
 	return end
 }
+
+// Qwen's Split regex includes lookahead and case folding outside Go's RE2.
+// Preserve its ordered alternatives, including punctuation prefixes on words
+// and whitespace ending at the final newline.
+func qwenWordEnd(s string, start int) int {
+	if s[start] == '\'' {
+		for _, suffix := range []string{"'s", "'t", "'re", "'ve", "'m", "'ll", "'d"} {
+			end := start
+			for range suffix {
+				if end < len(s) {
+					_, n := utf8.DecodeRuneInString(s[end:])
+					end += n
+				}
+			}
+			if strings.EqualFold(s[start:end], suffix) {
+				return end
+			}
+		}
+	}
+	r, n := utf8.DecodeRuneInString(s[start:])
+	at := start
+	if !unicode.IsLetter(r) && !unicode.IsNumber(r) && r != '\r' && r != '\n' && start+n < len(s) {
+		next, _ := utf8.DecodeRuneInString(s[start+n:])
+		if unicode.IsLetter(next) {
+			at += n
+		}
+	}
+	end := at
+	for end < len(s) {
+		r, n := utf8.DecodeRuneInString(s[end:])
+		if !unicode.IsLetter(r) {
+			break
+		}
+		end += n
+	}
+	if end > at {
+		return end
+	}
+	r, n = utf8.DecodeRuneInString(s[start:])
+	if unicode.IsNumber(r) {
+		return start + n
+	}
+	punct := func(r rune) bool { return !unicode.IsSpace(r) && !unicode.IsLetter(r) && !unicode.IsNumber(r) }
+	at = start
+	if r == ' ' && start+n < len(s) {
+		next, _ := utf8.DecodeRuneInString(s[start+n:])
+		if punct(next) {
+			at += n
+		}
+	}
+	end = at
+	for end < len(s) {
+		r, n := utf8.DecodeRuneInString(s[end:])
+		if !punct(r) {
+			break
+		}
+		end += n
+	}
+	if end > at {
+		for end < len(s) && (s[end] == '\r' || s[end] == '\n') {
+			end++
+		}
+		return end
+	}
+	end, previous, newline := start, start, start
+	for end < len(s) {
+		r, n := utf8.DecodeRuneInString(s[end:])
+		if !unicode.IsSpace(r) {
+			break
+		}
+		previous = end
+		end += n
+		if r == '\r' || r == '\n' {
+			newline = end
+		}
+	}
+	if newline > start {
+		return newline
+	}
+	if end < len(s) && previous > start {
+		return previous
+	}
+	return end
+}
+
+func qwenNormalize(s string) (string, error) {
+	out := norm.NFC.String(s)
+	// x/text inserts CGJ for stream safety after 30 non-starters; HF does
+	// not. Reject that bounded corner instead of silently changing token IDs.
+	if strings.Count(out, "\u034f") != strings.Count(s, "\u034f") {
+		return "", errors.New("Qwen NFC combining sequence exceeds supported normalization bound")
+	}
+	if len(out) > 1<<20 {
+		return "", errors.New("normalized HF prompt exceeds 1 MiB")
+	}
+	return out, nil
+}
+
 func (t *hfTokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]int, error) {
 	if !utf8.ValidString(s) || len(s) > 1<<20 {
 		return nil, errors.New("HF prompt must be valid UTF-8 and at most 1 MiB")
@@ -1201,11 +1414,20 @@ func (t *hfTokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]
 			}
 		}
 		plain := s[pos:end]
+		if t.qwen {
+			var err error
+			plain, err = qwenNormalize(plain)
+			if err != nil {
+				return nil, err
+			}
+		}
 		// Digits is applied before the byte-level regex, including whitespace.
 		for lo := 0; lo < len(plain); {
 			r, n := utf8.DecodeRuneInString(plain[lo:])
 			hi := lo + n
-			if !unicode.IsNumber(r) {
+			if t.qwen {
+				hi = len(plain)
+			} else if !unicode.IsNumber(r) {
 				for hi < len(plain) {
 					r, n = utf8.DecodeRuneInString(plain[hi:])
 					if unicode.IsNumber(r) {
@@ -1220,6 +1442,9 @@ func (t *hfTokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]
 					return nil, err
 				}
 				b := hfWordEnd(segment, a)
+				if t.qwen {
+					b = qwenWordEnd(segment, a)
+				}
 				ids, err := t.bpe(ctx, segment[a:b])
 				if err != nil {
 					return nil, err
@@ -2232,6 +2457,15 @@ func linearInto(y, x []float32, w *Param, n int) {
 	linearIntoWithExecutor(nil, y, x, w, n)
 }
 
+func addBias(x []float32, bias *Param) {
+	if bias == nil {
+		return
+	}
+	for i := range x {
+		x[i] += bias.Data[i%len(bias.Data)]
+	}
+}
+
 func linearIntoWithExecutor(e *kernelExecutor, y, x []float32, w *Param, n int) {
 	in, out := w.Cols, w.Rows
 	// Four sequence rows share each weight load. Disjoint 4x32 output tiles can
@@ -2427,8 +2661,9 @@ func swigluBackwardInto(dg, du, g, u, dy []float32) {
 
 // Model owns parameters; each Forward owns its tape and each decoder its cache.
 // Immutable models are safe to share between inference requests.
-type Block struct{ N1, Q, K, V, O, N2, Gate, Up, Down *Param }
+type Block struct{ N1, Q, K, V, O, N2, Gate, Up, Down, QB, KB, VB *Param }
 type Model struct {
+	output     *Param // Optional untied HF output head; native models use Emb.
 	Config     Config
 	Emb, Final *Param
 	Blocks     []Block
@@ -2437,6 +2672,13 @@ type Model struct {
 	Revision   uint64
 	decodePool sync.Pool
 	hf         *hfConfig // Non-nil marks imported, inference-only half-split RoPE.
+}
+
+func (m *Model) parameterCount() int64 {
+	if m.hf != nil {
+		return hfParameterCount(m.Config, *m.hf)
+	}
+	return m.Config.ParameterCount()
 }
 
 func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model, HFPlan, error) {
@@ -2448,11 +2690,24 @@ func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model,
 		return nil, HFPlan{}, err
 	}
 	defer a.Close()
-	m, err := allocateModel(a.Plan.Config, nil)
-	if err != nil {
-		return nil, a.Plan, err
-	}
+	m := allocateModelStorage(a.Plan.Config, nil)
 	m.hf = &a.Config
+	makeExtra := func(name string, rows, cols int) *Param {
+		p := &Param{Name: name, Rows: rows, Cols: cols, Data: make([]float32, rows*cols)}
+		m.Params = append(m.Params, p)
+		return p
+	}
+	if a.Config.ModelType == "qwen2" {
+		for i := range m.Blocks {
+			b := &m.Blocks[i]
+			b.QB = makeExtra("q_bias", 1, m.Config.Dim)
+			b.KB = makeExtra("k_bias", 1, m.Config.KVDim())
+			b.VB = makeExtra("v_bias", 1, m.Config.KVDim())
+		}
+	}
+	if !a.Config.Tied {
+		m.output = makeExtra("output", m.Config.Vocab, m.Config.Dim)
+	}
 	// HF computes default RoPE frequencies and position products in FP32.
 	hd := m.Config.Dim / m.Config.Heads
 	for pos := 0; pos < m.Config.Context; pos++ {
@@ -2463,7 +2718,7 @@ func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model,
 			m.Sin[pos*hd/2+j] = float32(math.Sin(angle))
 		}
 	}
-	for i, s := range hfTensorSpecs(m.Config) {
+	for i, s := range hfProfileSpecs(m.Config, a.Config) {
 		if err := a.readTensor(ctx, s.Name, m.Params[i].Data); err != nil {
 			return nil, a.Plan, err
 		}
@@ -2476,6 +2731,11 @@ func allocateModel(c Config, rng *RNG) (*Model, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
+	return allocateModelStorage(c, rng), nil
+}
+
+// Callers must validate dimensions and their native or HF allocation budget.
+func allocateModelStorage(c Config, rng *RNG) *Model {
 	m := &Model{Config: c}
 	makeParam := func(name string, rows, cols int, norm bool, scale float64) *Param {
 		p := &Param{Name: name, Rows: rows, Cols: cols, Decay: !norm, Data: make([]float32, rows*cols)}
@@ -2519,7 +2779,7 @@ func allocateModel(c Config, rng *RNG) (*Model, error) {
 			m.Sin[i] = float32(math.Sin(angle))
 		}
 	}
-	return m, nil
+	return m
 }
 func (m *Model) ZeroGrad() {
 	for _, p := range m.Params {
@@ -2712,6 +2972,9 @@ func newBackwardWorkspace(m *Model, batch, seq int) (*backwardWorkspace, error) 
 	if m == nil {
 		return nil, errors.New("workspace requires a model")
 	}
+	if m.hf != nil {
+		return nil, errors.New("HF models are inference-only")
+	}
 	c := m.Config
 	if err := validateTrainingShape(c, batch, seq); err != nil {
 		return nil, err
@@ -2746,6 +3009,9 @@ func (w *backwardWorkspace) validate(m *Model, batch, seq int) error {
 }
 
 func (m *Model) Forward(ids []int, batch, seq int) (*Tape, error) {
+	if m.hf != nil {
+		return nil, errors.New("HF models are inference-only; use PrefillBatch/DecodeBatch")
+	}
 	c := m.Config
 	if batch < 1 || batch > 4096 || seq < 1 || seq > c.Context || len(ids) != batch*seq {
 		return nil, errors.New("invalid input shape or context length")
@@ -2800,6 +3066,9 @@ func evaluationWorkspaceElements(c Config, batch, seq int) int64 {
 func newEvaluationWorkspace(m *Model, maxBatch, maxSeq int) (*evaluationWorkspace, error) {
 	if m == nil {
 		return nil, errors.New("evaluation workspace requires a model")
+	}
+	if m.hf != nil {
+		return nil, errors.New("HF models require token-ID inference; native evaluation uses BOS framing")
 	}
 	c := m.Config
 	if err := c.Validate(); err != nil {
@@ -2974,6 +3243,9 @@ func crossEntropyInto(grad, logits []float32, targets []int, vocab int, scale fl
 	return loss / float64(len(targets)), nil
 }
 func (m *Model) Backward(t *Tape, targets []int, scale float64) (float64, error) {
+	if m.hf != nil {
+		return 0, errors.New("HF models are inference-only")
+	}
 	return m.backward(t, targets, scale, nil)
 }
 func (m *Model) backward(t *Tape, targets []int, scale float64, w *backwardWorkspace) (float64, error) {
@@ -3310,6 +3582,9 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		linearIntoWithExecutor(executor, w.Q, w.N, b.Q, n)
 		linearIntoWithExecutor(executor, w.K, w.N, b.K, n)
 		linearIntoWithExecutor(executor, w.V, w.N, b.V, n)
+		addBias(w.Q, b.QB)
+		addBias(w.K, b.KB)
+		addBias(w.V, b.VB)
 		for i, cache := range rowCaches {
 			m.rope(w.Q[i*d:(i+1)*d], 1, 1, c.Heads, positions[i], false)
 			m.rope(w.K[i*kd:(i+1)*kd], 1, 1, c.KVHeads, positions[i], false)
@@ -3349,7 +3624,11 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		copy(w.Tmp[i*d:(i+1)*d], w.X[row*d:(row+1)*d])
 	}
 	rmsInto(w.N[:sessions*d], w.Tmp[:sessions*d], m.Final, sessions, c.NormEps)
-	linearIntoWithExecutor(executor, w.Logits, w.N[:sessions*d], m.Emb, sessions)
+	head := m.Emb
+	if m.output != nil {
+		head = m.output
+	}
+	linearIntoWithExecutor(executor, w.Logits, w.N[:sessions*d], head, sessions)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -3564,6 +3843,9 @@ func (s *TrainState) Validate(c Config) error {
 // AdamW applies global norm clipping, bias correction and decoupled decay.
 // Preflight rejects nonfinite gradients before modifying any parameter/state.
 func (m *Model) AdamW(s TrainSpec, step int) (float64, error) {
+	if m.hf != nil {
+		return 0, errors.New("HF models are inference-only")
+	}
 	if err := s.Validate(m.Config); err != nil {
 		return 0, err
 	}
@@ -5153,7 +5435,7 @@ func (e *Engine) Handler() http.Handler {
 		case <-e.done:
 			writeJSON(w, 503, map[string]string{"status": "closed"})
 		default:
-			writeJSON(w, 200, map[string]any{"status": "ok", "parameters": e.Model.Config.ParameterCount(), "stats": e.Stats()})
+			writeJSON(w, 200, map[string]any{"status": "ok", "parameters": e.Model.parameterCount(), "stats": e.Stats()})
 		}
 	})
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -6321,7 +6603,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 	defer server.Close()
 	result := make(chan error, 1)
 	go func() { result <- server.ListenAndServe() }()
-	fmt.Fprintf(os.Stderr, "serving %s parameters=%d max_batch=%d queue=%d kv_mib=%d threads=%d kernel_workers=%d prefill_chunk=%d mixed_prefill_chunk=%d token_budget=%d stream_buffer=%d\n", *addr, m.Config.ParameterCount(), *batch, *queue, *memory, runtime.GOMAXPROCS(0), e.Config.KernelWorkers, e.Config.PrefillChunk, e.Config.MixedPrefillChunk, e.Config.TokenBudget, e.Config.StreamBuffer)
+	fmt.Fprintf(os.Stderr, "serving %s parameters=%d max_batch=%d queue=%d kv_mib=%d threads=%d kernel_workers=%d prefill_chunk=%d mixed_prefill_chunk=%d token_budget=%d stream_buffer=%d\n", *addr, m.parameterCount(), *batch, *queue, *memory, runtime.GOMAXPROCS(0), e.Config.KernelWorkers, e.Config.PrefillChunk, e.Config.MixedPrefillChunk, e.Config.TokenBudget, e.Config.StreamBuffer)
 	select {
 	case err = <-result:
 		if !errors.Is(err, http.ErrServerClosed) {

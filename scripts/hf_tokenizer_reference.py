@@ -27,6 +27,11 @@ def texts():
                 "123", "Ⅳ", "½", "١٢", "?!", "'re", "'s", "\u00a0",
                 "<|im_start|>", "<|im_end|>", " e", "\U00040000", "\x04"]
     out += ["".join(rng.choices(alphabet, k=rng.randrange(1, 30))) for _ in range(128)]
+    out += ["e\u0301 A\u030a \u212b \u1100\u1161", "I'M WE'RE She's 'RE 'ſ",
+            "!hello 👋word \tword\nword", " \n  \r\n\t text",
+            "123456 １２３ ١٢٣", "<tool_call>{\"x\":1}</tool_call>",
+            "a" + "\u0301"*25, "a\u034f\u0301", " \n\n", "\r\n   ",
+            "!? \r\nx", "\u2028\u2029word"]
     return out
 
 

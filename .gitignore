@@ -7,3 +7,6 @@ coverage.out
 
 .DS_Store
 *.test
+
+__pycache__/
+*.pyc
