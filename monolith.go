@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"container/heap"
 	"context"
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -18,6 +19,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -6867,12 +6869,1091 @@ func runServe(ctx context.Context, args []string) (err error) {
 	defer cancel()
 	return shutdownInferenceServer(shutdown, server, e)
 }
-func run(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stdout, "monolith: one Go binary for Transformer training and bounded continuous-batch inference\n\ncommands: demo, tokenizer, prepare, train, eval, generate, inspect, inspect-hf, check-hf, infer-hf, tokenize-hf, chat, serve\nusage: monolith <command> -h")
+
+// HF source resolution is separate from inference. Only explicitly selected
+// local commands download weights; remote commands never enter this path.
+type hfHubFile struct {
+	Name string `json:"rfilename"`
+	Size int64  `json:"size"`
+	Blob string `json:"blobId"`
+	LFS  *struct {
+		SHA  string `json:"sha256"`
+		Size int64  `json:"size"`
+	} `json:"lfs"`
+}
+type hfHubInfo struct {
+	SHA   string      `json:"sha"`
+	Files []hfHubFile `json:"siblings"`
+}
+type hfCachedFile struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+	SHA  string `json:"sha256"`
+}
+type hfSnapshot struct {
+	Format   string         `json:"format"`
+	Repo     string         `json:"repo"`
+	Revision string         `json:"revision"`
+	Files    []hfCachedFile `json:"files"`
+}
+type hfSource struct {
+	Repo, Revision, Cache    string
+	Offline                  bool
+	DownloadBytes, WeightMiB int64
+	Context                  int
+}
+type hfHub struct {
+	Base, Token string
+	Client      *http.Client
+}
+
+func newHFClient(timeout time.Duration) *http.Client {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.MaxConnsPerHost, t.MaxIdleConnsPerHost = 4, 4
+	t.ResponseHeaderTimeout = 30 * time.Second
+	return &http.Client{Transport: t, Timeout: timeout, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return errors.New("HF redirect limit")
+		}
+		if req.URL.Scheme != "https" {
+			return errors.New("HF redirect must use HTTPS")
+		}
+		if len(via) > 0 && req.URL.Host != via[0].URL.Host {
+			req.Header.Del("Authorization")
+		}
+		return nil
+	}}
+}
+func hfHTTPError(status int) error {
+	switch status {
+	case 401:
+		return errors.New("HF authentication failed; set HF_TOKEN with the required permissions")
+	case 403:
+		return errors.New("HF access denied; check model access, gating and token permissions")
+	case 404:
+		return errors.New("HF model, revision or endpoint not found")
+	case 429:
+		return errors.New("HF rate limit reached; no automatic retry was made")
+	default:
+		return fmt.Errorf("HF request returned HTTP %d; no automatic retry was made", status)
+	}
+}
+func hfDo(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
+	resp, err := client.Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		// Transport errors can contain signed download URLs. Keep them out of logs.
+		return nil, errors.New("HF request failed; check connectivity and timeout")
+	}
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, hfHTTPError(resp.StatusCode)
+	}
+	return resp, nil
+}
+func hfReadJSON(r io.Reader, limit int64, dst any) error {
+	b, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return err
+	}
+	if int64(len(b)) > limit {
+		return errors.New("HF JSON response exceeds size limit")
+	}
+	return uniqueJSON(b, dst)
+}
+func (h hfHub) get(ctx context.Context, path string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(h.Base, "/")+path, nil)
+	if err != nil {
+		return nil, errors.New("invalid HF request URL")
+	}
+	if h.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+h.Token)
+	}
+	req.Header.Set("User-Agent", "sr-go-tranformer/1")
+	return hfDo(ctx, h.Client, req)
+}
+func validHFRepo(repo string) bool {
+	parts := strings.Split(repo, "/")
+	if len(parts) != 2 {
+		return false
+	}
+	for _, p := range parts {
+		if p == "" || len(p) > 96 || strings.Contains(p, "..") || strings.HasPrefix(p, ".") || strings.HasSuffix(p, ".") {
+			return false
+		}
+		for _, c := range p {
+			if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.') {
+				return false
+			}
+		}
+	}
+	return true
+}
+func validHFCommit(s string) bool {
+	b, err := hex.DecodeString(s)
+	return err == nil && len(b) == 20 && s == strings.ToLower(s)
+}
+func hfKey(s string) string { b := sha256.Sum256([]byte(s)); return hex.EncodeToString(b[:]) }
+func hfFileHash(ctx context.Context, path string, size int64) (string, error) {
+	st, err := os.Lstat(path)
+	if err != nil {
+		return "", err
+	}
+	if !st.Mode().IsRegular() || st.Size() != size {
+		return "", errors.New("HF cache file size/type mismatch")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	hash := sha256.New()
+	buf := make([]byte, 64<<10)
+	r := io.LimitReader(f, size+1)
+	var read int64
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		n, err := r.Read(buf)
+		read += int64(n)
+		if n > 0 {
+			hash.Write(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+	if read != size {
+		return "", errors.New("HF cache changed size during checksum verification")
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+func validateHFSnapshot(ctx context.Context, dir string, s hfSource, sha string) (hfSnapshot, error) {
+	var m hfSnapshot
+	st, err := os.Lstat(dir)
+	if err != nil {
+		return m, err
+	}
+	if !st.IsDir() {
+		return m, errors.New("HF snapshot must be a directory, not a symlink")
+	}
+	if err := readStrictBoundedJSON(filepath.Join(dir, "snapshot.json"), 1<<20, &m); err != nil {
+		return m, err
+	}
+	if m.Format != "monolith-hf-snapshot-v1" || m.Repo != s.Repo || m.Revision != sha || len(m.Files) < 4 || len(m.Files) > 134 {
+		return m, errors.New("HF snapshot identity mismatch")
+	}
+	seen := map[string]bool{}
+	var size int64
+	for _, f := range m.Files {
+		if f.Name == "" || filepath.Base(f.Name) != f.Name || strings.ContainsAny(f.Name, `/\`) || f.Name == "snapshot.json" || seen[f.Name] || f.Size < 1 || f.Size > s.DownloadBytes-size || !validSHA256(f.SHA) {
+			return m, errors.New("invalid HF snapshot file or download budget")
+		}
+		seen[f.Name] = true
+		size += f.Size
+		sum, err := hfFileHash(ctx, filepath.Join(dir, f.Name), f.Size)
+		if err != nil {
+			return m, err
+		}
+		if sum != f.SHA {
+			return m, errors.New("HF cache checksum mismatch; use a fresh cache directory")
+		}
+	}
+	if !seen["config.json"] || !seen["tokenizer.json"] || !seen["tokenizer_config.json"] || !seen["model.safetensors"] && !seen["model.safetensors.index.json"] {
+		return m, errors.New("incomplete HF snapshot")
+	}
+	return m, nil
+}
+func writeHFJSON(path string, v any) error {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(filepath.Dir(path), ".json-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	if _, err = f.Write(append(b, '\n')); err == nil {
+		err = f.Sync()
+	}
+	closeErr := f.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return os.Rename(f.Name(), path)
+}
+func (h hfHub) download(ctx context.Context, dir, repo, sha string, f hfHubFile) (hfCachedFile, error) {
+	out := hfCachedFile{Name: f.Name, Size: f.Size}
+	resp, err := h.get(ctx, "/"+repo+"/resolve/"+sha+"/"+url.PathEscape(f.Name))
+	if err != nil {
+		return out, err
+	}
+	defer resp.Body.Close()
+	if resp.ContentLength >= 0 && resp.ContentLength != f.Size {
+		return out, errors.New("HF download size differs from pinned metadata")
+	}
+	dst, err := os.OpenFile(filepath.Join(dir, f.Name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return out, err
+	}
+	defer dst.Close()
+	sum := sha256.New()
+	gitBlob := sha1.New() // Git blob identity for non-LFS files, not a security primitive.
+	fmt.Fprintf(gitBlob, "blob %d%c", f.Size, 0)
+	n, err := io.CopyBuffer(io.MultiWriter(dst, sum, gitBlob), io.LimitReader(resp.Body, f.Size+1), make([]byte, 64<<10))
+	if err != nil {
+		if ctx.Err() != nil {
+			return out, ctx.Err()
+		}
+		return out, errors.New("HF file download interrupted")
+	}
+	if n != f.Size {
+		return out, errors.New("HF download size mismatch")
+	}
+	out.SHA = hex.EncodeToString(sum.Sum(nil))
+	if f.LFS != nil {
+		if f.LFS.Size != f.Size || out.SHA != f.LFS.SHA {
+			return out, errors.New("HF LFS SHA-256 mismatch")
+		}
+	} else if hex.EncodeToString(gitBlob.Sum(nil)) != f.Blob {
+		return out, errors.New("HF Git blob identity mismatch")
+	}
+	if err = dst.Sync(); err != nil {
+		return out, err
+	}
+	return out, dst.Close()
+}
+
+func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, error) {
+	var empty hfSnapshot
+	if !validHFRepo(s.Repo) || s.Revision == "" || len(s.Revision) > 200 || strings.ContainsAny(s.Revision, "\x00\r\n") || s.DownloadBytes < 1 || s.DownloadBytes > 16<<30 || s.WeightMiB < 1 || s.WeightMiB > 1<<20 {
+		return "", empty, errors.New("invalid HF source or byte budget")
+	}
+	root := filepath.Join(s.Cache, hfKey(s.Repo))
+	ref := filepath.Join(root, "refs", hfKey(s.Revision)+".json")
+	sha := s.Revision
+	var info hfHubInfo
+	if s.Offline {
+		if !validHFCommit(sha) {
+			var pin struct{ Repo, Ref, SHA string }
+			if err := readStrictBoundedJSON(ref, 4096, &pin); err != nil {
+				return "", empty, errors.New("offline revision is not cached; provide a cached commit SHA")
+			}
+			if pin.Repo != s.Repo || pin.Ref != s.Revision || !validHFCommit(pin.SHA) {
+				return "", empty, errors.New("invalid cached HF revision")
+			}
+			sha = pin.SHA
+		}
+	} else {
+		resp, err := h.get(ctx, "/api/models/"+s.Repo+"/revision/"+url.PathEscape(s.Revision)+"?blobs=true")
+		if err != nil {
+			return "", empty, err
+		}
+		err = hfReadJSON(resp.Body, 2<<20, &info)
+		resp.Body.Close()
+		if err != nil {
+			return "", empty, err
+		}
+		if !validHFCommit(info.SHA) || validHFCommit(sha) && info.SHA != sha {
+			return "", empty, errors.New("HF did not resolve the requested commit")
+		}
+		sha = info.SHA
+	}
+	dir := filepath.Join(root, sha)
+	if _, err := os.Lstat(dir); err == nil {
+		m, err := validateHFSnapshot(ctx, dir, s, sha)
+		if err == nil && !s.Offline {
+			if err = os.MkdirAll(filepath.Dir(ref), 0700); err == nil {
+				err = writeHFJSON(ref, struct{ Repo, Ref, SHA string }{s.Repo, s.Revision, sha})
+			}
+		}
+		return dir, m, err
+	} else if !os.IsNotExist(err) {
+		return "", empty, err
+	}
+	if s.Offline {
+		return "", empty, errors.New("HF snapshot is not cached; offline mode made no network requests")
+	}
+	if err := os.MkdirAll(root, 0700); err != nil {
+		return "", empty, err
+	}
+	stage, err := os.MkdirTemp(root, ".download-")
+	if err != nil {
+		return "", empty, err
+	}
+	defer os.RemoveAll(stage)
+	files := map[string]hfHubFile{}
+	for _, f := range info.Files {
+		if _, exists := files[f.Name]; exists {
+			return "", empty, errors.New("duplicate HF file metadata")
+		}
+		files[f.Name] = f
+	}
+	m := hfSnapshot{Format: "monolith-hf-snapshot-v1", Repo: s.Repo, Revision: sha}
+	var total int64
+	take := func(name string, maxSize int64) error {
+		f, ok := files[name]
+		if !ok {
+			return fmt.Errorf("HF repository lacks %s", name)
+		}
+		if name == "" || filepath.Base(name) != name || strings.ContainsAny(name, `/\`) || f.Size < 1 || f.Size > maxSize || f.Size > s.DownloadBytes-total || (f.LFS != nil && (!validSHA256(f.LFS.SHA) || f.LFS.Size != f.Size)) || (f.LFS == nil && !validHFCommit(f.Blob)) {
+			return errors.New("HF file metadata or download budget rejected")
+		}
+		total += f.Size
+		got, err := h.download(ctx, stage, s.Repo, sha, f)
+		if err == nil {
+			m.Files = append(m.Files, got)
+		}
+		return err
+	}
+	// Reject unsupported computation and tokenizer profiles before weight traffic.
+	if err = take("config.json", 1<<20); err != nil {
+		return "", empty, err
+	}
+	hcfg, c, err := readHFConfig(stage, s.Context)
+	if err != nil {
+		return "", empty, fmt.Errorf("local Go profile: %w (choose infer remote explicitly for other architectures)", err)
+	}
+	if hfParameterCount(c, hcfg)*4 > s.WeightMiB<<20 {
+		return "", empty, errors.New("HF FP32 weight budget exceeded before weight download")
+	}
+	if err = take("tokenizer.json", 32<<20); err != nil {
+		return "", empty, err
+	}
+	if err = take("tokenizer_config.json", 1<<20); err != nil {
+		return "", empty, err
+	}
+	if _, err = loadHFTokenizer(stage, hcfg); err != nil {
+		return "", empty, err
+	}
+	var weights []string
+	if _, ok := files["model.safetensors.index.json"]; ok {
+		if err = take("model.safetensors.index.json", 4<<20); err != nil {
+			return "", empty, err
+		}
+		var index struct {
+			WeightMap map[string]string `json:"weight_map"`
+		}
+		if err = readBoundedJSON(filepath.Join(stage, "model.safetensors.index.json"), 4<<20, &index); err != nil {
+			return "", empty, err
+		}
+		shards := map[string]bool{}
+		for _, name := range index.WeightMap {
+			shards[name] = true
+		}
+		if len(shards) < 1 || len(shards) > 128 {
+			return "", empty, errors.New("HF shard count limit")
+		}
+		for name := range shards {
+			if !strings.HasSuffix(name, ".safetensors") || filepath.Base(name) != name || strings.ContainsAny(name, `/\`) {
+				return "", empty, errors.New("invalid HF shard name")
+			}
+			weights = append(weights, name)
+		}
+		sort.Strings(weights)
+	} else {
+		weights = []string{"model.safetensors"}
+	}
+	remaining := s.DownloadBytes - total
+	for _, name := range weights {
+		f, ok := files[name]
+		if !ok || f.Size < 1 || f.Size > remaining {
+			return "", empty, errors.New("HF weights exceed download budget or are missing")
+		}
+		remaining -= f.Size
+	}
+	for _, name := range weights {
+		if err = take(name, s.DownloadBytes); err != nil {
+			return "", empty, err
+		}
+	}
+	a, err := openHFArchive(stage, s.Context, s.WeightMiB<<20)
+	if err != nil {
+		return "", empty, err
+	}
+	a.Close()
+	if err = writeHFJSON(filepath.Join(stage, "snapshot.json"), m); err != nil {
+		return "", empty, err
+	}
+	if err = os.Rename(stage, dir); err != nil {
+		// A concurrent invocation may have atomically published the same snapshot.
+		existing, checkErr := validateHFSnapshot(ctx, dir, s, sha)
+		if checkErr != nil {
+			return "", empty, err
+		}
+		m = existing
+	}
+	if err = os.MkdirAll(filepath.Dir(ref), 0700); err != nil {
+		return "", empty, err
+	}
+	if err = writeHFJSON(ref, struct{ Repo, Ref, SHA string }{s.Repo, s.Revision, sha}); err != nil {
+		return "", empty, err
+	}
+	return dir, m, nil
+}
+
+func runLearn(ctx context.Context, args []string) error {
+	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" || args[0] == "help" {
+		fmt.Fprintln(os.Stdout, "learn: native Go model training and evaluation\nusage: monolith learn <demo|train|eval|tokenizer|prepare|inspect> [flags]\nHF imports and remote inference are available under infer.")
 		return nil
 	}
 	switch args[0] {
+	case "demo", "train", "eval", "tokenizer", "prepare", "inspect":
+		return run(ctx, args)
+	default:
+		return errors.New("unknown learn command; use learn -h")
+	}
+}
+func runInferLocal(ctx context.Context, args []string) error {
+	f := flags("infer local")
+	repo := f.String("repo", "", "HF namespace/model to fetch automatically")
+	revision := f.String("revision", "main", "HF revision; resolved to an immutable commit")
+	cache := f.String("cache-dir", "", "cache directory; default is the OS user cache")
+	offline := f.Bool("offline", false, "use a verified cached snapshot without network")
+	download := f.Int64("download-mib", 2048, "maximum source files in MiB")
+	dir := f.String("dir", "", "existing local HF model directory")
+	checkpoint := f.String("checkpoint", "", "native .mglm checkpoint")
+	limit := f.Int("context", 0, "HF context cap; 0 selects at most 2048")
+	weight := f.Int64("weight-mib", 2048, "maximum FP32 HF weights in MiB, not RSS")
+	f.Usage = func() {
+		fmt.Fprintln(f.Output(), "usage: monolith infer local [source flags] <check|inspect|tokens|ids|generate|chat|serve> [action flags]")
+		f.PrintDefaults()
+	}
+	if err := f.Parse(args); err != nil {
+		return err
+	}
+	rest := f.Args()
+	if len(rest) == 0 {
+		f.Usage()
+		return nil
+	}
+	action := map[string]string{"check": "check-hf", "inspect": "inspect-hf", "tokens": "tokenize-hf", "ids": "infer-hf", "generate": "generate", "chat": "chat", "serve": "serve"}[rest[0]]
+	if action == "" {
+		return errors.New("unknown infer local action")
+	}
+	if len(rest) == 2 && (rest[1] == "-h" || rest[1] == "--help") {
+		return run(ctx, []string{action, "-h"})
+	}
+	sources := 0
+	for _, s := range []string{*repo, *dir, *checkpoint} {
+		if s != "" {
+			sources++
+		}
+	}
+	if sources != 1 {
+		return errors.New("infer local requires exactly one of -repo, -dir or -checkpoint")
+	}
+	for _, a := range rest[1:] {
+		name := strings.SplitN(strings.TrimLeft(a, "-"), "=", 2)[0]
+		if strings.HasPrefix(a, "-") && (name == "model" || name == "hf-model" || name == "context" || name == "weight-mib") {
+			return errors.New("put model source and HF sizing flags before the infer local action")
+		}
+	}
+	if *checkpoint != "" {
+		if action != "generate" && action != "serve" && rest[0] != "inspect" {
+			return errors.New("native checkpoints support generate, serve and inspect")
+		}
+		if flagSet(f, "context") || flagSet(f, "weight-mib") || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") || *offline {
+			return errors.New("HF source flags do not apply to a native checkpoint")
+		}
+		if rest[0] == "inspect" {
+			action = "inspect"
+		}
+		return run(ctx, append([]string{action, "-model", *checkpoint}, rest[1:]...))
+	}
+	if *repo != "" {
+		if *download < 1 || *download > 16384 {
+			return errors.New("download-mib must be 1..16384")
+		}
+		if *cache == "" {
+			base, err := os.UserCacheDir()
+			if err != nil {
+				return err
+			}
+			*cache = filepath.Join(base, "sr_go_tranformer", "hf")
+		}
+		client := newHFClient(15 * time.Minute)
+		defer client.CloseIdleConnections()
+		h := hfHub{Base: "https://huggingface.co", Token: os.Getenv("HF_TOKEN"), Client: client}
+		path, m, err := h.resolve(ctx, hfSource{Repo: *repo, Revision: *revision, Cache: *cache, Offline: *offline, DownloadBytes: *download << 20, WeightMiB: *weight, Context: *limit})
+		if err != nil {
+			return err
+		}
+		*dir = path
+		fmt.Fprintf(os.Stderr, "local Go: %s @ %s\n", m.Repo, m.Revision)
+	} else if *offline || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") {
+		return errors.New("cache/download flags require -repo")
+	}
+	injected := []string{action, "-hf-model", *dir, "-context", strconv.Itoa(*limit)}
+	if action != "tokenize-hf" {
+		injected = append(injected, "-weight-mib", strconv.FormatInt(*weight, 10))
+	}
+	return run(ctx, append(injected, rest[1:]...))
+}
+
+type hfRemote struct {
+	Base, Token, Model, API string
+	Client                  *http.Client
+	MaxTokens               int
+	Temperature, TopP       float64
+}
+type hfRemoteResult struct {
+	Backend        string          `json:"backend"`
+	RequestedModel string          `json:"requested_model"`
+	Model          string          `json:"model,omitempty"`
+	Text           string          `json:"text"`
+	FinishReason   string          `json:"finish_reason"`
+	Usage          json.RawMessage `json:"usage,omitempty"`
+}
+type hfRemoteEnvelope struct {
+	Model   string `json:"model"`
+	Choices []struct {
+		Index   int `json:"index"`
+		Message struct {
+			Content   string            `json:"content"`
+			Refusal   string            `json:"refusal"`
+			ToolCalls []json.RawMessage `json:"tool_calls"`
+		} `json:"message"`
+		Delta struct {
+			Content   string            `json:"content"`
+			ToolCalls []json.RawMessage `json:"tool_calls"`
+		} `json:"delta"`
+		Finish *string `json:"finish_reason"`
+	} `json:"choices"`
+	Usage json.RawMessage `json:"usage"`
+	Error json.RawMessage `json:"error"`
+}
+
+func validateHFEndpoint(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
+		return errors.New("invalid HF endpoint URL")
+	}
+	host := u.Hostname()
+	if u.Scheme != "https" || !(host == "router.huggingface.co" || strings.HasSuffix(host, ".endpoints.huggingface.cloud")) {
+		return errors.New("endpoint must use HTTPS on router.huggingface.co or a dedicated *.endpoints.huggingface.cloud host")
+	}
+	return nil
+}
+func validateRemoteMessages(messages []ChatMessage) error {
+	if len(messages) < 1 || len(messages) > 128 {
+		return errors.New("remote input requires 1..128 text messages")
+	}
+	total := 0
+	for _, m := range messages {
+		if m.Role != "system" && m.Role != "user" && m.Role != "assistant" {
+			return errors.New("remote message role must be system, user or assistant")
+		}
+		total += len(m.Content) + len(m.Role) + 64
+		if total > 1<<20 || !utf8.ValidString(m.Content) {
+			return errors.New("remote input exceeds UTF-8/1 MiB limit")
+		}
+	}
+	return nil
+}
+func remoteInput(ctx context.Context, f *flag.FlagSet, prompt, source, messages, system string) ([]ChatMessage, error) {
+	if messages != "" {
+		if source != "" || flagSet(f, "prompt") || flagSet(f, "system") {
+			return nil, errors.New("-messages cannot be combined with prompt or system flags")
+		}
+		b, err := readCLIInput(ctx, messages, os.Stdin)
+		if err != nil {
+			return nil, err
+		}
+		var out []ChatMessage
+		if err = uniqueJSON(b, &out); err != nil {
+			return nil, err
+		}
+		d := json.NewDecoder(bytes.NewReader(b))
+		d.DisallowUnknownFields()
+		if err = d.Decode(&out); err != nil {
+			return nil, err
+		}
+		return out, validateRemoteMessages(out)
+	}
+	if source != "" {
+		if flagSet(f, "prompt") {
+			return nil, errors.New("-prompt and -prompt-file are mutually exclusive")
+		}
+		b, err := readCLIInput(ctx, source, os.Stdin)
+		if err != nil {
+			return nil, err
+		}
+		prompt = string(b)
+	}
+	if prompt == "" {
+		return nil, errors.New("provide a nonempty prompt, prompt file or messages")
+	}
+	var out []ChatMessage
+	if system != "" {
+		out = append(out, ChatMessage{Role: "system", Content: system})
+	}
+	out = append(out, ChatMessage{Role: "user", Content: prompt})
+	return out, validateRemoteMessages(out)
+}
+func (r hfRemote) complete(ctx context.Context, messages []ChatMessage, out io.Writer) (hfRemoteResult, error) {
+	result := hfRemoteResult{Backend: "hf-remote", RequestedModel: r.Model}
+	if err := validateRemoteMessages(messages); err != nil {
+		return result, err
+	}
+	if r.Token == "" {
+		return result, errors.New("set HF_TOKEN for remote inference; no request was sent")
+	}
+	if r.MaxTokens < 1 || r.MaxTokens > 4096 || !finite(r.Temperature) || r.Temperature < 0 || r.Temperature > 2 || !finite(r.TopP) || r.TopP <= 0 || r.TopP > 1 {
+		return result, errors.New("invalid remote sampling options")
+	}
+	if r.Model == "" || len(r.Model) > 256 || strings.ContainsAny(r.Model, "\x00\r\n") {
+		return result, errors.New("provide a valid remote -model ID (optionally :provider)")
+	}
+	var payload any
+	endpoint := strings.TrimRight(r.Base, "/") + "/chat/completions"
+	if r.API == "text" {
+		if out != nil || len(messages) != 1 || messages[0].Role != "user" {
+			return result, errors.New("text endpoints require one raw prompt and do not support chat/stream here")
+		}
+		parameters := map[string]any{"max_new_tokens": r.MaxTokens, "return_full_text": false, "do_sample": r.Temperature > 0}
+		if r.Temperature > 0 {
+			parameters["temperature"] = r.Temperature
+			parameters["top_p"] = r.TopP
+		}
+		payload = map[string]any{"inputs": messages[0].Content, "parameters": parameters}
+		endpoint = r.Base
+	} else if r.API == "chat" {
+		payload = map[string]any{"model": r.Model, "messages": messages, "max_tokens": r.MaxTokens, "temperature": r.Temperature, "top_p": r.TopP, "stream": out != nil}
+	} else {
+		return result, errors.New("remote api must be chat or text")
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return result, err
+	}
+	if len(b) > 2<<20 {
+		return result, errors.New("encoded remote request exceeds 2 MiB")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(b))
+	if err != nil {
+		return result, errors.New("invalid remote endpoint")
+	}
+	req.Header.Set("Authorization", "Bearer "+r.Token)
+	req.Header.Set("Content-Type", "application/json")
+	if out != nil {
+		req.Header.Set("Accept", "text/event-stream")
+	}
+	resp, err := hfDo(ctx, r.Client, req)
+	if err != nil {
+		return result, err
+	}
+	defer resp.Body.Close()
+	if r.API == "text" {
+		var rows []struct {
+			Text *string `json:"generated_text"`
+		}
+		if err = hfReadJSON(resp.Body, 8<<20, &rows); err != nil {
+			if ctx.Err() != nil {
+				return result, ctx.Err()
+			}
+			return result, errors.New("invalid or oversized HF text response")
+		}
+		if len(rows) != 1 || rows[0].Text == nil {
+			return result, errors.New("HF text endpoint did not return one generated_text")
+		}
+		result.Text = *rows[0].Text
+		result.FinishReason = "unspecified"
+		return result, nil
+	}
+	var text strings.Builder
+	apply := func(e hfRemoteEnvelope, stream bool) error {
+		if len(e.Error) > 0 && string(e.Error) != "null" {
+			return errors.New("HF provider reported a generation error")
+		}
+		if e.Model != "" {
+			result.Model = e.Model
+		}
+		if len(e.Usage) > 0 && string(e.Usage) != "null" {
+			result.Usage = e.Usage
+		}
+		if len(e.Choices) == 0 && stream {
+			return nil
+		}
+		if len(e.Choices) != 1 || e.Choices[0].Index != 0 {
+			return errors.New("HF response must contain exactly one choice")
+		}
+		c := e.Choices[0]
+		if len(c.Message.ToolCalls) > 0 || len(c.Delta.ToolCalls) > 0 {
+			return errors.New("tool-call responses are not supported by the text CLI")
+		}
+		piece := c.Message.Content
+		if piece == "" && !stream {
+			piece = c.Message.Refusal
+		}
+		if stream {
+			piece = c.Delta.Content
+		}
+		if len(result.Text)+len(piece) > 4<<20 {
+			return errors.New("HF output exceeds 4 MiB text limit")
+		}
+		if result.FinishReason != "" && piece != "" {
+			return errors.New("HF stream sent text after completion")
+		}
+		text.WriteString(piece)
+		result.Text = text.String()
+		if out != nil && piece != "" {
+			if _, err := io.WriteString(out, piece); err != nil {
+				return err
+			}
+		}
+		if c.Finish != nil {
+			result.FinishReason = *c.Finish
+		}
+		return nil
+	}
+	if out == nil {
+		var e hfRemoteEnvelope
+		if err = hfReadJSON(resp.Body, 8<<20, &e); err != nil {
+			if ctx.Err() != nil {
+				return result, ctx.Err()
+			}
+			return result, errors.New("invalid or oversized HF chat response")
+		}
+		if err = apply(e, false); err != nil {
+			return result, err
+		}
+		if result.FinishReason == "" {
+			return result, errors.New("HF chat response lacks a finish reason")
+		}
+		return result, nil
+	}
+	if !strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
+		return result, errors.New("HF streaming response is not SSE")
+	}
+	scan := bufio.NewScanner(io.LimitReader(resp.Body, (8<<20)+1))
+	scan.Buffer(make([]byte, 4096), 256<<10)
+	var data strings.Builder
+	total := 0
+	dispatch := func() (bool, error) {
+		value := strings.TrimSuffix(data.String(), "\n")
+		data.Reset()
+		if value == "" {
+			return false, nil
+		}
+		if value == "[DONE]" {
+			if result.FinishReason == "" {
+				return false, errors.New("HF stream ended without a finish reason")
+			}
+			return true, nil
+		}
+		var e hfRemoteEnvelope
+		if err := uniqueJSON([]byte(value), &e); err != nil {
+			return false, errors.New("invalid HF SSE JSON")
+		}
+		return false, apply(e, true)
+	}
+	for scan.Scan() {
+		line := scan.Text()
+		total += len(line) + 1
+		if total > 8<<20 {
+			return result, errors.New("HF stream exceeds 8 MiB wire limit")
+		}
+		if line == "" {
+			done, err := dispatch()
+			if err != nil {
+				return result, err
+			}
+			if done {
+				return result, nil
+			}
+		} else if strings.HasPrefix(line, "data:") {
+			part := strings.TrimPrefix(line, "data:")
+			part = strings.TrimPrefix(part, " ")
+			if data.Len()+len(part) > 256<<10 {
+				return result, errors.New("HF SSE event exceeds limit")
+			}
+			data.WriteString(part)
+			data.WriteByte('\n')
+		}
+	}
+	if ctx.Err() != nil {
+		return result, ctx.Err()
+	}
+	if scan.Err() != nil {
+		return result, errors.New("HF stream interrupted or event too large")
+	}
+	if data.Len() > 0 {
+		done, err := dispatch()
+		if err != nil {
+			return result, err
+		}
+		if done {
+			return result, nil
+		}
+	}
+	return result, errors.New("HF stream truncated before [DONE]; partial output was not committed to chat history")
+}
+
+type hfRemoteModel struct {
+	ID        string `json:"id"`
+	Providers []struct {
+		Name   string `json:"provider"`
+		Status string `json:"status"`
+	} `json:"providers"`
+}
+
+func listHFRemote(ctx context.Context, client *http.Client, base, token string) ([]hfRemoteModel, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(base, "/")+"/models", nil)
+	if err != nil {
+		return nil, err
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := hfDo(ctx, client, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var envelope struct {
+		Data []hfRemoteModel `json:"data"`
+	}
+	if err = hfReadJSON(resp.Body, 4<<20, &envelope); err != nil {
+		return nil, err
+	}
+	if len(envelope.Data) > 4096 {
+		return nil, errors.New("HF remote model list exceeds limit")
+	}
+	return envelope.Data, nil
+}
+func runRemoteChat(ctx context.Context, r hfRemote, system string, in io.Reader, out, status io.Writer) error {
+	var initial []ChatMessage
+	if system != "" {
+		initial = []ChatMessage{{Role: "system", Content: system}}
+	}
+	history := append([]ChatMessage(nil), initial...)
+	scan := bufio.NewScanner(in)
+	scan.Buffer(make([]byte, 4096), (1<<20)+2)
+	fmt.Fprintln(status, "Remote chat ready. Prompts go to the selected HF endpoint. /reset clears history; /exit quits; Ctrl-C cancels.")
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		fmt.Fprint(status, "you> ")
+		if !scan.Scan() {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return scan.Err()
+		}
+		line := scan.Text()
+		switch strings.TrimSpace(line) {
+		case "":
+			continue
+		case "/exit", "/quit":
+			return nil
+		case "/reset":
+			history = append([]ChatMessage(nil), initial...)
+			fmt.Fprintln(status, "History cleared.")
+			continue
+		}
+		trial := append(append([]ChatMessage(nil), history...), ChatMessage{Role: "user", Content: line})
+		if err := validateRemoteMessages(trial); err != nil {
+			fmt.Fprintf(status, "Cannot add turn: %v. Use /reset.\n", err)
+			continue
+		}
+		fmt.Fprint(status, "assistant> ")
+		result, err := r.complete(ctx, trial, out)
+		if err != nil {
+			return err
+		}
+		if _, err = fmt.Fprintln(out); err != nil {
+			return err
+		}
+		history = append(trial, ChatMessage{Role: "assistant", Content: result.Text})
+	}
+}
+func runInferRemote(ctx context.Context, args []string) error {
+	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" || args[0] == "help" {
+		fmt.Fprintln(os.Stdout, "usage: monolith infer remote <models|generate|chat> [flags]\nRemote inference uses HF APIs and never downloads weights. Set HF_TOKEN for generation.\nUse models -family gpt-oss (or mistral, llama, gemma) to inspect current router availability.\nA dedicated HF endpoint can be supplied with -endpoint; -api text accepts raw prompts.")
+		return nil
+	}
+	f := flags("infer remote " + args[0])
+	base := f.String("endpoint", "https://router.huggingface.co/v1", "HF API base URL, or full dedicated endpoint URL for -api text")
+	asJSON := f.Bool("json", false, "emit structured result")
+	timeout := f.Duration("timeout", 2*time.Minute, "request timeout (1s..15m)")
+	family := f.String("family", "", "model list filter, such as gpt-oss, mistral, llama or gemma")
+	model := f.String("model", "", "HF model ID, optionally with :provider")
+	api := f.String("api", "chat", "chat or text (text requires a dedicated HF endpoint)")
+	prompt := f.String("prompt", "", "user prompt")
+	source := f.String("prompt-file", "", "UTF-8 prompt file, or - for stdin")
+	messages := f.String("messages", "", "JSON messages file, or - for stdin")
+	system := f.String("system", "", "optional system message")
+	stream := f.Bool("stream", false, "stream assistant text over SSE")
+	count := f.Int("max-tokens", 64, "maximum new tokens (1..4096)")
+	temp := f.Float64("temperature", .7, "remote sampling temperature (0..2)")
+	topP := f.Float64("top-p", 1, "remote nucleus sampling threshold")
+	if err := parse(f, args[1:]); err != nil {
+		return err
+	}
+	if args[0] != "models" && args[0] != "generate" && args[0] != "chat" {
+		return errors.New("unknown remote action")
+	}
+	if err := validateHFEndpoint(*base); err != nil {
+		return err
+	}
+	if *timeout < time.Second || *timeout > 15*time.Minute {
+		return errors.New("remote timeout must be 1s..15m")
+	}
+	client := newHFClient(*timeout)
+	// Remote API redirects are rejected, even to another HF host. A POST must
+	// never be replayed or have prompts/credentials silently redirected.
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return errors.New("remote inference redirects are disabled")
+	}
+	defer client.CloseIdleConnections()
+	token := os.Getenv("HF_TOKEN")
+	if args[0] == "models" {
+		for _, name := range []string{"model", "prompt", "prompt-file", "messages", "system", "stream", "max-tokens", "temperature", "top-p"} {
+			if flagSet(f, name) {
+				return fmt.Errorf("-%s does not apply to remote models", name)
+			}
+		}
+		if *api != "chat" {
+			return errors.New("models lists the chat router; text endpoints do not expose this catalog")
+		}
+		rows, err := listHFRemote(ctx, client, *base, token)
+		if err != nil {
+			return err
+		}
+		filtered := []hfRemoteModel{}
+		for _, row := range rows {
+			if strings.Contains(strings.ToLower(row.ID), strings.ToLower(*family)) {
+				filtered = append(filtered, row)
+			}
+		}
+		if *asJSON {
+			return json.NewEncoder(os.Stdout).Encode(filtered)
+		}
+		for _, row := range filtered {
+			providers := []string{}
+			for _, p := range row.Providers {
+				if p.Status == "live" {
+					providers = append(providers, p.Name)
+				}
+			}
+			fmt.Fprintf(os.Stdout, "%s\t%s\n", row.ID, strings.Join(providers, ","))
+		}
+		if len(filtered) == 0 {
+			fmt.Fprintln(os.Stderr, "No matching models in this HF router listing. A dedicated endpoint may still serve the model.")
+		}
+		return nil
+	}
+	if flagSet(f, "family") {
+		return errors.New("-family is only for remote models")
+	}
+	if token == "" {
+		return errors.New("set HF_TOKEN for remote inference; no request was sent")
+	}
+	if *api == "text" && *base == "https://router.huggingface.co/v1" {
+		return errors.New("GPT-2/raw text generation requires an explicit dedicated -endpoint with -api text")
+	}
+	r := hfRemote{Base: *base, Token: token, Model: *model, API: *api, Client: client, MaxTokens: *count, Temperature: *temp, TopP: *topP}
+	if args[0] == "chat" {
+		if *api != "chat" || *asJSON || flagSet(f, "prompt") || *source != "" || *messages != "" {
+			return errors.New("remote chat requires chat API and interactive text input")
+		}
+		if *model == "" {
+			return errors.New("remote chat requires -model")
+		}
+		if err := validateRemoteMessages([]ChatMessage{{Role: "system", Content: *system}}); err != nil {
+			return err
+		}
+		in, closeInput := cliInput(ctx, os.Stdin)
+		defer closeInput()
+		return runRemoteChat(ctx, r, *system, in, os.Stdout, os.Stderr)
+	}
+	if *stream && *asJSON {
+		return errors.New("-stream and -json cannot be combined")
+	}
+	msg, err := remoteInput(ctx, f, *prompt, *source, *messages, *system)
+	if err != nil {
+		return err
+	}
+	var out io.Writer
+	if *stream {
+		out = os.Stdout
+	}
+	result, err := r.complete(ctx, msg, out)
+	if err != nil {
+		return err
+	}
+	if *asJSON {
+		return json.NewEncoder(os.Stdout).Encode(result)
+	}
+	if *stream {
+		_, err = fmt.Fprintln(os.Stdout)
+	} else {
+		_, err = fmt.Fprintln(os.Stdout, result.Text)
+	}
+	return err
+}
+func runInfer(ctx context.Context, args []string) error {
+	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" || args[0] == "help" {
+		fmt.Fprintln(os.Stdout, "infer: choose where inference executes\n  local   Go CPU execution; -repo downloads and caches pinned HF files\n  remote  HF API execution; no local weights (HF_TOKEN required to generate)\nusage: monolith infer <local|remote> -h\nTraining is available under learn. Backends never switch automatically.")
+		return nil
+	}
+	switch args[0] {
+	case "models":
+		f := flags("infer models")
+		asJSON := f.Bool("json", false, "emit the offline capability guide")
+		if err := parse(f, args[1:]); err != nil {
+			return err
+		}
+		profiles := []struct {
+			Family string `json:"family"`
+			Local  string `json:"local"`
+			Remote string `json:"remote"`
+		}{
+			{"SmolLM2 / Llama", "restricted Llama profile; tested SmolLM2 135M and 360M", "HF chat API; provider or dedicated endpoint required"},
+			{"Qwen2 / Qwen2.5", "restricted Qwen2 profile; tested Qwen2.5 0.5B", "HF chat API; provider or dedicated endpoint required"},
+			{"GPT-2", "not supported", "dedicated HF text-generation endpoint"},
+			{"gpt-oss", "not supported (MoE)", "HF chat API; provider or dedicated endpoint required"},
+			{"Mistral", "not supported", "HF chat API; provider or dedicated endpoint required"},
+			{"Gemma", "not supported", "HF chat API; provider or dedicated endpoint required"},
+		}
+		if *asJSON {
+			return json.NewEncoder(os.Stdout).Encode(profiles)
+		}
+		for _, p := range profiles {
+			fmt.Printf("%s\n  local:  %s\n  remote: %s\n", p.Family, p.Local, p.Remote)
+		}
+		fmt.Println("This is an offline capability guide. Check current hosted availability: infer remote models")
+		return nil
+	case "local":
+		return runInferLocal(ctx, args[1:])
+	case "remote":
+		return runInferRemote(ctx, args[1:])
+	default:
+		return errors.New("unknown inference backend; choose local or remote")
+	}
+}
+func run(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stdout, "monolith: Go Transformer training and explicit local/remote inference\n\n  learn   train, evaluate and prepare native models\n  infer   local Go execution or remote HF inference\n\nusage: monolith learn -h | monolith infer -h\nExisting direct commands remain available: demo, tokenizer, prepare, train, eval, generate, inspect, inspect-hf, check-hf, infer-hf, tokenize-hf, chat, serve")
+		return nil
+	}
+	switch args[0] {
+	case "learn":
+		return runLearn(ctx, args[1:])
+	case "infer":
+		return runInfer(ctx, args[1:])
 	case "prepare":
 		return runPrepare(ctx, args[1:])
 	case "demo":
