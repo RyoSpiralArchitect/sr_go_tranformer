@@ -110,6 +110,20 @@ Interactive history commits a reply only after successful completion. Use
 
 ## Capability and validation
 
+| Family | Local Go execution | Remote HF execution |
+| --- | --- | --- |
+| GPT-2 | Tied GPT-2, raw text, pinned base model tested | Dedicated text endpoint when absent from the router |
+| Llama / SmolLM2 | Restricted Llama profile; SmolLM2 135M/360M tested | Chat provider or dedicated endpoint |
+| Qwen2 / Qwen2.5 | Restricted Qwen2 profile; Qwen2.5 0.5B tested | Chat provider or dedicated endpoint |
+| gpt-oss | No native MoE kernel | Chat provider or dedicated endpoint |
+| Mistral | Not implemented locally | Chat provider or dedicated endpoint |
+| Gemma | Not implemented locally | Chat provider or dedicated endpoint |
+
+Local Llama compatibility does not cover all Meta Llama models: size, RoPE,
+tokenizer and attention restrictions still apply. Remote entries describe the
+client protocol; use the live listing or your endpoint's configuration to check
+the actual model.
+
 `monolith infer models` is an offline family guide, separate from the live
 hosted model listing. It describes local limitations without treating remote
 protocol support as native kernel support.

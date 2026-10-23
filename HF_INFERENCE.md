@@ -10,11 +10,35 @@ biases. Both tied and separate output embeddings are supported. Sliding-window
 attention, RoPE scaling, MoE and unknown computational settings are rejected.
 This is not general Transformers compatibility.
 
+It also accepts tied `GPT2LMHeadModel` with learned absolute positions, affine
+LayerNorm, standard scaled causal attention and `gelu_new`. GPT-2 accepts raw
+text; no instruction/chat template is invented for it. Cross-attention, inverse
+layer scaling, attention upcasting, other activations and untied GPT-2 heads
+are rejected.
+
 | Text model | Pinned revision | FP32 weight budget | Example context |
 | --- | --- | --- | --- |
 | SmolLM2-135M-Instruct | `12fd25f77366fa6b3b4b768ec3050bf629380bac` | 600 MiB | 512 |
 | SmolLM2-360M-Instruct | `a10cc1512eabd3dde888204e902eca88bddb4951` | 1600 MiB | 512 |
 | Qwen2.5-0.5B-Instruct | `7ae557604adf67be50417f59c2c2f167def9a775` | 2048 MiB | 512 |
+| openai-community/gpt2 | `607a30d783dfa663caf39e06633721c8d4cfcd7e` | 600 MiB | 512 |
+
+GPT-2 can be fetched and run directly:
+
+```sh
+go run . infer local -repo openai-community/gpt2 \
+  -revision 607a30d783dfa663caf39e06633721c8d4cfcd7e \
+  -context 512 -weight-mib 600 \
+  generate -prompt 'Once upon a time, a small cat' \
+  -max-tokens 32 -temperature 0 -repeat-penalty 1
+```
+
+The pinned GPT-2 has 124,439,808 parameters and needs 497,759,232 bytes of
+FP32 weight storage, including the full 1,024-position embedding table even
+when a smaller inference context is selected. It has no RoPE tables. Its
+ByteLevel BPE pipeline keeps numeric runs together and performs no NFC
+normalization. The original tokenizer format and modern `use_regex=true`
+serialization are recognized; unsupported options fail explicitly.
 
 HF inference accepts up to one billion parameters and 262,144 vocabulary IDs,
 subject to the explicit weight budget and existing activation/KV guards. Native
@@ -81,6 +105,11 @@ Its Apache-2.0 model license is separate from this repository's license.
 - F32, F16 and BF16, converted into FP32 through a 64 KiB read buffer.
 - Exactly the selected profile's tensor set. Tied output weights must be omitted;
   untied profiles require `lm_head.weight`. Qwen2 requires all Q/K/V bias tensors.
+- GPT-2 accepts bare or `transformer.`-prefixed names, including sharded exports.
+  Fused Q/K/V and Conv1D matrices are split/transposed during streaming reads.
+  Legacy F32 `h.N.attn.bias` masks are optional; shape and binary causal values
+  are checked, but the masks never become runtime arrays. All masks together
+  are bounded to 128 Mi elements. Aliased duplicate names are rejected.
 - Every tensor name, shape, dtype and extent is validated before allocating
   weights. Payload extents must cover each file without holes or overlaps.
 - Duplicate JSON keys, malformed UTF-8, excessive nesting, missing tensors,
@@ -100,12 +129,12 @@ go run . infer-hf -hf-model runs/smollm2 -context 512 \
 `infer-hf` accepts already framed IDs, performs chunked prefill followed by
 greedy decode, and stops at the model's EOS. It adds no BOS and masks no IDs.
 The diagnostic command is bounded to 256 output tokens; `-logits` includes
-each next-token vector. Imported models use Llama's half-split RoPE and FP32
+each next-token vector. Llama/Qwen2 models use half-split RoPE and FP32
 frequency construction. Native models retain adjacent-pair RoPE and their
 existing exact checkpoint/resume behavior. Imported models cannot be written
 as native `.mglm` checkpoints.
 
-CI uses small seeded, synthetic Llama and Qwen2 fixtures generated with Transformers
+CI uses small seeded, synthetic Llama, Qwen2 and GPT-2 fixtures generated with Transformers
 4.57.1, Torch 2.8.0 CPU eager attention and Safetensors 0.6.2. F32/F16/BF16
 weights are each loaded as FP32. Tests compare logits and every KV row across
 chunk sizes 1/4/16/35, a page boundary, decode, ragged batches and worker
@@ -325,3 +354,31 @@ python scripts/hf_cli_smoke.py --model runs/qwen25 --binary ./monolith \
 This smoke script uses only the Python standard library and a local model.
 Go tests cover input cancellation, history continuity, reset, context overflow,
 broken output streams, and request-resource release using small fixtures.
+
+## GPT-2 validation
+
+The [GPT-2 receipt](validation/hf/gpt2-serving.json) compares the pinned base
+model against Transformers with two short raw prompts, eight greedy tokens
+each, and prefill chunks of 1/16. Generated IDs and CLI/HTTP/concurrent SSE text
+matched. The maximum absolute logit error was `0.0003814697265625` against
+the predefined `0.002` limit. All four HTTP requests released admission and KV
+reservations, and shutdown completed normally.
+
+The [tokenizer oracle](validation/hf/gpt2-tokenizer.json) covers 159 encodings
+and six decoding cases. The [source receipt](validation/hf/gpt2-source.json)
+records automatic pinned fetching and an offline grouped-CLI replay matching
+the numerical receipt. This does not establish long-context accuracy, remote
+provider output or production throughput.
+
+Seeded GPT-2 F32/F16/BF16 fixtures have nonzero biases and cover both the legacy
+bare tensor names with causal masks and modern prefixed names without masks.
+Go tests also cover sharded imports, alias collisions, mask corruption, exact
+weight budgets, absolute-position overflow and rejected tokenizer settings.
+
+```sh
+python scripts/hf_gpt2_fixtures.py
+python scripts/hf_model_reference.py --id gpt2 --model path/to/cached/snapshot \
+  --binary ./monolith --output runs/gpt2-reference.json
+```
+
+Model source: [GPT-2, pinned revision](https://huggingface.co/openai-community/gpt2/tree/607a30d783dfa663caf39e06633721c8d4cfcd7e).

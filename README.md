@@ -18,7 +18,8 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Trainer-owned backward scratch with fixed-shape reuse and exact numerical checks.
 - Evaluation-only forward with bounded per-invocation scratch and no backward tape.
 - Startup memory planning and optional training budgets checked before tensor allocation.
-- Bounded inspection and F32/F16/BF16 decoding of restricted Hugging Face Llama and Qwen2 Safetensors profiles.
+- Bounded inspection and F32/F16/BF16 decoding of restricted Hugging Face Llama, Qwen2 and GPT-2 Safetensors profiles.
+- GPT-2 absolute positions, affine LayerNorm and GELU, with streamed Conv1D conversion.
 - Token-ID inference with Transformers reference tests for logits, KV caches and tokenization.
 - SmolLM2 and Qwen2.5 text generation over CLI/HTTP/SSE, with recognized chat templates.
 - Model preflight checks, prompts from files or stdin, and interactive chat with reusable workers.
@@ -39,6 +40,8 @@ families, cache/offline operation, HF endpoints and compatibility limits.
 ```sh
 go run . infer models
 go run . infer local -repo HuggingFaceTB/SmolLM2-135M-Instruct chat
+go run . infer local -repo openai-community/gpt2 generate \
+  -prompt 'Once upon a time, a small cat' -max-tokens 32
 go run . infer remote models -family gpt-oss
 # Set HF_TOKEN in your environment before remote generation:
 go run . infer remote generate -model openai/gpt-oss-20b \

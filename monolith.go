@@ -108,7 +108,7 @@ func (c Config) ParameterCount() int64 {
 	return int64(c.Vocab)*d + l*(2*d+2*d*d+2*d*k+3*d*h) + d
 }
 
-// HF imports deliberately accept one explicit inference profile. Metadata is
+// HF imports deliberately accept explicit, bounded inference profiles. Metadata is
 // inspected on open file descriptors before any parameter storage is allocated.
 const maxHFHeader = 4 << 20
 
@@ -222,6 +222,9 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	if err := readBoundedJSON(filepath.Join(dir, "config.json"), 1<<20, &raw); err != nil {
 		return h, Config{}, err
 	}
+	if string(raw["model_type"]) == `"gpt2"` {
+		return readGPT2Config(raw, contextLimit)
+	}
 	// Unknown computational fields must not silently change model semantics.
 	allowed := strings.Fields("architectures model_type vocab_size hidden_size intermediate_size num_hidden_layers num_attention_heads num_key_value_heads max_position_embeddings rope_theta rms_norm_eps hidden_act tie_word_embeddings attention_bias mlp_bias rope_interleaved attention_dropout pretraining_tp bos_token_id eos_token_id pad_token_id initializer_range is_llama_config torch_dtype dtype transformers_version transformers.js_config use_cache _name_or_path _attn_implementation")
 	keys := map[string]bool{}
@@ -279,6 +282,10 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 }
 
 func hfParameterCount(c Config, h hfConfig) int64 {
+	if h.ModelType == "gpt2" {
+		d, hidden, layers := int64(c.Dim), int64(c.Hidden), int64(c.Layers)
+		return (int64(c.Vocab)+int64(h.Context))*d + layers*(4*d*d+2*d*hidden+9*d+hidden) + 2*d
+	}
 	n := c.ParameterCount()
 	if h.ModelType == "qwen2" {
 		n += int64(c.Layers) * int64(c.Dim+2*c.KVDim())
@@ -314,6 +321,9 @@ func hfTensorSpecs(c Config) []hfTensorSpec {
 
 // Extra inference parameters follow the unchanged native parameter ordering.
 func hfProfileSpecs(c Config, h hfConfig) []hfTensorSpec {
+	if h.ModelType == "gpt2" {
+		return gpt2Specs(c, h)
+	}
 	out := hfTensorSpecs(c)
 	if h.ModelType == "qwen2" {
 		for i := 0; i < c.Layers; i++ {
@@ -324,6 +334,94 @@ func hfProfileSpecs(c Config, h hfConfig) []hfTensorSpec {
 	}
 	if !h.Tied {
 		out = append(out, hfTensorSpec{"lm_head.weight", []int{c.Vocab, c.Dim}})
+	}
+	return out
+}
+
+// GPT-2 has absolute positions, affine LayerNorm and a two-projection GELU MLP.
+// Defaults here match GPT2Config; unsupported computational switches fail closed.
+func readGPT2Config(raw map[string]json.RawMessage, limit int) (hfConfig, Config, error) {
+	var h hfConfig
+	var g struct {
+		Dim     int     `json:"n_embd"`
+		Hidden  int     `json:"n_inner"`
+		Layers  int     `json:"n_layer"`
+		Heads   int     `json:"n_head"`
+		Context int     `json:"n_positions"`
+		NCtx    int     `json:"n_ctx"`
+		Eps     float64 `json:"layer_norm_epsilon"`
+		Act     string  `json:"activation_function"`
+		Scale   bool    `json:"scale_attn_weights"`
+		Inverse bool    `json:"scale_attn_by_inverse_layer_idx"`
+		Upcast  bool    `json:"reorder_and_upcast_attn"`
+		Cross   bool    `json:"add_cross_attention"`
+	}
+	g.Eps, g.Act, g.Scale = 1e-5, "gelu_new", true
+	h.Tied = true
+	allowed := strings.Fields("architectures model_type vocab_size n_embd n_inner n_layer n_head n_positions n_ctx layer_norm_epsilon activation_function scale_attn_weights scale_attn_by_inverse_layer_idx reorder_and_upcast_attn add_cross_attention tie_word_embeddings bos_token_id eos_token_id pad_token_id attn_pdrop resid_pdrop embd_pdrop initializer_range torch_dtype dtype transformers_version use_cache _name_or_path _attn_implementation summary_type summary_use_proj summary_activation summary_proj_to_labels summary_first_dropout task_specific_params")
+	keys := map[string]bool{}
+	for _, k := range allowed {
+		keys[k] = true
+	}
+	for k, v := range raw {
+		if !keys[k] {
+			return h, Config{}, fmt.Errorf("unsupported GPT-2 config field %q", k)
+		}
+		if string(v) == "null" && k != "n_inner" && k != "pad_token_id" && k != "summary_activation" {
+			return h, Config{}, fmt.Errorf("null GPT-2 config field %q", k)
+		}
+	}
+	b, _ := json.Marshal(raw)
+	if err := json.Unmarshal(b, &h); err != nil {
+		return h, Config{}, err
+	}
+	if err := json.Unmarshal(b, &g); err != nil {
+		return h, Config{}, err
+	}
+	if len(h.Architectures) != 1 || h.Architectures[0] != "GPT2LMHeadModel" || !h.Tied || g.Act != "gelu_new" || !g.Scale || g.Inverse || g.Upcast || g.Cross || (g.NCtx != 0 && g.NCtx != g.Context) {
+		return h, Config{}, errors.New("unsupported GPT-2 profile: require tied GPT2LMHeadModel, gelu_new and standard scaled causal self-attention")
+	}
+	if g.Hidden == 0 {
+		g.Hidden = 4 * g.Dim
+	}
+	h.Dim, h.Hidden, h.Layers, h.Heads, h.KVHeads = g.Dim, g.Hidden, g.Layers, g.Heads, g.Heads
+	h.Context, h.Eps, h.Act = g.Context, g.Eps, g.Act
+	if raw["bos_token_id"] == nil || raw["eos_token_id"] == nil || h.BOS < 0 || h.BOS >= h.Vocab || h.EOS < 0 || h.EOS >= h.Vocab {
+		return h, Config{}, errors.New("GPT-2 requires scalar BOS/EOS IDs within vocabulary")
+	}
+	c := Config{Vocab: h.Vocab, Dim: h.Dim, Hidden: h.Hidden, Layers: h.Layers, Heads: h.Heads, KVHeads: h.Heads, Context: h.Context, RopeTheta: 10000, NormEps: h.Eps}
+	if limit < 0 || limit > h.Context || h.Context > 32768 {
+		return h, c, errors.New("invalid GPT-2 context limit")
+	}
+	if limit > 0 {
+		c.Context = limit
+	} else {
+		c.Context = min(h.Context, 2048)
+	}
+	// Reuse dimension/KV guards; the exact GPT-2 storage check below replaces
+	// the native three-projection MLP parameter estimate.
+	if err := c.validateLimits(maxHFVocab, math.MaxInt64); err != nil {
+		return h, c, err
+	}
+	if hfParameterCount(c, h) > maxHFParameters {
+		return h, c, errors.New("GPT-2 exceeds HF parameter limit")
+	}
+	return h, c, nil
+}
+
+func gpt2Specs(c Config, h hfConfig) []hfTensorSpec {
+	d := c.Dim
+	out := []hfTensorSpec{{"wte.weight", []int{c.Vocab, d}}, {"wpe.weight", []int{h.Context, d}},
+		{"ln_f.weight", []int{d}}, {"ln_f.bias", []int{d}}}
+	for i := 0; i < c.Layers; i++ {
+		p := fmt.Sprintf("h.%d.", i)
+		out = append(out,
+			hfTensorSpec{p + "ln_1.weight", []int{d}}, hfTensorSpec{p + "ln_1.bias", []int{d}},
+			hfTensorSpec{p + "attn.c_attn.weight", []int{d, 3 * d}}, hfTensorSpec{p + "attn.c_attn.bias", []int{3 * d}},
+			hfTensorSpec{p + "attn.c_proj.weight", []int{d, d}}, hfTensorSpec{p + "attn.c_proj.bias", []int{d}},
+			hfTensorSpec{p + "ln_2.weight", []int{d}}, hfTensorSpec{p + "ln_2.bias", []int{d}},
+			hfTensorSpec{p + "mlp.c_fc.weight", []int{d, c.Hidden}}, hfTensorSpec{p + "mlp.c_fc.bias", []int{c.Hidden}},
+			hfTensorSpec{p + "mlp.c_proj.weight", []int{c.Hidden, d}}, hfTensorSpec{p + "mlp.c_proj.bias", []int{d}})
 	}
 	return out
 }
@@ -391,10 +489,30 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 	}()
 	a.Plan = HFPlan{Format: "monolith-hf-plan-v1", ModelType: h.ModelType, TiedEmbeddings: h.Tied, Config: c, Parameters: parameters, WeightBytes: parameters * 4, RopeBytes: int64(c.Context) * (int64(c.Dim) / int64(c.Heads)) * 4, KVBytesPerToken: int64(c.Layers*c.KVDim()) * 8, ConversionBufferBytes: 64 << 10, DTypes: map[string]int{}}
 	a.Plan.FullContextKVBytes = int64(c.Context) * a.Plan.KVBytesPerToken
+	gpt2 := h.ModelType == "gpt2"
+	if gpt2 {
+		a.Plan.RopeBytes = 0
+	}
 	specs := hfProfileSpecs(c, h)
 	expected := map[string][]int{}
 	for _, s := range specs {
 		expected[s.Name] = s.Shape
+	}
+	optional := map[string][]int{}
+	canonicalName := func(name string) string {
+		if gpt2 {
+			return strings.TrimPrefix(name, "transformer.")
+		}
+		return name
+	}
+	// Older GPT-2 exports persist the causal mask. It is not a parameter and
+	// never becomes a quadratic runtime allocation; validate it through chunks.
+	auxBytes := int64(0)
+	if gpt2 && int64(h.Context)*int64(h.Context)*int64(h.Layers) <= maxActivationElements {
+		auxBytes = int64(h.Context) * int64(h.Context) * int64(h.Layers) * 4
+		for i := 0; i < h.Layers; i++ {
+			optional[fmt.Sprintf("h.%d.attn.bias", i)] = []int{1, 1, h.Context, h.Context}
+		}
 	}
 	var index struct {
 		WeightMap map[string]string `json:"weight_map"`
@@ -405,15 +523,19 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 		if err = readBoundedJSON(indexPath, maxHFHeader, &index); err != nil {
 			return nil, err
 		}
-		if len(index.WeightMap) != len(expected) {
+		if len(index.WeightMap) < len(expected) || len(index.WeightMap) > len(expected)+len(optional) {
 			return nil, errors.New("HF shard index tensor count mismatch")
 		}
+		normalized := map[string]string{}
 		for name, file := range index.WeightMap {
-			if expected[name] == nil || file == "" || filepath.Base(file) != file || strings.ContainsAny(file, `/\`) || !strings.HasSuffix(file, ".safetensors") {
+			key := canonicalName(name)
+			if (expected[key] == nil && optional[key] == nil) || normalized[key] != "" || file == "" || filepath.Base(file) != file || strings.ContainsAny(file, `/\`) || !strings.HasSuffix(file, ".safetensors") {
 				return nil, errors.New("unsupported HF shard index name/path")
 			}
+			normalized[key] = file
 			shards[file] = true
 		}
+		index.WeightMap = normalized
 	} else if errors.Is(e, os.ErrNotExist) {
 		shards["model.safetensors"] = true
 	} else {
@@ -437,7 +559,7 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 		if e != nil {
 			return nil, e
 		}
-		if !st.Mode().IsRegular() || st.Size() < 10 || st.Size() > parameters*4+maxHFHeader+8 {
+		if !st.Mode().IsRegular() || st.Size() < 10 || st.Size() > parameters*4+auxBytes+maxHFHeader+8 {
 			return nil, errors.New("Safetensors file size/type limit")
 		}
 		var prefix [8]byte
@@ -468,7 +590,11 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 				}
 				continue
 			}
+			key = canonicalName(key)
 			shape, ok := expected[key]
+			if !ok {
+				shape, ok = optional[key]
+			}
 			if !ok || a.tensors[key].file != nil || (index.WeightMap != nil && index.WeightMap[key] != name) {
 				return nil, fmt.Errorf("unexpected or duplicate HF tensor %q", key)
 			}
@@ -489,6 +615,9 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 				t.count *= v
 			}
 			w := hfWidth(t.DType)
+			if optional[key] != nil && t.DType != "F32" {
+				return nil, errors.New("GPT-2 legacy causal masks must be F32")
+			}
 			if w == 0 || len(t.Offsets) != 2 || t.Offsets[0] < 0 || t.Offsets[1] < t.Offsets[0] || t.Offsets[1] > st.Size()-8-int64(n) || t.Offsets[1]-t.Offsets[0] != int64(t.count)*int64(w) {
 				return nil, fmt.Errorf("invalid HF tensor dtype/extent: %s", key)
 			}
@@ -510,8 +639,10 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 		}
 		a.Plan.SourceBytes += st.Size()
 	}
-	if len(a.tensors) != len(expected) {
-		return nil, errors.New("missing HF tensors")
+	for key := range expected {
+		if a.tensors[key].file == nil {
+			return nil, fmt.Errorf("missing HF tensor %q", key)
+		}
 	}
 	a.Plan.Shards = len(a.files)
 	return a, nil
@@ -531,17 +662,23 @@ func halfFloat(v uint16) float32 {
 	return math.Float32frombits(sign | uint32(exp+112)<<23 | frac<<13)
 }
 func (a *hfArchive) readTensor(ctx context.Context, name string, dst []float32) error {
+	return a.readTensorValues(ctx, name, len(dst), func(i int, v float32) error { dst[i] = v; return nil })
+}
+
+// Assignment is streamed so Conv1D transposition and fused-QKV splitting do
+// not allocate a second tensor or a second model.
+func (a *hfArchive) readTensorValues(ctx context.Context, name string, count int, put func(int, float32) error) error {
 	t, ok := a.tensors[name]
-	if !ok || len(dst) != t.count {
+	if !ok || count != t.count {
 		return errors.New("HF tensor destination mismatch")
 	}
 	buf := make([]byte, a.Plan.ConversionBufferBytes)
 	w := hfWidth(t.DType)
-	for off := 0; off < len(dst); {
+	for off := 0; off < count; {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		n := min(len(buf)/w, len(dst)-off)
+		n := min(len(buf)/w, count-off)
 		b := buf[:n*w]
 		if _, err := t.file.ReadAt(b, t.start+int64(off)*int64(w)); err != nil {
 			return err
@@ -559,7 +696,9 @@ func (a *hfArchive) readTensor(ctx context.Context, name string, dst []float32) 
 			if !finite(float64(v)) {
 				return fmt.Errorf("non-finite HF weight in %s", name)
 			}
-			dst[off+i] = v
+			if err := put(off+i, v); err != nil {
+				return err
+			}
 		}
 		off += n
 	}
@@ -567,7 +706,7 @@ func (a *hfArchive) readTensor(ctx context.Context, name string, dst []float32) 
 }
 
 func hfFlags(f *flag.FlagSet) (*string, *int, *int64) {
-	dir := f.String("hf-model", "", "local Hugging Face model directory (supported Llama/Qwen2 profiles)")
+	dir := f.String("hf-model", "", "local Hugging Face model directory (supported Llama/Qwen2/GPT-2 profiles)")
 	limit := f.Int("context", 0, "HF context cap; 0 uses min(model maximum, 2048)")
 	budget := f.Int64("weight-mib", 2048, "maximum FP32 HF weight storage in MiB (not RSS)")
 	return dir, limit, budget
@@ -621,6 +760,9 @@ func checkHF(dir string, limit int, budget int64, requireChat bool) (hfCheck, er
 	profile := "smollm-bytelevel"
 	if tok.qwen {
 		profile = "qwen2-bytelevel-nfc"
+	}
+	if tok.gpt2 {
+		profile = "gpt2-bytelevel"
 	}
 	return hfCheck{Format: "monolith-hf-check-v1", Weights: a.Plan, TokenizerProfile: profile,
 		ChatSupported: tok.chat, ModelContext: a.Config.Context, WeightBudgetBytes: budget << 20,
@@ -989,6 +1131,7 @@ type hfTokenizer struct {
 	bos, eos int
 	chat     bool
 	qwen     bool
+	gpt2     bool
 }
 
 func (t *hfTokenizer) Vocab() int { return len(t.pieces) }
@@ -1107,6 +1250,10 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 	}
 	null := func(b json.RawMessage) bool { return len(b) == 0 || string(b) == "null" }
 	empty := func(s *string) bool { return s == nil || *s == "" }
+	// The original GPT-2 export predates the serialized BPE type discriminator.
+	if h.ModelType == "gpt2" && raw.Model.Type == "" {
+		raw.Model.Type = "BPE"
+	}
 	if raw.Version != "1.0" || !null(raw.Truncation) || !null(raw.Padding) || raw.Model.Type != "BPE" || raw.Model.Dropout != nil || raw.Model.Unk != nil || !empty(raw.Model.Prefix) || !empty(raw.Model.Suffix) || raw.Model.Fuse || raw.Model.Fallback || raw.Model.Ignore {
 		return nil, errors.New("unsupported HF tokenizer normalization/BPE options")
 	}
@@ -1131,8 +1278,31 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		canonical(raw.PostProcessor) == canonical(qwenByte) && canonical(raw.Decoder) == canonical(qwenByte)
 	smol := null(raw.Normalizer) && null(raw.PostProcessor) &&
 		canonical(raw.PreTokenizer) == canonical([]byte(pre)) && canonical(raw.Decoder) == canonical([]byte(dec))
-	if !qwen && !smol {
-		return nil, errors.New("unsupported HF tokenizer pipeline (require Digits + ByteLevel)")
+	byteLevel := func(b []byte, prefix, trim bool) bool {
+		var spec struct {
+			Type   string `json:"type"`
+			Prefix bool   `json:"add_prefix_space"`
+			Trim   bool   `json:"trim_offsets"`
+			Regex  bool   `json:"use_regex"`
+		}
+		spec.Regex = true // Tokenizers' default before use_regex was serialized.
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(b, &fields) != nil {
+			return false
+		}
+		for _, value := range fields {
+			if string(value) == "null" {
+				return false
+			}
+		}
+		d := json.NewDecoder(bytes.NewReader(b))
+		d.DisallowUnknownFields()
+		return d.Decode(&spec) == nil && spec.Type == "ByteLevel" && spec.Prefix == prefix && spec.Trim == trim && spec.Regex
+	}
+	gpt2 := h.ModelType == "gpt2" && null(raw.Normalizer) &&
+		byteLevel(raw.PreTokenizer, false, true) && byteLevel(raw.PostProcessor, true, false) && byteLevel(raw.Decoder, true, true)
+	if !qwen && !smol && !gpt2 {
+		return nil, errors.New("unsupported HF tokenizer pipeline")
 	}
 	var cfg struct {
 		AddPrefix  bool                    `json:"add_prefix_space"`
@@ -1154,14 +1324,34 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 	if err := readStrictBoundedJSON(filepath.Join(dir, "tokenizer_config.json"), 1<<20, &cfg); err != nil {
 		return nil, err
 	}
+	if gpt2 {
+		if cfg.Class == "" {
+			cfg.Class = "GPT2Tokenizer"
+		}
+		if cfg.BOS == "" {
+			cfg.BOS = "<|endoftext|>"
+		}
+		if cfg.EOS == "" {
+			cfg.EOS = "<|endoftext|>"
+		}
+		if cfg.Unk == "" {
+			cfg.Unk = "<|endoftext|>"
+		}
+		// The original GPT-2 tokenizer config only sets model_max_length.
+		// Its single special token is still validated against the vocabulary.
+		if cfg.Added == nil && len(raw.Added) == 1 && raw.Added[0].Content == "<|endoftext|>" && raw.Added[0].Special {
+			cfg.Added = map[string]hfAddedToken{strconv.Itoa(raw.Added[0].ID): raw.Added[0]}
+		}
+	}
 	if cfg.AddPrefix || cfg.Cleanup || cfg.AddBOS || cfg.Split || (cfg.Errors != "" && cfg.Errors != "replace") ||
 		(smol && (cfg.Class != "GPT2Tokenizer" || cfg.Vocab != h.Vocab || cfg.MaxLength != h.Context)) ||
 		(qwen && (cfg.Class != "Qwen2Tokenizer" || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.MaxLength < h.Context)) ||
+		(gpt2 && (cfg.Class != "GPT2Tokenizer" || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.MaxLength < h.Context || cfg.Chat != "")) ||
 		h.Vocab > maxHFVocab || h.Vocab < 258 || h.BOS < 0 || h.BOS >= h.Vocab || h.EOS < 0 || h.EOS >= h.Vocab ||
 		len(raw.Model.Vocab) > h.Vocab || len(raw.Added) > 256 || len(raw.Model.Merges) > maxHFVocab {
 		return nil, errors.New("HF tokenizer config/model mismatch or unsupported options")
 	}
-	t := &hfTokenizer{pieces: make([][]byte, h.Vocab), merges: map[Pair]hfMerge{}, bos: h.BOS, eos: h.EOS, qwen: qwen}
+	t := &hfTokenizer{pieces: make([][]byte, h.Vocab), merges: map[Pair]hfMerge{}, bos: h.BOS, eos: h.EOS, qwen: qwen, gpt2: gpt2}
 	seen := make([]bool, h.Vocab)
 	special := map[int]bool{}
 	specialNames := map[string]bool{}
@@ -1174,7 +1364,7 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		configured, found := cfg.Added[strconv.Itoa(s.ID)]
 		configured.ID = s.ID
 		_, repeated := added[s.ID]
-		if (inVocab && id != s.ID) || s.ID < 0 || s.ID >= h.Vocab || repeated || len(s.Content) == 0 || len(s.Content) > 256 || s.SingleWord || s.LStrip || s.RStrip || s.Normalized || !found || configured != s {
+		if (inVocab && id != s.ID) || s.ID < 0 || s.ID >= h.Vocab || repeated || len(s.Content) == 0 || len(s.Content) > 256 || s.SingleWord || s.LStrip || s.RStrip || (s.Normalized && !gpt2) || !found || configured != s {
 			return nil, errors.New("unsupported or inconsistent HF added token")
 		}
 		raw.Model.Vocab[s.Content] = s.ID
@@ -1184,7 +1374,7 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		t.specials = append(t.specials, s)
 	}
 	for _, s := range append(append([]string{}, cfg.Additional...), cfg.BOS, cfg.EOS, cfg.Pad, cfg.Unk) {
-		if qwen && s == "" {
+		if (qwen || gpt2) && s == "" {
 			continue
 		}
 		if !specialNames[s] {
@@ -1557,7 +1747,7 @@ func (t *hfTokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]
 		for lo := 0; lo < len(plain); {
 			r, n := utf8.DecodeRuneInString(plain[lo:])
 			hi := lo + n
-			if t.qwen {
+			if t.qwen || t.gpt2 {
 				hi = len(plain)
 			} else if !unicode.IsNumber(r) {
 				for hi < len(plain) {
@@ -2793,17 +2983,18 @@ func swigluBackwardInto(dg, du, g, u, dy []float32) {
 
 // Model owns parameters; each Forward owns its tape and each decoder its cache.
 // Immutable models are safe to share between inference requests.
-type Block struct{ N1, Q, K, V, O, N2, Gate, Up, Down, QB, KB, VB *Param }
+type Block struct{ N1, Q, K, V, O, N2, Gate, Up, Down, QB, KB, VB, N1B, N2B, OB, GateB, DownB *Param }
 type Model struct {
-	output     *Param // Optional untied HF output head; native models use Emb.
-	Config     Config
-	Emb, Final *Param
-	Blocks     []Block
-	Params     []*Param
-	Cos, Sin   []float32
-	Revision   uint64
-	decodePool sync.Pool
-	hf         *hfConfig // Non-nil marks imported, inference-only half-split RoPE.
+	output              *Param // Optional untied HF output head; native models use Emb.
+	Config              Config
+	Emb, Final          *Param
+	Position, FinalBias *Param // GPT-2 absolute positions and affine LayerNorm.
+	Blocks              []Block
+	Params              []*Param
+	Cos, Sin            []float32
+	Revision            uint64
+	decodePool          sync.Pool
+	hf                  *hfConfig // Non-nil marks imported, inference-only model semantics.
 }
 
 func (m *Model) parameterCount() int64 {
@@ -2822,6 +3013,10 @@ func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model,
 		return nil, HFPlan{}, err
 	}
 	defer a.Close()
+	if a.Config.ModelType == "gpt2" {
+		m, err := loadGPT2(ctx, a)
+		return m, a.Plan, err
+	}
 	m := allocateModelStorage(a.Plan.Config, nil)
 	m.hf = &a.Config
 	makeExtra := func(name string, rows, cols int) *Param {
@@ -2856,6 +3051,122 @@ func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model,
 		}
 	}
 	return m, a.Plan, nil
+}
+
+func loadGPT2(ctx context.Context, a *hfArchive) (*Model, error) {
+	c := a.Plan.Config
+	m := &Model{Config: c, hf: &a.Config}
+	param := func(name string, rows, cols int) *Param {
+		p := &Param{Name: name, Rows: rows, Cols: cols, Data: make([]float32, rows*cols)}
+		m.Params = append(m.Params, p)
+		return p
+	}
+	// All names, dimensions and the complete resident storage budget have
+	// already been validated by openHFArchive.
+	d := c.Dim
+	m.Emb = param("wte.weight", c.Vocab, d)
+	m.Position = param("wpe.weight", a.Config.Context, d)
+	m.Final = param("ln_f.weight", 1, d)
+	m.FinalBias = param("ln_f.bias", 1, d)
+	for _, p := range m.Params {
+		if err := a.readTensor(ctx, p.Name, p.Data); err != nil {
+			return nil, err
+		}
+	}
+	conv := func(name string, dst ...*Param) error {
+		// HF Conv1D stores [in,out], while linearInto uses [out,in].
+		cols, total := dst[0].Cols, 0
+		for _, p := range dst {
+			total += p.Rows
+		}
+		return a.readTensorValues(ctx, name, cols*total, func(i int, v float32) error {
+			in, out := i/total, i%total
+			for _, p := range dst {
+				if out < p.Rows {
+					p.Data[out*cols+in] = v
+					return nil
+				}
+				out -= p.Rows
+			}
+			return errors.New("GPT-2 projection destination mismatch")
+		})
+	}
+	for i := 0; i < c.Layers; i++ {
+		p := fmt.Sprintf("h.%d.", i)
+		b := Block{
+			N1: param(p+"ln_1.weight", 1, d), N1B: param(p+"ln_1.bias", 1, d),
+			Q: param(p+"q", d, d), K: param(p+"k", d, d), V: param(p+"v", d, d),
+			QB: param(p+"qb", 1, d), KB: param(p+"kb", 1, d), VB: param(p+"vb", 1, d),
+			O: param(p+"attn.c_proj.weight", d, d), OB: param(p+"attn.c_proj.bias", 1, d),
+			N2: param(p+"ln_2.weight", 1, d), N2B: param(p+"ln_2.bias", 1, d),
+			Gate: param(p+"mlp.c_fc.weight", c.Hidden, d), GateB: param(p+"mlp.c_fc.bias", 1, c.Hidden),
+			Down: param(p+"mlp.c_proj.weight", d, c.Hidden), DownB: param(p+"mlp.c_proj.bias", 1, d),
+		}
+		for _, v := range []*Param{b.N1, b.N1B, b.OB, b.N2, b.N2B, b.GateB, b.DownB} {
+			if err := a.readTensor(ctx, v.Name, v.Data); err != nil {
+				return nil, err
+			}
+		}
+		if err := conv(p+"attn.c_attn.weight", b.Q, b.K, b.V); err != nil {
+			return nil, err
+		}
+		if err := a.readTensorValues(ctx, p+"attn.c_attn.bias", 3*d, func(j int, v float32) error {
+			[]*Param{b.QB, b.KB, b.VB}[j/d].Data[j%d] = v
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+		for _, v := range []*Param{b.O, b.Gate, b.Down} {
+			if err := conv(v.Name, v); err != nil {
+				return nil, err
+			}
+		}
+		mask := p + "attn.bias"
+		if t, ok := a.tensors[mask]; ok {
+			if err := a.readTensorValues(ctx, mask, t.count, func(j int, v float32) error {
+				want := float32(0)
+				if j%a.Config.Context <= j/a.Config.Context {
+					want = 1
+				}
+				if v != want {
+					return errors.New("invalid GPT-2 legacy causal mask values")
+				}
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+		}
+		m.Blocks = append(m.Blocks, b)
+	}
+	return m, ctx.Err()
+}
+
+func layerNormInto(dst, x []float32, weight, bias *Param, rows int, eps float64) {
+	d := weight.Cols
+	for row := 0; row < rows; row++ {
+		start := row * d
+		var mean, variance float64
+		for _, v := range x[start : start+d] {
+			mean += float64(v)
+		}
+		mean /= float64(d)
+		for _, v := range x[start : start+d] {
+			z := float64(v) - mean
+			variance += z * z
+		}
+		inv := 1 / math.Sqrt(variance/float64(d)+eps)
+		for j := 0; j < d; j++ {
+			dst[start+j] = float32((float64(x[start+j])-mean)*inv)*weight.Data[j] + bias.Data[j]
+		}
+	}
+}
+
+func inferenceNorm(dst, x []float32, weight, bias *Param, rows int, eps float64) {
+	if bias != nil {
+		layerNormInto(dst, x, weight, bias, rows, eps)
+	} else {
+		rmsInto(dst, x, weight, rows, eps)
+	}
 }
 
 func NewModel(c Config, seed uint64) (*Model, error) { r := &RNG{seed}; return allocateModel(c, r) }
@@ -3652,9 +3963,13 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		}
 	}
 	d, kd, hd := c.Dim, c.KVDim(), c.Dim/c.Heads
-	// Five dim-sized, two KV-sized and three hidden-sized row arrays, scores,
+	// Five dim-sized, two KV-sized and up to three hidden-sized row arrays, scores,
 	// and both the pooled logits and caller-owned output must fit the budget.
-	elements := int64(n)*(5*int64(d)+2*int64(kd)+3*int64(c.Hidden)+int64(maxPos)) + 2*int64(sessions)*int64(c.Vocab)
+	upElements := n * c.Hidden
+	if m.Position != nil {
+		upElements = 0
+	}
+	elements := int64(n)*(5*int64(d)+2*int64(kd)+2*int64(c.Hidden)+int64(maxPos)) + int64(upElements) + 2*int64(sessions)*int64(c.Vocab)
 	if elements > maxActivationElements {
 		return nil, errors.New("inference workspace budget exceeded; reduce prefill tokens or batch size")
 	}
@@ -3679,7 +3994,7 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		{&w.X, n * d}, {&w.N, n * d}, {&w.Q, n * d},
 		{&w.K, n * kd}, {&w.V, n * kd}, {&w.A, n * d},
 		{&w.Tmp, n * d}, {&w.G, n * c.Hidden},
-		{&w.U, n * c.Hidden}, {&w.H, n * c.Hidden},
+		{&w.U, upElements}, {&w.H, n * c.Hidden},
 		{&w.Logits, sessions * c.Vocab}, {&w.Scores, n * maxPos},
 	}
 	for _, a := range arrays {
@@ -3701,6 +4016,9 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		for j, token := range chunks[i] {
 			rowCaches[r], positions[r] = cache, cache.Pos+j
 			copy(w.X[r*d:(r+1)*d], m.Emb.Data[token*d:(token+1)*d])
+			if m.Position != nil {
+				addInPlace(w.X[r*d:(r+1)*d], m.Position.Data[positions[r]*d:(positions[r]+1)*d])
+			}
 			r++
 		}
 		lastRows[i] = r - 1
@@ -3710,7 +4028,7 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 			return nil, err
 		}
 		region := trace.StartRegion(ctx, "monolith.prefill_layer")
-		rmsInto(w.N, w.X, b.N1, n, c.NormEps)
+		inferenceNorm(w.N, w.X, b.N1, b.N1B, n, c.NormEps)
 		linearIntoWithExecutor(executor, w.Q, w.N, b.Q, n)
 		linearIntoWithExecutor(executor, w.K, w.N, b.K, n)
 		linearIntoWithExecutor(executor, w.V, w.N, b.V, n)
@@ -3718,8 +4036,10 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		addBias(w.K, b.KB)
 		addBias(w.V, b.VB)
 		for i, cache := range rowCaches {
-			m.rope(w.Q[i*d:(i+1)*d], 1, 1, c.Heads, positions[i], false)
-			m.rope(w.K[i*kd:(i+1)*kd], 1, 1, c.KVHeads, positions[i], false)
+			if m.Position == nil {
+				m.rope(w.Q[i*d:(i+1)*d], 1, 1, c.Heads, positions[i], false)
+				m.rope(w.K[i*kd:(i+1)*kd], 1, 1, c.KVHeads, positions[i], false)
+			}
 			k, v := cache.row(l, positions[i])
 			copy(k, w.K[i*kd:(i+1)*kd])
 			copy(v, w.V[i*kd:(i+1)*kd])
@@ -3740,14 +4060,24 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 			}
 		})
 		linearIntoWithExecutor(executor, w.Tmp, w.A, b.O, n)
+		addBias(w.Tmp, b.OB)
 		addInPlace(w.X, w.Tmp)
-		rmsInto(w.N, w.X, b.N2, n, c.NormEps)
+		inferenceNorm(w.N, w.X, b.N2, b.N2B, n, c.NormEps)
 		linearIntoWithExecutor(executor, w.G, w.N, b.Gate, n)
-		linearIntoWithExecutor(executor, w.U, w.N, b.Up, n)
-		for i, v := range w.G {
-			w.H[i] = float32(float64(v)/(1+math.Exp(-float64(v)))) * w.U[i]
+		if m.Position != nil {
+			addBias(w.G, b.GateB)
+			for i, v := range w.G {
+				x := float64(v)
+				w.H[i] = float32(0.5 * x * (1 + math.Tanh(math.Sqrt(2/math.Pi)*(x+0.044715*x*x*x))))
+			}
+		} else {
+			linearIntoWithExecutor(executor, w.U, w.N, b.Up, n)
+			for i, v := range w.G {
+				w.H[i] = float32(float64(v)/(1+math.Exp(-float64(v)))) * w.U[i]
+			}
 		}
 		linearIntoWithExecutor(executor, w.Tmp, w.H, b.Down, n)
+		addBias(w.Tmp, b.DownB)
 		addInPlace(w.X, w.Tmp)
 		region.End()
 	}
@@ -3755,7 +4085,7 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 	for i, row := range lastRows {
 		copy(w.Tmp[i*d:(i+1)*d], w.X[row*d:(row+1)*d])
 	}
-	rmsInto(w.N[:sessions*d], w.Tmp[:sessions*d], m.Final, sessions, c.NormEps)
+	inferenceNorm(w.N[:sessions*d], w.Tmp[:sessions*d], m.Final, m.FinalBias, sessions, c.NormEps)
 	head := m.Emb
 	if m.output != nil {
 		head = m.output
@@ -4096,7 +4426,7 @@ func readFloats(r io.Reader, x []float32, nonnegative bool) error {
 }
 func SaveCheckpoint(path string, m *Model, tok Tokenizer, state *TrainState) error {
 	if m.hf != nil {
-		return errors.New("HF models are inference-only; native checkpoints use a different RoPE/tokenizer contract")
+		return errors.New("HF models are inference-only; native checkpoints use a different model/tokenizer contract")
 	}
 	if err := m.Config.Validate(); err != nil {
 		return err
@@ -7923,7 +8253,7 @@ func runInfer(ctx context.Context, args []string) error {
 		}{
 			{"SmolLM2 / Llama", "restricted Llama profile; tested SmolLM2 135M and 360M", "HF chat API; provider or dedicated endpoint required"},
 			{"Qwen2 / Qwen2.5", "restricted Qwen2 profile; tested Qwen2.5 0.5B", "HF chat API; provider or dedicated endpoint required"},
-			{"GPT-2", "not supported", "dedicated HF text-generation endpoint"},
+			{"GPT-2", "tied GPT2LMHeadModel, absolute positions and gelu_new; raw text", "dedicated HF text-generation endpoint"},
 			{"gpt-oss", "not supported (MoE)", "HF chat API; provider or dedicated endpoint required"},
 			{"Mistral", "not supported", "HF chat API; provider or dedicated endpoint required"},
 			{"Gemma", "not supported", "HF chat API; provider or dedicated endpoint required"},
