@@ -7459,6 +7459,19 @@ type hfHub struct {
 	Client      *http.Client
 }
 
+var errHFOffline = errors.New("HF_HUB_OFFLINE disables HF network requests; use a verified local cache or unset HF_HUB_OFFLINE")
+
+// Match huggingface_hub's boolean convention. Read at the operation boundary
+// rather than at initialization so embedded callers can configure it as well.
+func hfOffline() bool {
+	switch strings.ToUpper(os.Getenv("HF_HUB_OFFLINE")) {
+	case "1", "ON", "YES", "TRUE":
+		return true
+	default:
+		return false
+	}
+}
+
 func newHFClient(timeout time.Duration) *http.Client {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.MaxConnsPerHost, t.MaxIdleConnsPerHost = 4, 4
@@ -7491,6 +7504,9 @@ func hfHTTPError(status int) error {
 	}
 }
 func hfDo(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
+	if hfOffline() {
+		return nil, errHFOffline
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -7688,6 +7704,7 @@ func (h hfHub) download(ctx context.Context, dir, repo, sha string, f hfHubFile)
 
 func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, error) {
 	var empty hfSnapshot
+	s.Offline = s.Offline || hfOffline()
 	if !validHFRepo(s.Repo) || s.Revision == "" || len(s.Revision) > 200 || strings.ContainsAny(s.Revision, "\x00\r\n") || s.DownloadBytes < 1 || s.DownloadBytes > 16<<30 || s.WeightMiB < 1 || s.WeightMiB > 1<<20 {
 		return "", empty, errors.New("invalid HF source or byte budget")
 	}
@@ -7871,7 +7888,7 @@ func runInferLocal(ctx context.Context, args []string) error {
 	repo := f.String("repo", "", "HF namespace/model to fetch automatically")
 	revision := f.String("revision", "main", "HF revision; resolved to an immutable commit")
 	cache := f.String("cache-dir", "", "cache directory; default is the OS user cache")
-	offline := f.Bool("offline", false, "use a verified cached snapshot without network")
+	offline := f.Bool("offline", false, "use a verified cached snapshot without network; also enabled by HF_HUB_OFFLINE")
 	download := f.Int64("download-mib", 2048, "maximum source files in MiB")
 	dir := f.String("dir", "", "existing local HF model directory")
 	checkpoint := f.String("checkpoint", "", "native .mglm checkpoint")
@@ -8392,6 +8409,11 @@ func runInferRemote(ctx context.Context, args []string) error {
 	}
 	if args[0] != "models" && args[0] != "generate" && args[0] != "chat" {
 		return errors.New("unknown remote action")
+	}
+	// Reject before reading prompts/stdin, starting output pumps or opening a
+	// client. The transport boundary also guards non-CLI HF callers.
+	if hfOffline() {
+		return errHFOffline
 	}
 	if err := validateHFEndpoint(*base); err != nil {
 		return err
