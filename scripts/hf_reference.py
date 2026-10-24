@@ -40,7 +40,7 @@ def write_json(path, obj):
     path.write_text(json.dumps(obj, indent=2, ensure_ascii=False, allow_nan=False) + "\n")
 
 
-def fixtures(root):
+def fixtures(root, llama3=False):
     root.mkdir(parents=True, exist_ok=True)
     cfg = dict(architectures=["LlamaForCausalLM"], model_type="llama",
                vocab_size=258, hidden_size=24, intermediate_size=40,
@@ -50,6 +50,14 @@ def fixtures(root):
                tie_word_embeddings=True, attention_bias=False, mlp_bias=False,
                attention_dropout=0.0, pretraining_tp=1, bos_token_id=1,
                eos_token_id=2, pad_token_id=2, rope_scaling=None)
+    if llama3:
+        # Head dimension 16 covers high, medium and low frequency regions;
+        # reference positions also cross the original context and a KV page.
+        cfg.update(hidden_size=32, intermediate_size=48, num_attention_heads=2,
+                   num_key_value_heads=1, head_dim=16, rope_theta=10000.0,
+                   rope_scaling=dict(rope_type="llama3", factor=32.0,
+                                     low_freq_factor=1.0, high_freq_factor=4.0,
+                                     original_max_position_embeddings=32))
     torch.manual_seed(132)
     model = LlamaForCausalLM(LlamaConfig(**cfg)).eval()
     model.set_attn_implementation("eager")
@@ -129,6 +137,7 @@ def compare_model(folder, binary, output):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--fixtures", type=Path)
+    p.add_argument("--llama3", action="store_true", help="generate Llama 3 frequency-scaled fixtures")
     p.add_argument("--model", type=Path)
     p.add_argument("--binary", type=Path)
     p.add_argument("--output", type=Path)
@@ -136,7 +145,7 @@ def main():
     versions()
     torch.set_num_threads(1)
     if a.fixtures:
-        fixtures(a.fixtures)
+        fixtures(a.fixtures, a.llama3)
     elif a.model and a.binary and a.output:
         compare_model(a.model, a.binary, a.output)
     else:

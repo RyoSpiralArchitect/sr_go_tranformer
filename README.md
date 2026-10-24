@@ -46,6 +46,8 @@ accuracy tradeoffs and bounded larger-model examples.
 pair-decoding table; output degradation can be substantial.
 [Mixed Q4/Q8 inference](QUALITY_INFERENCE.md) protects embeddings and the output
 head, with held-out drift measurements and a reproducible quality probe.
+[Llama 3.2 3B](LLAMA3_INFERENCE.md) adds a bounded token-ID inference path and
+an offline larger-model trial; its Go text/chat tokenizer is not yet supported.
 
 ```sh
 go run . infer models

@@ -1,0 +1,121 @@
+{
+  "format": "monolith-quality-external-text-v1",
+  "receipt_sha256": "67005bfc550fde686fdc650b5a0e136b4346fb0a1ab011bd2105c7b0f5dc1f35",
+  "tokenizer_sha256": "79e3e522635f3171300913bb421464a87de6222182a0570b9b2ccba2a964b2b4",
+  "tokenizers_version": "0.22.2",
+  "decode": "backend Tokenizer.decode(skip_special_tokens=True); no Transformers whitespace cleanup",
+  "completions": {
+    "f32": [
+      {
+        "token_ids": [
+          12366,
+          13,
+          1102,
+          374,
+          279,
+          7928,
+          3363,
+          304
+        ],
+        "text": " Paris. It is the largest city in"
+      },
+      {
+        "token_ids": [
+          7086,
+          350,
+          4601,
+          574,
+          9405,
+          304,
+          264,
+          13952
+        ],
+        "text": " named Tigger was born in a forest"
+      }
+    ],
+    "q8": [
+      {
+        "token_ids": [
+          12366,
+          13,
+          1102,
+          374,
+          279,
+          7928,
+          3363,
+          304
+        ],
+        "text": " Paris. It is the largest city in"
+      },
+      {
+        "token_ids": [
+          7086,
+          350,
+          4601,
+          574,
+          9405,
+          304,
+          264,
+          13952
+        ],
+        "text": " named Tigger was born in a forest"
+      }
+    ],
+    "q4": [
+      {
+        "token_ids": [
+          12366,
+          13,
+          1102,
+          374,
+          279,
+          7928,
+          3363,
+          304
+        ],
+        "text": " Paris. It is the largest city in"
+      },
+      {
+        "token_ids": [
+          7086,
+          393,
+          1892,
+          304,
+          46568,
+          574,
+          9405,
+          13
+        ],
+        "text": " named Puss in Boots was born."
+      }
+    ],
+    "q4-mixed": [
+      {
+        "token_ids": [
+          12366,
+          13,
+          1102,
+          374,
+          279,
+          7928,
+          3363,
+          304
+        ],
+        "text": " Paris. It is the largest city in"
+      },
+      {
+        "token_ids": [
+          7086,
+          350,
+          4601,
+          574,
+          9405,
+          304,
+          264,
+          13952
+        ],
+        "text": " named Tigger was born in a forest"
+      }
+    ]
+  }
+}

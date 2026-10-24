@@ -194,7 +194,7 @@ func TestLowBitExtremeFiniteHFModel(t *testing.T) {
 func TestLowBitLoaderStorageAndReconstructedModel(t *testing.T) {
 	for _, format := range []string{"q8", "q4", "q4-mixed"} {
 		t.Run(format, func(t *testing.T) {
-			for _, profile := range []string{"hf-llama/f32", "hf-llama/f16", "hf-llama/bf16", "hf-llama/untied-f32",
+			for _, profile := range []string{"hf-llama/f32", "hf-llama/f16", "hf-llama/bf16", "hf-llama/untied-f32", "hf-llama3/f32", "hf-llama3/f16", "hf-llama3/bf16",
 				"hf-qwen2/f32", "hf-qwen2/f16", "hf-qwen2/untied-bf16", "hf-gpt2/legacy-f32", "hf-gpt2/f16", "hf-gpt2/bf16"} {
 				t.Run(profile, func(t *testing.T) {
 					dir := filepath.Join("testdata", profile)

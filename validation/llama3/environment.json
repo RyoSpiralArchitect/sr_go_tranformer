@@ -1,0 +1,12 @@
+{
+  "format": "monolith-llama3-environment-v1",
+  "cpu": "Apple M4",
+  "physical_memory_bytes": 25769803776,
+  "host": "Darwin/arm64",
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "base_commit": "662790c3024d40870227c6bff18365f5b8853f6b",
+  "source_sha256": "c380f799dee69d78625d4698ed2ad32955b89761b2714061402c8775d5d300ca",
+  "token_preparation_script_sha256": "2f4f71480b5efdbe6678f776b106b8e4bba06a74f8d91db758327dc7e1590cf3",
+  "reference_requirements_sha256": "b766d3e784284fc6602a3e850331543d3ed330e6c518e7cbdefa5762c62fe33a",
+  "note": "Existing cached BF16 source; one resident format/process; tiny independent Transformers oracle plus full-model Go FP32 reference. Post-probe RSS is a single observation, not peak. Timing is not a throughput comparison."
+}

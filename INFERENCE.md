@@ -157,6 +157,9 @@ Interactive history commits a reply only after successful completion. Use
 | Mistral | Not implemented locally | Chat provider or dedicated endpoint |
 | Gemma | Not implemented locally | Chat provider or dedicated endpoint |
 
+[Llama 3.2 3B token-ID inference](LLAMA3_INFERENCE.md) is available through
+`inspect-hf`/`infer-hf`; its Go text/chat tokenizer remains unsupported.
+
 Local Llama compatibility does not cover all Meta Llama models: size, RoPE,
 tokenizer and attention restrictions still apply. Remote entries describe the
 client protocol; use the live listing or your endpoint's configuration to check

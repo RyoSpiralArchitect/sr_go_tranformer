@@ -4,10 +4,11 @@ This guide describes the local Go importer. See [inference setup](INFERENCE.md)
 for automatic downloads and remote HF execution without local weights.
 
 The importer accepts restricted `LlamaForCausalLM` and `Qwen2ForCausalLM`
-profiles: SiLU, GQA, scalar BOS/EOS IDs, unscaled half-split RoPE and full
-causal attention. Llama projections must be bias-free; Qwen2 includes Q/K/V
+profiles: SiLU, GQA, scalar BOS/EOS IDs, half-split RoPE and full
+causal attention. Llama additionally accepts the fixed `llama3` frequency
+scaling profile for [token-ID inference](LLAMA3_INFERENCE.md). Llama projections must be bias-free; Qwen2 includes Q/K/V
 biases. Both tied and separate output embeddings are supported. Sliding-window
-attention, RoPE scaling, MoE and unknown computational settings are rejected.
+attention, other RoPE scaling algorithms, MoE and unknown computational settings are rejected.
 This is not general Transformers compatibility.
 
 It also accepts tied `GPT2LMHeadModel` with learned absolute positions, affine
