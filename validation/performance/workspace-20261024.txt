@@ -1,0 +1,30 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkInferenceWorkspace/vocab258/rows1/pooled-copy-4         	    2373	    140499 ns/op	    6667 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows1/pooled-copy-4         	    2636	    139114 ns/op	    6665 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows1/pooled-copy-4         	    2650	    140486 ns/op	    6665 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows1/owned-borrow-4        	    2614	    136926 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows1/owned-borrow-4        	    2626	    140027 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows1/owned-borrow-4        	    2565	    143214 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows16/pooled-copy-4        	     386	    895778 ns/op	    6665 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows16/pooled-copy-4        	     376	    955090 ns/op	    6665 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows16/pooled-copy-4        	     376	    937332 ns/op	    6665 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows16/owned-borrow-4       	     392	    917272 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows16/owned-borrow-4       	     398	    900665 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab258/rows16/owned-borrow-4       	     404	    880365 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows1/pooled-copy-4       	     574	    619886 ns/op	  812838 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows1/pooled-copy-4       	     586	    620280 ns/op	  812837 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows1/pooled-copy-4       	     544	    725276 ns/op	  812837 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows1/owned-borrow-4      	     511	    650605 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows1/owned-borrow-4      	     582	    625556 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows1/owned-borrow-4      	     597	    619584 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows16/pooled-copy-4      	     260	   1436120 ns/op	  812836 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows16/pooled-copy-4      	     243	   1524167 ns/op	  812836 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows16/pooled-copy-4      	     228	   1515724 ns/op	  812836 B/op	      19 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows16/owned-borrow-4     	     200	   1617282 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows16/owned-borrow-4     	     249	   1528777 ns/op	    1800 B/op	      18 allocs/op
+BenchmarkInferenceWorkspace/vocab50257/rows16/owned-borrow-4     	     242	   1469963 ns/op	    1800 B/op	      18 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	15.572s

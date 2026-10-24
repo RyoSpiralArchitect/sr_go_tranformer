@@ -3954,7 +3954,58 @@ func (c *KVCache) Close() {
 	c.released = true
 }
 
-type decodeWorkspace struct{ X, N, Q, K, V, A, G, U, H, Tmp, Logits, Scores []float32 }
+type decodePoolUse struct{ pages, reserved int }
+type decodeWorkspace struct {
+	X, N, Q, K, V, A, G, U, H, Tmp, Logits, Scores []float32
+	// Metadata has the same hard bounds as PrefillBatch. Only this workspace's
+	// owner may use it; pointer-bearing fields are cleared after kernels join.
+	rowCaches [1024]*KVCache
+	positions [1024]int
+	lastRows  [256]int
+	pools     map[*pagePool]decodePoolUse
+	seen      map[*KVCache]bool
+}
+
+func (w *decodeWorkspace) clearReferences() {
+	clear(w.rowCaches[:])
+	clear(w.pools)
+	clear(w.seen)
+}
+
+func (w *decodeWorkspace) floatBytes() int64 {
+	var elements int64
+	for _, x := range [][]float32{w.X, w.N, w.Q, w.K, w.V, w.A, w.G, w.U, w.H, w.Tmp, w.Logits, w.Scores} {
+		elements += int64(cap(x))
+	}
+	return elements * 4
+}
+
+type inferenceArray struct {
+	x *[]float32
+	n int
+}
+
+// Account for both current needs and retained capacities across mixed shapes.
+// Extra reserves caller-owned output, even when an internal consumer borrows it.
+func resizeInferenceArrays(arrays []inferenceArray, extra, limit int64) error {
+	required, retained := extra, extra
+	for _, a := range arrays {
+		required += int64(a.n)
+		retained += int64(max(cap(*a.x), a.n))
+	}
+	if required > limit {
+		return errors.New("inference workspace budget exceeded; reduce prefill tokens or batch size")
+	}
+	if retained > limit {
+		for _, a := range arrays {
+			*a.x = nil
+		}
+	}
+	for _, a := range arrays {
+		*a.x = resize(*a.x, a.n)
+	}
+	return nil
+}
 
 func resize(x []float32, n int) []float32 {
 	if cap(x) < n {
@@ -3999,6 +4050,26 @@ func (m *Model) PrefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 }
 
 func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]int, executor *kernelExecutor) ([]float32, error) {
+	raw := m.decodePool.Get()
+	var w *decodeWorkspace
+	if raw == nil {
+		w = &decodeWorkspace{}
+	} else {
+		w = raw.(*decodeWorkspace)
+	}
+	defer m.decodePool.Put(w)
+	logits, err := m.prefillBorrowed(ctx, caches, chunks, executor, w)
+	if err != nil {
+		return nil, err
+	}
+	// Public callers keep their result across subsequent calls and concurrent
+	// engines sharing this model. Only the actor may consume borrowed logits.
+	return append([]float32(nil), logits...), nil
+}
+
+// The caller exclusively owns w and consumes the result before its next use.
+// No callback, response or request may retain the returned logits.
+func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [][]int, executor *kernelExecutor, w *decodeWorkspace) ([]float32, error) {
 	c := m.Config
 	sessions := len(caches)
 	if sessions < 1 || sessions > 256 || len(chunks) != sessions {
@@ -4010,9 +4081,14 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	type poolUse struct{ pages, reserved int }
-	pools := make(map[*pagePool]poolUse)
-	seen := make(map[*KVCache]bool, sessions)
+	defer w.clearReferences()
+	if w.pools == nil {
+		w.pools = make(map[*pagePool]decodePoolUse)
+	}
+	if w.seen == nil {
+		w.seen = make(map[*KVCache]bool, sessions)
+	}
+	pools, seen := w.pools, w.seen
 	n, maxPos := 0, 0
 	pageElements := 2 * pageTokens * c.KVDim() * c.Layers
 	for i, cache := range caches {
@@ -4067,53 +4143,28 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		}
 	}
 	d, kd, hd := c.Dim, c.KVDim(), c.Dim/c.Heads
-	// Five dim-sized, two KV-sized and up to three hidden-sized row arrays, scores,
-	// and both the pooled logits and caller-owned output must fit the budget.
 	upElements := n * c.Hidden
 	if m.Position != nil {
 		upElements = 0
-	}
-	elements := int64(n)*(5*int64(d)+2*int64(kd)+2*int64(c.Hidden)+int64(maxPos)) + int64(upElements) + 2*int64(sessions)*int64(c.Vocab)
-	if elements > maxActivationElements {
-		return nil, errors.New("inference workspace budget exceeded; reduce prefill tokens or batch size")
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	group := c.Heads / c.KVHeads
-	raw := m.decodePool.Get()
-	var w *decodeWorkspace
-	if raw == nil {
-		w = &decodeWorkspace{}
-	} else {
-		w = raw.(*decodeWorkspace)
-	}
-	defer m.decodePool.Put(w)
-	// Mixed prior shapes must not let retained capacities exceed the budget.
-	retained := int64(sessions * c.Vocab)
-	arrays := []struct {
-		x *[]float32
-		n int
-	}{
+	// Reserve the public result copy in both paths to keep admission limits
+	// unchanged. Metadata is separately bounded by 256 sessions / 1024 rows.
+	arrays := []inferenceArray{
 		{&w.X, n * d}, {&w.N, n * d}, {&w.Q, n * d},
 		{&w.K, n * kd}, {&w.V, n * kd}, {&w.A, n * d},
 		{&w.Tmp, n * d}, {&w.G, n * c.Hidden},
 		{&w.U, upElements}, {&w.H, n * c.Hidden},
 		{&w.Logits, sessions * c.Vocab}, {&w.Scores, n * maxPos},
 	}
-	for _, a := range arrays {
-		retained += int64(max(cap(*a.x), a.n))
-	}
-	if retained > maxActivationElements {
-		*w = decodeWorkspace{}
-	}
-	for _, a := range arrays {
-		*a.x = resize(*a.x, a.n)
+	if err := resizeInferenceArrays(arrays, int64(sessions)*int64(c.Vocab), maxActivationElements); err != nil {
+		return nil, err
 	}
 	// Every session owns consecutive rows, but positions include its prefix.
-	rowCaches := make([]*KVCache, n)
-	positions := make([]int, n)
-	lastRows := make([]int, sessions)
+	rowCaches, positions, lastRows := w.rowCaches[:n], w.positions[:n], w.lastRows[:sessions]
 	r := 0
 	for i, cache := range caches {
 		cache.ensurePages(cache.Pos + len(chunks[i]))
@@ -4201,7 +4252,7 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 	for i, cache := range caches {
 		cache.Pos += len(chunks[i])
 	}
-	return append([]float32(nil), w.Logits...), nil
+	return w.Logits, nil
 }
 func (m *Model) Step(cache *KVCache, token int) ([]float32, error) {
 	return m.DecodeBatch(context.Background(), []*KVCache{cache}, []int{token})
@@ -5427,27 +5478,28 @@ type engineSession struct {
 type engineCounters struct {
 	Submitted, Completed, Canceled, Failed, Rejected, Active, Reserved, Allocated atomic.Int64
 	InputTokens, GeneratedTokens, Ticks, SlowConsumers, PeakTickTokens            atomic.Int64
-	Released, Computing, KernelWorkers                                            atomic.Int64
+	Released, Computing, KernelWorkers, WorkspaceFloatBytes                       atomic.Int64
 }
 type EngineStats struct {
-	Submitted        int64 `json:"submitted"`
-	Completed        int64 `json:"completed"`
-	Canceled         int64 `json:"canceled"`
-	Failed           int64 `json:"failed"`
-	Rejected         int64 `json:"rejected"`
-	Active           int64 `json:"active"`
-	Queue            int   `json:"queue"`
-	KVReservedBytes  int64 `json:"kv_reserved_bytes"`
-	KVAllocatedBytes int64 `json:"kv_allocated_bytes"`
-	InputTokens      int64 `json:"input_tokens"`
-	GeneratedTokens  int64 `json:"generated_tokens"`
-	Ticks            int64 `json:"ticks"`
-	SlowConsumers    int64 `json:"slow_consumers"`
-	PeakTickTokens   int64 `json:"peak_tick_tokens"`
-	Released         int64 `json:"released"`
-	Computing        int64 `json:"computing"`
-	AdmissionUsed    int   `json:"admission_used"`
-	KernelWorkers    int64 `json:"kernel_workers"`
+	Submitted           int64 `json:"submitted"`
+	Completed           int64 `json:"completed"`
+	Canceled            int64 `json:"canceled"`
+	Failed              int64 `json:"failed"`
+	Rejected            int64 `json:"rejected"`
+	Active              int64 `json:"active"`
+	Queue               int   `json:"queue"`
+	KVReservedBytes     int64 `json:"kv_reserved_bytes"`
+	KVAllocatedBytes    int64 `json:"kv_allocated_bytes"`
+	InputTokens         int64 `json:"input_tokens"`
+	GeneratedTokens     int64 `json:"generated_tokens"`
+	Ticks               int64 `json:"ticks"`
+	SlowConsumers       int64 `json:"slow_consumers"`
+	PeakTickTokens      int64 `json:"peak_tick_tokens"`
+	Released            int64 `json:"released"`
+	Computing           int64 `json:"computing"`
+	AdmissionUsed       int   `json:"admission_used"`
+	KernelWorkers       int64 `json:"kernel_workers"`
+	WorkspaceFloatBytes int64 `json:"workspace_float_bytes"`
 }
 
 var latencyBounds = [...]float64{.0001, .0005, .001, .005, .01, .05, .1, .5, 1, 5, 30, 120}
@@ -5557,7 +5609,7 @@ func newEngine(m *Model, tok inferenceTokenizer, c EngineConfig) (*Engine, error
 }
 func (e *Engine) Stats() EngineStats {
 	s := &e.stats
-	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load(), Released: s.Released.Load(), Computing: s.Computing.Load(), AdmissionUsed: len(e.admission), KernelWorkers: s.KernelWorkers.Load()}
+	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load(), Released: s.Released.Load(), Computing: s.Computing.Load(), AdmissionUsed: len(e.admission), KernelWorkers: s.KernelWorkers.Load(), WorkspaceFloatBytes: s.WorkspaceFloatBytes.Load()}
 }
 func (e *Engine) Close() { e.cancel(); <-e.done }
 func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streaming bool) (*engineRequest, error) {
@@ -5697,12 +5749,15 @@ func scheduleTokens(sessions []*engineSession, counts []int, budget, chunk, mixe
 func (e *Engine) run() {
 	defer close(e.done)
 	executor := newKernelExecutor(e.Config.KernelWorkers)
+	var workspace decodeWorkspace
 	if executor.workers > 1 {
 		e.stats.KernelWorkers.Store(int64(executor.workers))
 	}
 	defer func() {
 		executor.close()
+		workspace = decodeWorkspace{}
 		e.stats.KernelWorkers.Store(0)
+		e.stats.WorkspaceFloatBytes.Store(0)
 	}()
 	sessions := make([]*engineSession, 0, e.Config.MaxBatch)
 	caches := make([]*KVCache, e.Config.MaxBatch)
@@ -5846,8 +5901,9 @@ func (e *Engine) run() {
 		var logits []float32
 		var err error
 		trace.WithRegion(e.ctx, "monolith.batch", func() {
-			logits, err = e.Model.prefillBatch(e.ctx, caches[:n], chunks[:n], executor)
+			logits, err = e.Model.prefillBorrowed(e.ctx, caches[:n], chunks[:n], executor, &workspace)
 		})
+		e.stats.WorkspaceFloatBytes.Store(workspace.floatBytes())
 		computeDone := time.Now() // PrefillBatch joins all kernels before returning.
 		e.batchCompute.observe(computeDone.Sub(computeStart))
 		e.stats.Computing.Store(0)
@@ -6055,7 +6111,7 @@ func (e *Engine) Handler() http.Handler {
 		fmt.Fprintf(w, "monolith_submitted_total %d\nmonolith_completed_total %d\nmonolith_canceled_total %d\nmonolith_failed_total %d\nmonolith_rejected_total %d\nmonolith_active %d\nmonolith_queue_depth %d\nmonolith_kv_reserved_bytes %d\nmonolith_kv_allocated_bytes %d\n", s.Submitted, s.Completed, s.Canceled, s.Failed, s.Rejected, s.Active, s.Queue, s.KVReservedBytes, s.KVAllocatedBytes)
 		fmt.Fprintf(w, "monolith_input_tokens_total %d\nmonolith_generated_tokens_total %d\nmonolith_ticks_total %d\nmonolith_slow_consumers_total %d\nmonolith_peak_tick_tokens %d\n", s.InputTokens, s.GeneratedTokens, s.Ticks, s.SlowConsumers, s.PeakTickTokens)
 		fmt.Fprintf(w, "monolith_released_total %d\nmonolith_computing_sessions %d\nmonolith_admission_used %d\n", s.Released, s.Computing, s.AdmissionUsed)
-		fmt.Fprintf(w, "monolith_kernel_workers %d\n", s.KernelWorkers)
+		fmt.Fprintf(w, "monolith_kernel_workers %d\nmonolith_workspace_float_bytes %d\n", s.KernelWorkers, s.WorkspaceFloatBytes)
 		e.queueLatency.write(w, "monolith_queue_wait_seconds")
 		e.firstTokenLatency.write(w, "monolith_first_token_seconds")
 		e.tokenGap.write(w, "monolith_token_gap_seconds")

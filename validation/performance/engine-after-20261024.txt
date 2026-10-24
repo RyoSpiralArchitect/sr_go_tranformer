@@ -1,0 +1,9 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkEngineWorkspaceRequest-4   	     705	    821249 ns/op	   28360 B/op	     475 allocs/op
+BenchmarkEngineWorkspaceRequest-4   	     722	    839424 ns/op	   28360 B/op	     475 allocs/op
+BenchmarkEngineWorkspaceRequest-4   	     710	    833118 ns/op	   28360 B/op	     475 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	5.283s

@@ -18,14 +18,15 @@ existing pool. `-threads` remains the process-wide Go execution setting.
 
 ## Ownership and bounds
 
-- Each engine has its own executor. Engines can share an immutable model, but
-  never share their job channels, KV pages or worker shutdown.
+- Each engine has its own executor and inference workspace. Engines can share
+  an immutable model, but never share their job channels, scratch arrays,
+  KV pages or worker shutdown.
 - A kernel submits at most `min(workers, output ranges)` jobs. Both the job
   mailbox and completion mailbox have capacity `workers`, independent of the
   request queue, context length and model size. There is only one kernel in
   flight per engine, and no nested dispatch.
 - Workers clear their borrowed job closure before acknowledging completion.
-  Idle workers retain no job reference to a pooled workspace or KV pages.
+  Idle workers retain no job reference to a workspace or KV pages.
 - Every kernel joins all its writes before the actor proceeds. Workspace return,
   cache-position commits, KV release and `CompletionStream.Released()` retain
   the [serving lifecycle contract](SERVING_LIFECYCLE.md).
@@ -39,6 +40,27 @@ actor starts the pool and returns to zero after worker teardown. It remains
 nonzero when a healthy open engine has drained all requests. The separate
 `monolith_computing_sessions` gauge counts sessions in a shared batch, not busy
 workers. Runtime/HTTP goroutines are also outside the worker gauge.
+
+The actor retains its workspace across requests and garbage collections. It
+consumes borrowed logits before the next batch; responses and stream events
+contain their own token/text results. Public `Model.PrefillBatch` and
+`DecodeBatch` still return independent logit slices and use `sync.Pool` for
+scratch reuse.
+
+Workspace float capacities plus one reserved public logit copy stay within
+the existing 512 MiB activation budget. Mixed shapes discard old capacities
+when their combined retention would exceed that bound. Metadata is separately
+bounded by 1,024 rows and 256 sessions: fixed row/position/index arrays and
+reused validation maps. Cache and pool references are cleared after every
+completed or failed computation, once all kernel borrowers have joined.
+
+`monolith_workspace_float_bytes` and `EngineStats.WorkspaceFloatBytes` report
+retained float array capacity after each tick, excluding metadata, weights,
+KV storage, allocator overhead and garbage awaiting collection. The gauge
+stays nonzero while an idle engine retains reusable scratch, and returns to
+zero during shutdown after workers join. This is a per-engine retention
+measurement, not process RSS or a promise that the runtime immediately returns
+memory to the OS. See [measurements](INFERENCE_PERFORMANCE.md).
 
 ## Arithmetic and cancellation
 
