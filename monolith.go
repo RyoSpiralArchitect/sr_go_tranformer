@@ -668,21 +668,107 @@ func cliInput(ctx context.Context, in io.Reader) (io.Reader, func()) {
 	}
 }
 
+type cliWriteResult struct {
+	n   int
+	err error
+}
+type cliWrite struct {
+	data []byte
+	done chan cliWriteResult
+}
+type cliWriter struct {
+	ctx  context.Context
+	jobs chan cliWrite
+}
+
+// A single output pump keeps cancellation independent of an inherited stdout
+// or stderr descriptor. There is no queued output: each chunk is acknowledged
+// before the next. An uninterruptible OS write can retain only one 64 KiB copy
+// until the receiver resumes or the process exits; cleanup never waits on it.
+func cliOutput(ctx context.Context, out io.Writer) (io.Writer, func()) {
+	ctx, cancel := context.WithCancel(ctx)
+	w := &cliWriter{ctx: ctx, jobs: make(chan cliWrite)}
+	go func() {
+		var writeErr error
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case job := <-w.jobs:
+				n := 0
+				if err := ctx.Err(); err != nil {
+					writeErr = err
+				}
+				if writeErr == nil {
+					n, writeErr = out.Write(job.data)
+					if n < 0 || n > len(job.data) {
+						n, writeErr = 0, io.ErrShortWrite
+					} else if n != len(job.data) && writeErr == nil {
+						writeErr = io.ErrShortWrite
+					}
+				}
+				job.done <- cliWriteResult{n, writeErr}
+			}
+		}
+	}()
+	return w, cancel
+}
+func (w *cliWriter) Write(p []byte) (int, error) {
+	written := 0
+	for len(p) > 0 {
+		if err := w.ctx.Err(); err != nil {
+			return written, err
+		}
+		n := min(len(p), 64<<10)
+		// The caller may reuse p as soon as cancellation returns, even while
+		// the underlying writer is still blocked. Give the pump its own copy.
+		job := cliWrite{data: append([]byte(nil), p[:n]...), done: make(chan cliWriteResult, 1)}
+		select {
+		case <-w.ctx.Done():
+			return written, w.ctx.Err()
+		case w.jobs <- job:
+		}
+		select {
+		case <-w.ctx.Done():
+			return written, w.ctx.Err()
+		case result := <-job.done:
+			written += result.n
+			if result.err != nil {
+				return written, result.err
+			}
+		}
+		p = p[n:]
+	}
+	return written, nil
+}
+
 // Prompt files and stdin share the same byte bound. Only explicitly selected
 // stdin is consumed, and JSON parsing is performed by the messages caller.
 func readCLIInput(ctx context.Context, path string, stdin io.Reader) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	r := stdin
 	if path == "-" {
 		var closeInput func()
 		r, closeInput = cliInput(ctx, stdin)
 		defer closeInput()
 	} else {
-		f, err := os.Open(path)
+		st, err := os.Stat(path)
+		if err != nil {
+			return nil, err
+		}
+		if !st.Mode().IsRegular() || st.Size() > 1<<20 {
+			return nil, errors.New("CLI input must be a regular file of at most 1 MiB, or - for stdin")
+		}
+		// On Unix a path can be replaced with a FIFO between Stat and Open.
+		// Nonblocking open lets the descriptor check reject that race too.
+		f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOCTTY, 0)
 		if err != nil {
 			return nil, err
 		}
 		defer f.Close()
-		st, err := f.Stat()
+		st, err = f.Stat()
 		if err != nil {
 			return nil, err
 		}
@@ -6500,6 +6586,10 @@ func runGenerate(ctx context.Context, args []string) error {
 // chatLoop owns only bounded text history. The engine retains immutable model
 // weights and workers across turns; every stream is released before the next.
 func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s Sampling, in io.Reader, out, status io.Writer) error {
+	out, closeOutput := cliOutput(ctx, out)
+	defer closeOutput()
+	status, closeStatus := cliOutput(ctx, status)
+	defer closeStatus()
 	initial := []ChatMessage{}
 	if system != "" {
 		initial = append(initial, ChatMessage{Role: "system", Content: system})
@@ -6507,12 +6597,16 @@ func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s
 	history := append([]ChatMessage(nil), initial...)
 	scan := bufio.NewScanner(in)
 	scan.Buffer(make([]byte, 4096), (1<<20)+2)
-	fmt.Fprintln(status, "Chat ready. One message per line; /reset clears history, /exit quits. Ctrl-C cancels and exits.")
+	if _, err := fmt.Fprintln(status, "Chat ready. One message per line; /reset clears history, /exit quits. Ctrl-C cancels and exits."); err != nil {
+		return err
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		fmt.Fprint(status, "you> ")
+		if _, err := fmt.Fprint(status, "you> "); err != nil {
+			return err
+		}
 		if !scan.Scan() {
 			if err := ctx.Err(); err != nil {
 				return err
@@ -6530,13 +6624,17 @@ func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s
 			return nil
 		case "/reset":
 			history = append([]ChatMessage(nil), initial...)
-			fmt.Fprintln(status, "History cleared.")
+			if _, err := fmt.Fprintln(status, "History cleared."); err != nil {
+				return err
+			}
 			continue
 		}
 		trial := append(append([]ChatMessage(nil), history...), ChatMessage{Role: "user", Content: line})
 		prompt, err := tok.formatChat(trial)
 		if err != nil {
-			fmt.Fprintf(status, "Cannot add turn: %v. Use /reset to start again.\n", err)
+			if _, err := fmt.Fprintf(status, "Cannot add turn: %v. Use /reset to start again.\n", err); err != nil {
+				return err
+			}
 			continue
 		}
 		stream, err := e.Stream(ctx, prompt, s)
@@ -6544,10 +6642,16 @@ func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			fmt.Fprintf(status, "Cannot add turn: %v. Use /reset or reduce -max-tokens.\n", err)
+			if _, err := fmt.Fprintf(status, "Cannot add turn: %v. Use /reset or reduce -max-tokens.\n", err); err != nil {
+				return err
+			}
 			continue
 		}
-		fmt.Fprint(status, "assistant> ")
+		if _, err := fmt.Fprint(status, "assistant> "); err != nil {
+			stream.Close()
+			<-stream.Released()
+			return err
+		}
 		var writeErr error
 		for event := range stream.Events {
 			if _, writeErr = io.WriteString(out, event.Text); writeErr != nil {
@@ -7990,7 +8094,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := run(ctx, os.Args[1:]); err != nil && !errors.Is(err, flag.ErrHelp) {
-		fmt.Fprintln(os.Stderr, "error:", err)
+		// A stalled diagnostic pipe must not prevent exit after cleanup.
+		reportCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		out, closeOutput := cliOutput(reportCtx, os.Stderr)
+		fmt.Fprintln(out, "error:", err)
+		closeOutput()
+		cancel()
 		os.Exit(1)
 	}
 }
