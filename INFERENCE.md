@@ -39,6 +39,26 @@ from HF; pin a commit explicitly for reproducible runs. The default cache is
 `-offline` performs no network requests and requires a previously verified
 snapshot (and a recorded reference when using a branch/tag).
 
+`HF_HUB_OFFLINE=1` also enables offline resolution. Following the
+[HF boolean convention](https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#boolean-values),
+`1`, `ON`, `YES` and `TRUE` enable it, case-insensitively; all other values
+disable it. `-offline=false` cannot override an enabled environment variable.
+Cached snapshots are still fully hash-checked. A missing or corrupt snapshot
+fails without a metadata request, download or automatic repair.
+
+```sh
+HF_HUB_OFFLINE=1 ./monolith infer local \
+  -repo HuggingFaceTB/SmolLM2-135M-Instruct \
+  -revision 12fd25f77366fa6b3b4b768ec3050bf629380bac \
+  -context 512 -weight-mib 600 generate -prompt 'Hello' -max-tokens 8
+```
+
+This application also rejects `infer remote models`, `generate` and `chat`
+while the environment variable is enabled, before waiting for input or making
+HTTP requests. `infer models` (the built-in guide), help, existing `-dir`
+models, native `-checkpoint` models and `learn` remain available. The local
+cache is this application's verified cache, not the Python HF cache layout.
+
 Downloads use only standard Go networking. No HF CLI, Python, Git checkout,
 pickle loading or repository code execution is involved. Config and tokenizer
 compatibility are checked before weight downloads. Source files are bounded by
