@@ -112,29 +112,40 @@ func (c Config) ParameterCount() int64 {
 // inspected on open file descriptors before any parameter storage is allocated.
 const maxHFHeader = 4 << 20
 
+// Llama 3.1/3.2 frequency scaling; other scaling algorithms remain unsupported.
+type hfLlama3RoPE struct {
+	Type     string  `json:"rope_type"`
+	Factor   float64 `json:"factor"`
+	Low      float64 `json:"low_freq_factor"`
+	High     float64 `json:"high_freq_factor"`
+	Original int     `json:"original_max_position_embeddings"`
+}
+
 type hfConfig struct {
-	Architectures []string `json:"architectures"`
-	ModelType     string   `json:"model_type"`
-	Vocab         int      `json:"vocab_size"`
-	Dim           int      `json:"hidden_size"`
-	Hidden        int      `json:"intermediate_size"`
-	Layers        int      `json:"num_hidden_layers"`
-	Heads         int      `json:"num_attention_heads"`
-	KVHeads       int      `json:"num_key_value_heads"`
-	Context       int      `json:"max_position_embeddings"`
-	Theta         float64  `json:"rope_theta"`
-	Eps           float64  `json:"rms_norm_eps"`
-	Act           string   `json:"hidden_act"`
-	Tied          bool     `json:"tie_word_embeddings"`
-	AttentionBias bool     `json:"attention_bias"`
-	MLPBias       bool     `json:"mlp_bias"`
-	Interleaved   bool     `json:"rope_interleaved"`
-	Dropout       float64  `json:"attention_dropout"`
-	TP            int      `json:"pretraining_tp"`
-	BOS           int      `json:"bos_token_id"`
-	EOS           int      `json:"eos_token_id"`
-	Sliding       bool     `json:"use_sliding_window,omitempty"`
-	LayerTypes    []string `json:"layer_types,omitempty"`
+	Architectures []string      `json:"architectures"`
+	ModelType     string        `json:"model_type"`
+	HeadDim       int           `json:"head_dim,omitempty"`
+	RoPE          *hfLlama3RoPE `json:"rope_scaling,omitempty"`
+	Vocab         int           `json:"vocab_size"`
+	Dim           int           `json:"hidden_size"`
+	Hidden        int           `json:"intermediate_size"`
+	Layers        int           `json:"num_hidden_layers"`
+	Heads         int           `json:"num_attention_heads"`
+	KVHeads       int           `json:"num_key_value_heads"`
+	Context       int           `json:"max_position_embeddings"`
+	Theta         float64       `json:"rope_theta"`
+	Eps           float64       `json:"rms_norm_eps"`
+	Act           string        `json:"hidden_act"`
+	Tied          bool          `json:"tie_word_embeddings"`
+	AttentionBias bool          `json:"attention_bias"`
+	MLPBias       bool          `json:"mlp_bias"`
+	Interleaved   bool          `json:"rope_interleaved"`
+	Dropout       float64       `json:"attention_dropout"`
+	TP            int           `json:"pretraining_tp"`
+	BOS           int           `json:"bos_token_id"`
+	EOS           int           `json:"eos_token_id"`
+	Sliding       bool          `json:"use_sliding_window,omitempty"`
+	LayerTypes    []string      `json:"layer_types,omitempty"`
 }
 
 // encoding/json otherwise accepts duplicate keys and invalid UTF-8. Reject
@@ -236,6 +247,9 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 			keys[k] = true
 		}
 	}
+	if string(raw["model_type"]) == `"llama"` {
+		keys["head_dim"], keys["rope_scaling"] = true, true
+	}
 	for k, v := range raw {
 		if k == "rope_scaling" && string(v) == "null" {
 			continue
@@ -248,9 +262,38 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	if err := json.Unmarshal(b, &h); err != nil {
 		return h, Config{}, err
 	}
+	if raw["head_dim"] != nil && (string(raw["head_dim"]) == "null" || h.Heads < 1 || h.Dim%h.Heads != 0 || h.HeadDim != h.Dim/h.Heads) {
+		return h, Config{}, errors.New("HF head_dim must equal hidden_size / num_attention_heads")
+	}
+	if h.RoPE != nil {
+		// encoding/json matches struct fields case-insensitively. Check the raw
+		// keys first so aliases cannot override canonical HF computational fields.
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw["rope_scaling"], &fields); err != nil {
+			return h, Config{}, err
+		}
+		required := []string{"rope_type", "factor", "low_freq_factor", "high_freq_factor", "original_max_position_embeddings"}
+		if len(fields) != len(required) {
+			return h, Config{}, errors.New("Llama 3 RoPE requires exactly five canonical fields")
+		}
+		for _, key := range required {
+			if fields[key] == nil || string(fields[key]) == "null" {
+				return h, Config{}, fmt.Errorf("missing or null Llama 3 RoPE field %q", key)
+			}
+		}
+		d := json.NewDecoder(bytes.NewReader(raw["rope_scaling"]))
+		d.DisallowUnknownFields()
+		if err := d.Decode(h.RoPE); err != nil {
+			return h, Config{}, err
+		}
+		r := h.RoPE
+		if h.ModelType != "llama" || r.Type != "llama3" || !finite(float64(r.Factor)) || !finite(float64(r.Low)) || !finite(float64(r.High)) || r.Factor < 1 || r.Factor > 1e6 || r.Low < 1e-6 || r.High <= r.Low || float32(r.High) <= float32(r.Low) || r.High > 1e6 || r.Original < 1 || r.Original > 131072 || r.Original > h.Context {
+			return h, Config{}, errors.New("unsupported or invalid Llama 3 RoPE scaling")
+		}
+	}
 	arch := map[string]string{"llama": "LlamaForCausalLM", "qwen2": "Qwen2ForCausalLM"}[h.ModelType]
 	if arch == "" || len(h.Architectures) != 1 || h.Architectures[0] != arch || h.Act != "silu" || h.AttentionBias || h.MLPBias || h.Interleaved || h.Dropout != 0 || (h.TP != 0 && h.TP != 1) || h.Sliding {
-		return h, Config{}, errors.New("unsupported HF profile: require Llama or Qwen2, SiLU, unscaled half-split RoPE and full causal attention")
+		return h, Config{}, errors.New("unsupported HF profile: require Llama or Qwen2, SiLU, supported half-split RoPE and full causal attention")
 	}
 	if len(h.LayerTypes) != 0 && len(h.LayerTypes) != h.Layers {
 		return h, Config{}, errors.New("HF layer_types count mismatch")
@@ -438,6 +481,7 @@ type HFPlan struct {
 	Format                  string         `json:"format"`
 	ModelType               string         `json:"model_type"`
 	TiedEmbeddings          bool           `json:"tied_embeddings"`
+	RoPEScaling             *hfLlama3RoPE  `json:"rope_scaling,omitempty"`
 	Config                  Config         `json:"config"`
 	Parameters              int64          `json:"parameters"`
 	WeightBytes             int64          `json:"weight_bytes"`
@@ -562,6 +606,7 @@ func openHFArchiveFormat(dir string, contextLimit int, weightBudget int64, forma
 	}()
 	a.Plan = HFPlan{Format: "monolith-hf-plan-v1", ModelType: h.ModelType, TiedEmbeddings: h.Tied, Config: c, Parameters: parameters, WeightBytes: parameters * 4, RopeBytes: int64(c.Context) * (int64(c.Dim) / int64(c.Heads)) * 4, KVBytesPerToken: int64(c.Layers*c.KVDim()) * 8, ConversionBufferBytes: 64 << 10, DTypes: map[string]int{}}
 	a.Plan.WeightBytes, a.Plan.WeightFormat, a.Plan.FP32WeightBytes = storage, format, parameters*4
+	a.Plan.RoPEScaling = h.RoPE
 	a.Plan.QuantizedParameters, a.Plan.ScaleBytes = quantized, scales
 	a.Plan.Q8Parameters, a.Plan.Q4Parameters = layout.q8, layout.q4
 	if format != "f32" {
@@ -3604,6 +3649,26 @@ func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model,
 	return loadHFModelFormat(ctx, dir, limit, mib, "f32")
 }
 
+// Preserve Transformers' Python scalar arithmetic before each FP32 tensor
+// conversion. Early rounding of close thresholds can materially change RoPE.
+func hfInverseFrequency(theta float64, headDim, index int, scaling *hfLlama3RoPE) float32 {
+	inv := float32(1) / float32(math.Pow(theta, float64(float32(2*index)/float32(headDim))))
+	if scaling == nil {
+		return inv
+	}
+	wave := float32(2*math.Pi) / inv
+	lowWave, highWave := float32(float64(scaling.Original)/scaling.Low), float32(float64(scaling.Original)/scaling.High)
+	factor := float32(scaling.Factor)
+	if wave > lowWave {
+		return inv / factor
+	}
+	if wave >= highWave {
+		smooth := (float32(scaling.Original)/wave - float32(scaling.Low)) / float32(scaling.High-scaling.Low)
+		return (1-smooth)*inv/factor + smooth*inv
+	}
+	return inv
+}
+
 func loadHFModelFormat(ctx context.Context, dir string, limit int, mib int64, format string) (*Model, HFPlan, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, HFPlan{}, err
@@ -3635,11 +3700,11 @@ func loadHFModelFormat(ctx context.Context, dir string, limit int, mib int64, fo
 	if !a.Config.Tied {
 		m.output = makeExtra("output", m.Config.Vocab, m.Config.Dim)
 	}
-	// HF computes default RoPE frequencies and position products in FP32.
+	// HF computes RoPE frequencies, optional Llama 3 scaling, and position products in FP32.
 	hd := m.Config.Dim / m.Config.Heads
 	for pos := 0; pos < m.Config.Context; pos++ {
 		for j := 0; j < hd/2; j++ {
-			inv := float32(1) / float32(math.Pow(m.Config.RopeTheta, float64(float32(2*j)/float32(hd))))
+			inv := hfInverseFrequency(m.Config.RopeTheta, hd, j, a.Config.RoPE)
 			angle := float64(float32(pos) * inv)
 			m.Cos[pos*hd/2+j] = float32(math.Cos(angle))
 			m.Sin[pos*hd/2+j] = float32(math.Sin(angle))

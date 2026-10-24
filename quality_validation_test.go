@@ -136,6 +136,41 @@ type qualityHeader struct {
 	Rows      int    `json:"rows"`
 }
 
+// External IDs support numerical experiments before a Go text tokenizer exists.
+// They never enable the production text/HTTP entry points for that profile.
+type qualityTokenInputs struct {
+	Format       string  `json:"format"`
+	Source       string  `json:"source"`
+	Corpus       string  `json:"corpus_sha256"`
+	TokenizerSHA string  `json:"tokenizer_sha256"`
+	Version      string  `json:"tokenizers_version"`
+	Documents    [][]int `json:"document_ids"`
+	Prompts      [][]int `json:"prompt_ids"`
+}
+
+func (q *qualityTokenInputs) validate(source, corpus string, documents, prompts, steps, vocab int) error {
+	if q.Format != "monolith-quality-tokens-v1" || q.Source != source || q.Corpus != corpus || len(q.Documents) != documents || len(q.Prompts) != prompts || len(q.TokenizerSHA) != 64 || q.Version == "" {
+		return fmt.Errorf("external token input identity/count mismatch")
+	}
+	for group, rows := range [][][]int{q.Documents, q.Prompts} {
+		for _, row := range rows {
+			lower, upper := 4+steps, 128
+			if group == 1 {
+				lower, upper = 1, 112
+			}
+			if len(row) < lower || len(row) > upper {
+				return fmt.Errorf("external token input length")
+			}
+			for _, id := range row {
+				if id < 0 || id >= vocab {
+					return fmt.Errorf("external token ID out of range")
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func TestHFQualityProbe(t *testing.T) {
 	dir := os.Getenv("MONOLITH_QUALITY_MODEL")
 	if dir == "" {
@@ -173,13 +208,25 @@ func TestHFQualityProbe(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 	start := time.Now()
-	m, plan, err := loadHFModelFormat(ctx, dir, 128, 8192, format)
+	m, plan, err := loadHFModelFormat(ctx, dir, 128, int64(number("MONOLITH_QUALITY_WEIGHT_MIB", 8192, 16384)), format)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tok, err := loadHFTokenizer(dir, *m.hf)
-	if err != nil {
-		t.Fatal(err)
+	var tok *hfTokenizer
+	var external *qualityTokenInputs
+	if path := os.Getenv("MONOLITH_QUALITY_TOKEN_INPUTS"); path != "" {
+		external = new(qualityTokenInputs)
+		if err := readStrictBoundedJSON(path, 1<<20, external); err != nil {
+			t.Fatal(err)
+		}
+		if err := external.validate(source, hex.EncodeToString(corpusHash[:]), len(corpus.Documents), len(corpus.Prompts), steps, m.Config.Vocab); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		tok, err = loadHFTokenizer(dir, *m.hf)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	loadSeconds := time.Since(start).Seconds()
 	const prefix = 4
@@ -188,7 +235,11 @@ func TestHFQualityProbe(t *testing.T) {
 	caches := make([]*KVCache, docs)
 	chunks := make([][]int, docs)
 	for i := 0; i < docs; i++ {
-		ids[i], err = tok.encodePrompt(ctx, corpus.Documents[i].Text, 128)
+		if external != nil {
+			ids[i] = external.Documents[i]
+		} else {
+			ids[i], err = tok.encodePrompt(ctx, corpus.Documents[i].Text, 128)
+		}
 		if err != nil || len(ids[i]) < prefix+steps {
 			t.Fatal("document too short/long", i, err)
 		}
@@ -319,8 +370,14 @@ func TestHFQualityProbe(t *testing.T) {
 		}
 	}
 	var completions []Completion
-	for _, prompt := range corpus.Prompts {
-		p, err := tok.encodePrompt(ctx, prompt, 112)
+	for i, prompt := range corpus.Prompts {
+		var p []int
+		var err error
+		if external != nil {
+			p = external.Prompts[i]
+		} else {
+			p, err = tok.encodePrompt(ctx, prompt, 112)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -328,7 +385,11 @@ func TestHFQualityProbe(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		completions = append(completions, completion(tok, r.TokenIDs, len(p), r.FinishReason))
+		if tok != nil {
+			completions = append(completions, completion(tok, r.TokenIDs, len(p), r.FinishReason))
+		} else {
+			completions = append(completions, Completion{TokenIDs: r.TokenIDs, PromptTokens: len(p), CompletionTokens: len(r.TokenIDs), FinishReason: r.FinishReason})
+		}
 	}
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
@@ -345,6 +406,10 @@ func TestHFQualityProbe(t *testing.T) {
 	}
 	sourceHash := sha256.Sum256(sourceBytes)
 	result := map[string]any{"format": "monolith-quant-quality-v1", "source": source, "source_sha256": hex.EncodeToString(sourceHash[:]), "reference": header, "reference_vectors_sha256": hex.EncodeToString(vectorHash.Sum(nil)), "plan": plan, "scored_tokens": len(rows), "mean_nll": nllSum / float64(len(rows)), "perplexity": math.Exp(nllSum / float64(len(rows))), "mean_kl": klSum / float64(len(rows)), "top1_matches": matches, "rows": rows, "generation_prompts": corpus.Prompts, "completions": completions, "load_seconds": loadSeconds, "score_seconds": forwardSeconds, "post_probe_rss_bytes": rssBytes, "heap_alloc_bytes": memory.HeapAlloc, "rss_method": "one ps observation after scoring/generation; not peak", "threads": runtime.GOMAXPROCS(0), "kernel_workers": 4}
+	if external != nil {
+		result["external_token_inputs"] = external
+		result["text_decoding"] = "not performed by Go; token-ID inference only"
+	}
 	b, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		t.Fatal(err)

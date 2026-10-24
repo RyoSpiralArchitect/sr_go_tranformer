@@ -126,7 +126,8 @@ vectors remain local; their headers bind model revision, corpus hash, tokenized
 inputs, vocabulary, format and row count. The runner rejects different vectors
 or changed source files. Receipts include file hashes, binary/build inputs,
 source/corpus/script hashes, Go version, per-position loss/KL, memory plan and
-raw continuations. The loader budget is 8 GiB, context 128, GOMAXPROCS and kernel
+raw continuations. The default weight budget is 8 GiB (`--weight-mib` may raise
+it to at most 16 GiB), context 128, GOMAXPROCS and kernel
 workers 4, at most six documents and 32 steps. The 96-token probes use six
 batched sessions; continuation samples run separately.
 
@@ -136,3 +137,7 @@ not peak memory. Ordinary CI skips pretrained probes and runs the tiny synthetic
 mixed-format loader, budget, numerical, worker, source/offline and engine tests,
 plus analytical metric tests. No pretrained weights or reference vectors are
 checked in.
+
+For the larger model with externally prepared token IDs, see
+[the Llama 3.2 3B trial](LLAMA3_INFERENCE.md). External IDs do not enable a
+production Go text tokenizer for that profile.

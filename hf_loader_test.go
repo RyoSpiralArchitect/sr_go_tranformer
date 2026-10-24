@@ -118,7 +118,7 @@ func TestHFRejectMetadata(t *testing.T) {
 		{"untied", func(c map[string]any) { c["tie_word_embeddings"] = false }},
 		{"bias", func(c map[string]any) { c["attention_bias"] = true }},
 		{"scaled rope", func(c map[string]any) { c["rope_scaling"] = map[string]any{"type": "linear", "factor": 2} }},
-		{"unknown compute", func(c map[string]any) { c["head_dim"] = 4 }},
+		{"head dimension mismatch", func(c map[string]any) { c["head_dim"] = 8 }},
 		{"bad dim", func(c map[string]any) { c["hidden_size"] = math.MaxInt64 }},
 		{"bad special", func(c map[string]any) { c["eos_token_id"] = nil }},
 		{"missing special", func(c map[string]any) { delete(c, "bos_token_id") }},
