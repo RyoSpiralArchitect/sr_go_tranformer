@@ -175,6 +175,8 @@ For multiline input, use `-prompt-file path/to/prompt.txt` or read stdin with
 `-prompt-file -`. Message arrays also support stdin with `-messages -`.
 Files must be regular files; input is limited to 1 MiB. These sources cannot
 be combined with `-prompt` or with each other.
+Named pipes are rejected before opening; use `-` for an explicitly selected
+stream instead.
 
 ```sh
 printf '%s\n' 'Goの並行処理を一文で説明して。' | \
@@ -198,6 +200,10 @@ Enter one user message per line. Replies stream to stdout; prompts and status
 go to stderr. Blank lines are ignored. `/reset` clears conversation history
 while preserving the system message; `/exit`, `/quit` or EOF exits.
 Ctrl+C cancels an active reply or an idle input wait and exits with status 1.
+Cancellation also releases the engine when stdout or stderr stops accepting
+output. Each output uses one pump with at most one 64 KiB chunk in flight; an
+uninterruptible OS write may remain until its receiver resumes or the process
+exits, without holding an inference session open.
 For multiline single requests, use `generate -prompt-file`.
 
 Weights and the engine's fixed worker set are loaded once. Each turn formats

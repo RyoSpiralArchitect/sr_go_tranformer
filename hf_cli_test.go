@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -230,6 +231,137 @@ func TestChatIdleStdinInterrupt(t *testing.T) {
 type chatBrokenWriter struct{}
 
 func (chatBrokenWriter) Write(b []byte) (int, error) { return 0, io.ErrClosedPipe }
+
+// The reader stays open without consuming data until after the caller returns.
+// This exercises an actual blocked Write, not an immediately broken pipe.
+type stalledCLIWriter struct {
+	writer  *io.PipeWriter
+	started chan struct{}
+	once    sync.Once
+	match   string
+}
+
+func (w *stalledCLIWriter) Write(p []byte) (int, error) {
+	if w.match != "" && !bytes.Contains(p, []byte(w.match)) {
+		return len(p), nil
+	}
+	w.once.Do(func() { close(w.started) })
+	return w.writer.Write(p)
+}
+
+func TestChatBlockedOutputCancellation(t *testing.T) {
+	for _, target := range []string{"output", "ready status", "assistant status"} {
+		t.Run(target, func(t *testing.T) {
+			tok := testHFTokenizer(t, "testdata/hf-tokenizer")
+			m := hfServingModel(t, tok, -1)
+			e, err := NewEngine(m, tok, EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: 2 << 20, KernelWorkers: 2})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer e.Close()
+			reader, writer := io.Pipe()
+			defer reader.Close()
+			defer writer.Close()
+			blocked := &stalledCLIWriter{writer: writer, started: make(chan struct{})}
+			var out, status io.Writer = blocked, io.Discard
+			if target != "output" {
+				out, status = io.Discard, blocked
+				if target == "assistant status" {
+					blocked.match = "assistant>"
+				}
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s := defaultSampling()
+			s.MaxTokens, s.Temperature, s.RepeatPenalty = 1, 0, 1
+			done := make(chan error, 1)
+			go func() { done <- chatLoop(ctx, e, tok, "", s, strings.NewReader("Hello\n"), out, status) }()
+			select {
+			case <-blocked.started:
+			case <-time.After(3 * time.Second):
+				t.Fatal("did not attempt output")
+			}
+			cancel()
+			select {
+			case err := <-done:
+				if !errors.Is(err, context.Canceled) {
+					t.Fatal(err)
+				}
+			case <-time.After(time.Second):
+				_ = reader.Close()
+				<-done
+				t.Fatal("cancellation waited for the output reader")
+			}
+			stats := e.Stats()
+			if stats.AdmissionUsed != 0 || stats.KVReservedBytes != 0 {
+				t.Fatal("blocked output retained a session", stats)
+			}
+		})
+	}
+}
+
+func TestCLIInputRejectsFIFO(t *testing.T) {
+	if runtime.GOOS == "windows" || runtime.GOOS == "plan9" {
+		t.Skip("requires POSIX FIFO")
+	}
+	path := filepath.Join(t.TempDir(), "prompt.fifo")
+	if out, err := exec.Command("mkfifo", path).CombinedOutput(); err != nil {
+		t.Fatalf("mkfifo: %v %s", err, out)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := readCLIInput(context.Background(), path, strings.NewReader("unused"))
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil || !strings.Contains(err.Error(), "regular file") {
+			t.Fatal("FIFO must be rejected", err)
+		}
+	case <-time.After(time.Second):
+		// Unblock the old implementation so a regression fails without leaking.
+		f, err := os.OpenFile(path, os.O_RDWR, 0600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = f.Close()
+		<-done
+		t.Fatal("opening a FIFO waited for a writer before checking its type")
+	}
+}
+
+func TestCLIOutputCancellationOwnsBuffer(t *testing.T) {
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	defer writer.Close()
+	blocked := &stalledCLIWriter{writer: writer, started: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	out, closeOutput := cliOutput(ctx, blocked)
+	defer closeOutput()
+	data := []byte("before")
+	done := make(chan error, 1)
+	go func() { _, err := out.Write(data); done <- err }()
+	select {
+	case <-blocked.started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("did not attempt output")
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("output did not cancel")
+	}
+	copy(data, "after!")
+	got := make([]byte, len(data))
+	if _, err := io.ReadFull(reader, got); err != nil || string(got) != "before" {
+		t.Fatalf("caller buffer retained after cancellation: %q %v", got, err)
+	}
+}
 
 func TestChatHistoryResetAndRelease(t *testing.T) {
 	tok := testHFTokenizer(t, "testdata/hf-tokenizer")
