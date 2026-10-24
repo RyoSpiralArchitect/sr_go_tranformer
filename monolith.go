@@ -5027,9 +5027,44 @@ func sample(logits []float32, history []int, s Sampling, rng *RNG) (int, error) 
 	return sampleWithBlocked(logits, history, s, rng, BOS)
 }
 func sampleWithBlocked(logits []float32, history []int, s Sampling, rng *RNG, blocked int) (int, error) {
-	seen := make(map[int]bool, len(history))
-	for _, id := range history {
-		seen[id] = true
+	if len(logits) == 0 {
+		return 0, errors.New("empty sampling distribution")
+	}
+	var seen map[int]bool
+	if s.Temperature != 0 || s.RepeatPenalty != 1 {
+		seen = make(map[int]bool, len(history))
+		for _, id := range history {
+			seen[id] = true
+		}
+	}
+	if s.Temperature == 0 {
+		best, bestLogit := -1, float64(0)
+		for id, v := range logits {
+			// Validate even masked logits and logits after the eventual winner.
+			if !finite(float64(v)) {
+				return 0, errors.New("nonfinite sampling logit")
+			}
+			if id == blocked {
+				continue
+			}
+			x := float64(v)
+			if seen[id] {
+				if x > 0 {
+					x /= s.RepeatPenalty
+				} else {
+					x *= s.RepeatPenalty
+				}
+			}
+			// Ascending IDs and strict comparison preserve the sorter's tie rule,
+			// including signed zero. Greedy sampling never consumes RNG state.
+			if best < 0 || x > bestLogit {
+				best, bestLogit = id, x
+			}
+		}
+		if best < 0 {
+			return 0, errors.New("empty sampling distribution")
+		}
+		return best, nil
 	}
 	cs := make([]candidate, 0, len(logits)-1)
 	for id, v := range logits {
@@ -5058,9 +5093,6 @@ func sampleWithBlocked(logits []float32, history []int, s Sampling, rng *RNG, bl
 		}
 		return cs[i].Logit > cs[j].Logit
 	})
-	if s.Temperature == 0 {
-		return cs[0].ID, nil
-	}
 	if s.TopK > 0 && s.TopK < len(cs) {
 		cs = cs[:s.TopK]
 	}

@@ -1,0 +1,54 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkGreedySampling/vocab258/penalty1.0/sorted-4         	   22857	     16042 ns/op	   29704 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.0/sorted-4         	   23613	     15277 ns/op	   29704 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.0/sorted-4         	   23989	     14851 ns/op	   29704 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.0/scan-4           	  407922	       881.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.0/scan-4           	  421023	       867.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.0/scan-4           	  416720	       859.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.1/sorted-4         	   25293	     14395 ns/op	   29704 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.1/sorted-4         	   25098	     14493 ns/op	   29704 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.1/sorted-4         	   24756	     14883 ns/op	   29704 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.1/scan-4           	  107869	      3356 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.1/scan-4           	  107536	      3319 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab258/penalty1.1/scan-4           	  109995	      3301 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.0/sorted-4       	      58	   6084047 ns/op	 2672008 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.0/sorted-4       	      60	   5995443 ns/op	 2672013 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.0/sorted-4       	      61	   5987821 ns/op	 2672020 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.0/scan-4         	    2124	    167527 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.0/scan-4         	    2203	    165804 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.0/scan-4         	    2155	    165345 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.1/sorted-4       	      58	   5987691 ns/op	 2672025 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.1/sorted-4       	      60	   6145635 ns/op	 2672009 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.1/sorted-4       	      57	   6098122 ns/op	 2672011 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.1/scan-4         	    1304	    273559 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.1/scan-4         	    1315	    272376 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab49152/penalty1.1/scan-4         	    1328	    272971 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.0/sorted-4       	      58	   6214566 ns/op	 2737553 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.0/sorted-4       	      57	   6148121 ns/op	 2737559 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.0/sorted-4       	      57	   6151703 ns/op	 2737555 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.0/scan-4         	    2139	    168320 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.0/scan-4         	    2132	    172712 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.0/scan-4         	    1912	    176624 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.1/sorted-4       	      57	   6238102 ns/op	 2737553 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.1/sorted-4       	      57	   6281113 ns/op	 2737551 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.1/sorted-4       	      58	   6214290 ns/op	 2737545 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.1/scan-4         	    1231	    279335 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.1/scan-4         	    1294	    279391 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab50257/penalty1.1/scan-4         	    1292	    282736 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.0/sorted-4      	      16	  20341258 ns/op	 8226191 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.0/sorted-4      	      16	  20470786 ns/op	 8226184 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.0/sorted-4      	      16	  20636622 ns/op	 8226184 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.0/scan-4        	     692	    510559 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.0/scan-4        	     711	    511566 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.0/scan-4        	     691	    511720 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.1/sorted-4      	      16	  20576901 ns/op	 8226184 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.1/sorted-4      	      16	  20528497 ns/op	 8226191 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.1/sorted-4      	      16	  20495000 ns/op	 8226191 B/op	       8 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.1/scan-4        	     432	    827262 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.1/scan-4        	     432	    830217 ns/op	    9512 B/op	       3 allocs/op
+BenchmarkGreedySampling/vocab151936/penalty1.1/scan-4        	     434	    820141 ns/op	    9512 B/op	       3 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	19.575s
