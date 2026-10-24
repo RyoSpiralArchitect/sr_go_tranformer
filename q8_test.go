@@ -169,7 +169,7 @@ func TestLowBitExtremeFiniteHFModel(t *testing.T) {
 	}
 	hfWriteShard(t, filepath.Join(dir, "model.safetensors"), header, data)
 	var reference []float32
-	for _, format := range []string{"f32", "q8", "q4"} {
+	for _, format := range []string{"f32", "q8", "q4", "q4-mixed"} {
 		m, _, err := loadHFModelFormat(context.Background(), dir, 32, 1, format)
 		if err != nil {
 			t.Fatal(err)
@@ -192,7 +192,7 @@ func TestLowBitExtremeFiniteHFModel(t *testing.T) {
 }
 
 func TestLowBitLoaderStorageAndReconstructedModel(t *testing.T) {
-	for _, format := range []string{"q8", "q4"} {
+	for _, format := range []string{"q8", "q4", "q4-mixed"} {
 		t.Run(format, func(t *testing.T) {
 			for _, profile := range []string{"hf-llama/f32", "hf-llama/f16", "hf-llama/bf16", "hf-llama/untied-f32",
 				"hf-qwen2/f32", "hf-qwen2/f16", "hf-qwen2/untied-bf16", "hf-gpt2/legacy-f32", "hf-gpt2/f16", "hf-gpt2/bf16"} {
@@ -224,7 +224,7 @@ func TestLowBitLoaderStorageAndReconstructedModel(t *testing.T) {
 							t.Fatal("full FP32 copy retained")
 						}
 						expected := quantizeTestParam(t, ref)
-						if format == "q4" {
+						if p.Q4 != nil {
 							expected = quantizeQ4TestParam(t, ref)
 						}
 						if !reflect.DeepEqual(p.Q8, expected.Q8) || !reflect.DeepEqual(p.Q4, expected.Q4) {
@@ -291,7 +291,7 @@ func TestLowBitLoaderStorageAndReconstructedModel(t *testing.T) {
 }
 
 func TestLowBitLoadCancellationAndInvalidWeights(t *testing.T) {
-	for _, format := range []string{"q8", "q4"} {
+	for _, format := range []string{"q8", "q4", "q4-mixed"} {
 		t.Run(format, func(t *testing.T) {
 			for _, sharded := range []bool{false, true} {
 				dir, _, _ := hfFixture(t, sharded)
@@ -334,7 +334,7 @@ func TestLowBitLoadCancellationAndInvalidWeights(t *testing.T) {
 }
 
 func TestLowBitLargeModelPlanBeforeAllocation(t *testing.T) {
-	for _, format := range []string{"q8", "q4"} {
+	for _, format := range []string{"q8", "q4", "q4-mixed"} {
 		t.Run(format, func(t *testing.T) {
 			h := hfTestConfig()
 			h.ModelType, h.Architectures = "qwen2", []string{"Qwen2ForCausalLM"}

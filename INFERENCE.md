@@ -86,6 +86,8 @@ shrink. Offline verification works with either format. See
 [Q8 inference](Q8_INFERENCE.md) for memory planning and measurements.
 `-weight-format q4` selects a more aggressive experimental format; see
 [Q4 inference](Q4_INFERENCE.md) for its layout and output degradation.
+`-weight-format q4-mixed` protects embeddings/output heads with Q8; see
+[mixed-format quality measurements](QUALITY_INFERENCE.md) and reproduction.
 
 ## Remote execution without downloading weights
 

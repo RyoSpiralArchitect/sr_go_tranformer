@@ -1,0 +1,11 @@
+{
+  "format": "monolith-quality-environment-v1",
+  "platform": "Darwin/arm64",
+  "cpu": "Apple M4",
+  "physical_memory_bytes": 25769803776,
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "base_commit": "65a0bc97fe99c9ebc792872e92dfdb5376ea3a4b",
+  "source_sha256": "123c26765f2989e5ab2d2d4873ff29cfe12b2025f81656c0c262fc6f474f82e5",
+  "binary_sha256": "488a1dc0cd0c44bdeb815d2248b6ccd4c59e63e65f58f687010ceef7c333f694",
+  "note": "Numerical drift/loss probes, not throughput benchmarks; post-probe RSS is a single observation, not peak; desktop activity and file cache uncontrolled."
+}

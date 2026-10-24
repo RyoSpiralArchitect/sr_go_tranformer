@@ -1,0 +1,120 @@
+{
+  "selection_prompts": [
+    "The morning train arrived at the station",
+    "To calculate the area of a rectangle, multiply",
+    "When the program finishes reading a file, it should",
+    "Water freezes when its temperature falls below"
+  ],
+  "results": [
+    {
+      "policy": "q4",
+      "weight_bytes": 73117872,
+      "kl": [
+        3.435468143696642,
+        2.6191074876564846,
+        4.423194462421649,
+        4.315140194184144
+      ],
+      "text": [
+        ". The train's occupants, a couple",
+        " the cube's cube's cube's cube",
+        " be a Unicode Unicode Unicode Unicode Unicode Unicode",
+        " a temp. The temp. and the"
+      ]
+    },
+    {
+      "policy": "q8-embedding",
+      "weight_bytes": 92416560,
+      "kl": [
+        0.13586238586864818,
+        0.060945332501816045,
+        0.07184159911602667,
+        0.06214674422894594
+      ],
+      "text": [
+        " at 8:30 a.m.,",
+        " the area of a rectangle by the area",
+        " be able to read the file.\n",
+        " freezing.\n\nThe temperature of the"
+      ]
+    },
+    {
+      "policy": "q8-attention",
+      "weight_bytes": 87273648,
+      "kl": [
+        3.355922681843075,
+        2.469250715168589,
+        4.374582287009347,
+        4.356207425280328
+      ],
+      "text": [
+        ". The train's occupants, a couple",
+        " the cube's cube's cube's cube",
+        " be a Unicode Unicode Unicode Unicode Unicode Unicode",
+        " a temp. The temp. and the"
+      ]
+    },
+    {
+      "policy": "q8-mlp",
+      "weight_bytes": 101429424,
+      "kl": [
+        3.1569939172950803,
+        2.620235209482634,
+        4.847946009542481,
+        4.148477050717859
+      ],
+      "text": [
+        ". The train's occupants, a couple",
+        " the cube's cube's cube's cube",
+        " launch a command. The command's parameters",
+        " a temp. The temp. and the"
+      ]
+    },
+    {
+      "policy": "q8-embedding-attention",
+      "weight_bytes": 106572336,
+      "kl": [
+        0.07874338014517712,
+        0.043293737346213314,
+        0.06404351891429023,
+        0.07782122528678168
+      ],
+      "text": [
+        ".\n\n\"I was in the",
+        " the area by the area of the rectangle",
+        " be able to read the file.\n",
+        " freezing.\n\nThe temperature of the"
+      ]
+    },
+    {
+      "policy": "q8",
+      "weight_bytes": 134883888,
+      "kl": [
+        0.021125001459756636,
+        0.014295169309745765,
+        0.018108923704423675,
+        0.02096810035415278
+      ],
+      "text": [
+        ", and the driver was taken to hospital",
+        " the area of the rectangle by the area",
+        " be able to read the file in the",
+        " freezing.\n\nThe ice is also"
+      ]
+    }
+  ],
+  "format": "monolith-quality-selection-v1",
+  "model": "openai-community/gpt2",
+  "revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+  "files": {
+    "config.json": "0daed7749b4f02b8f76240d5444551d7b08712dab4d0adb8239c56ba823bb7b4",
+    "tokenizer.json": "8414cab924d8b9b33013f0d221c5862f365ee9be39c5c2bfae8a5a9e970478a6",
+    "tokenizer_config.json": "5e04eb606e3a1583530a42e36c2a6b6615c86f34fe77e44d9ddeb43ff940931f",
+    "model.safetensors": "248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a707"
+  },
+  "source_sha256": "123c26765f2989e5ab2d2d4873ff29cfe12b2025f81656c0c262fc6f474f82e5",
+  "selection_source_sha256": "2d1415546a446a3351565b76077195193112bea163daa0a17bee1c510211994f",
+  "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
+  "reference_format": "f32",
+  "note": "Four policy-selection prefixes only; evaluation documents are held out."
+}

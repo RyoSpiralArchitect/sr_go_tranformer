@@ -5,6 +5,8 @@ and computes with FP32 activations. It is opt-in; `f32` remains the default.
 The same local CLI, chat and serving engine work with either format.
 For more aggressive compression, see [experimental Q4](Q4_INFERENCE.md);
 its output drift can be substantially greater.
+[Mixed Q4/Q8](QUALITY_INFERENCE.md) retains Q8 embeddings/output heads with Q4
+projections and includes held-out next-token loss/distribution measurements.
 
 ```sh
 go run . infer local -repo openai-community/gpt2 \

@@ -1,0 +1,22 @@
+{
+  "format": "monolith-quantization-corpus-v1",
+  "purpose": "Small, original English passages for held-out next-token loss and distribution drift; not a general capability benchmark.",
+  "selection_prompts": [
+    "The morning train arrived at the station",
+    "To calculate the area of a rectangle, multiply",
+    "When the program finishes reading a file, it should",
+    "Water freezes when its temperature falls below"
+  ],
+  "evaluation_documents": [
+    {"id": "library", "text": "The librarian placed a small green notebook beside the window. Inside it, visitors could write the title of a book they wanted to read. By Friday, every page contained a different suggestion."},
+    {"id": "garden", "text": "A narrow path divided the garden into two sections. One side held vegetables, while the other was filled with flowers. Each evening, a neighbor watered the plants and checked the soil."},
+    {"id": "bicycle", "text": "Before leaving for the village, Maya checked both tires on her bicycle. She packed a map, a bottle of water, and a light jacket. The road followed the river for several miles."},
+    {"id": "kitchen", "text": "The recipe called for flour, milk, and three eggs. After mixing the ingredients, the cook poured the batter into a shallow pan. A warm breakfast soon filled the kitchen with a pleasant smell."},
+    {"id": "stars", "text": "Beyond the city lights, the night sky looked unusually clear. A group of friends brought a telescope to the hillside. They took turns looking at the moon and writing down their observations."},
+    {"id": "workshop", "text": "In the workshop, a wooden box held screws of several sizes. The carpenter sorted them into separate trays before starting the repair. This small preparation made the rest of the work much easier."}
+  ],
+  "generation_prompts": [
+    "The capital of France is",
+    "Once upon a time, a small cat"
+  ]
+}

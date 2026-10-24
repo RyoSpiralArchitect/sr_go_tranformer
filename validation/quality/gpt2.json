@@ -1,0 +1,3923 @@
+{
+  "format": "monolith-quant-quality-suite-v1",
+  "model": "openai-community/gpt2",
+  "revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+  "files": {
+    "config.json": "0daed7749b4f02b8f76240d5444551d7b08712dab4d0adb8239c56ba823bb7b4",
+    "tokenizer.json": "8414cab924d8b9b33013f0d221c5862f365ee9be39c5c2bfae8a5a9e970478a6",
+    "tokenizer_config.json": "5e04eb606e3a1583530a42e36c2a6b6615c86f34fe77e44d9ddeb43ff940931f",
+    "model.safetensors": "248dfc3911869ec493c76e65bf2fcf7f615828b0254c12b473182f0f81d3a707"
+  },
+  "source_sha256": "123c26765f2989e5ab2d2d4873ff29cfe12b2025f81656c0c262fc6f474f82e5",
+  "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
+  "probe_sha256": "ebc6de43a5aff3c7b90d392dd4df91c4e534e0fd09689ca0e378a3c14264617b",
+  "script_sha256": "a425d88fbc8ae0215b524e7c2681731d944f3593221b2e4afa41a655d3ece76b",
+  "build_inputs_sha256": {
+    "dataset_resume_test.go": "e167048ae26ef923ff4f13b4dc2f21278cd1d413b7838f48123f8a720c022883",
+    "dataset_test.go": "da14c8eeb107317a0f5daaa6a539c27dcc38787f278dee3f516bf1145b9b06f5",
+    "engine_workspace_bench_test.go": "7f785025341568ca0af84a0540fc6f3c4e87d6d6531cb7fb87b8121d07411ed0",
+    "eval_forward_boundary_test.go": "f3c03200a6afb8bc1ce1133227d36cdfc04771438660800a07afe0ad4d8864dc",
+    "eval_forward_cancellation_test.go": "2d725fad345a59c6d1d1146e34b053cc9fcc640fc48d811a66a74b087e724e41",
+    "eval_forward_exact_test.go": "da208e96782368b91d1d5156c69cf39225065b21b6051116b8606d4c7c9e3bbc",
+    "evaluation_test.go": "67cbf938ac0cbc2a85f3ed65083cd88339868e8326ecb1bf0f90173f6a0db909",
+    "hf_cli_test.go": "1572a42c1fac1a79a56eb9dbe6300ab65f69152249b665d588b69872f7bb595e",
+    "hf_gpt2_test.go": "88fe7eeea3950d03bfc98287dd71980cc469aa947ab05062ea00c447abdc08ce",
+    "hf_inference_test.go": "c9216f382b80b774402b58c0b36d3e6a4ffeb25dbe58fb88ad39e7213a222396",
+    "hf_loader_test.go": "b716df1dac4f33794f6bd886578cc2dc733319e5530b5dd306bc8f49d761d17e",
+    "hf_network_test.go": "d8ce6468b0b7e6c8c21275576b09f37d87633afe2523354a5f1d3becbc3684af",
+    "hf_offline_test.go": "e8117b69af4e180b56df32ce24f35e9e8314b4fcb78a43df3cce291f127305a1",
+    "hf_profiles_test.go": "39bf705325d4b8072e83f1cde4eff704484ad896513eba97ed3c031fd8b01871",
+    "hf_serving_test.go": "8460d7add35514aac4afd8aaca6732e752736f58f5930fd1b0b51afdd7d7c4a6",
+    "hf_tokenizer_test.go": "5adf2f2b23b4cc89e41f92dcb6611ac35e793bc2a4d71f2459040f868207c3e6",
+    "inference_workers_test.go": "1eea46c49be2e903ee23bed534650d9c3cd7b2695f39b366980fc758c7ee6767",
+    "inference_workspace_test.go": "7326d505ece66e26b5c70aa0177ab29d7f847450a8ff22eacfc97a31932cb9f1",
+    "linear_backward_test.go": "a4b182071d01432b08c89638cbfb6499dace93258b9b05263bf7842dfbb0ee4c",
+    "memory_plan_test.go": "3810d72e03a1d9876014a06cb934849b6bb531ffaa8f68dac7608fb66fb432a8",
+    "monolith.go": "123c26765f2989e5ab2d2d4873ff29cfe12b2025f81656c0c262fc6f474f82e5",
+    "monolith_test.go": "746ecd6ffee1fc16f80e9dd55a1a2b232a0f9af872dab75c78a1c460a81cf4ae",
+    "prefetch_data_test.go": "fd57e6548e7820a9a93c8c861c2474ab38947c88675ff4f7ed21597a08e967eb",
+    "prefill_test.go": "37be39c92f72fa9d781b47e2f9aa37796c17ab53545490b585b70f2b9a9b7451",
+    "q4_test.go": "1734477a96c8ba9b546a8c50ab96eea77a00523b432db9ba3470b3d02a7487cd",
+    "q8_cli_test.go": "d4b17957eea7d13715c6f1cdc4ea9ad6d43a99cbda080d6bc85bbbb8b3ef5bf2",
+    "q8_test.go": "5e51fc435d0ee645c389c5b4aee3dd6b08cf37e6434996f605ba91c7d5100a81",
+    "quality_ablation_test.go": "2d1415546a446a3351565b76077195193112bea163daa0a17bee1c510211994f",
+    "quality_validation_test.go": "71095211a8e8ce0d50d844180fbfbb5808dd7c79e3d5dfd659c7313c37683d70",
+    "sampling_test.go": "aa8c0ad3a0726fd7adc6a5205caea127c3be4264255e8e53cb40d6f5082a19bb",
+    "scheduler_test.go": "7b7c87e87d6982e835365fae79dceb51adafa1d7256c753f7ecc11800d17478d",
+    "serving_lifecycle_test.go": "fe377534d98024d3adf691a7138762584e6fe0fcbeafdef74b6d7fff6fe37be4",
+    "shutdown_test.go": "8a05a02123683292524295d589ba04e2df9e567e98123f45aaa7bbce8f4738f9",
+    "streaming_test.go": "5fb0ec14e8a74b9123285a6999ac7163d619b7dbaa0bda9ebdc4794c690cf4dd",
+    "telemetry_test.go": "e885ecd0842f9cc4f6f3e197105e86727ad1a57230bb83eb9968f8365a6bce6a",
+    "workspace_boundary_test.go": "611ed722449e76819495ec4eed42827a36508bc6bf51abfbcba1544a778d0b74",
+    "workspace_exact_test.go": "cffc0c32ec04f3c1b0c37eccc296e6f1c26c77f80c92e94f5d5eaebc5a5f400f",
+    "workspace_training_test.go": "37fbabd18005fba97628b3b9fa1872b5ee805975d7ed1eb994bb72b2c6ff2ee6",
+    "go.mod": "8fd924c4124c93ce607d506cf677a5462ef233b3a776d0ba26d2a6fb3f498adf",
+    "go.sum": "8a0467c34198969fd6b4a4f0f41acfdaf433dc2a393db612c4d8121a60d1f66f"
+  },
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "host": "Darwin/arm64",
+  "reference_sha256": "a76c04f76b842d3edea07840d72d3ec1a9662dbb515739cfc9ca9a87ec241998",
+  "hf_hub_offline": true,
+  "reference_format": "f32",
+  "steps": 16,
+  "documents": 6,
+  "note": "Original small corpus, held out from policy selection; no general quality or cross-model perplexity claim.",
+  "reports": {
+    "f32": {
+      "completions": [
+        {
+          "text": " the capital of the French Republic, and",
+          "token_ids": [
+            262,
+            3139,
+            286,
+            262,
+            4141,
+            2066,
+            11,
+            290
+          ],
+          "prompt_tokens": 5,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        },
+        {
+          "text": " was found in the woods. The cat",
+          "token_ids": [
+            373,
+            1043,
+            287,
+            262,
+            16479,
+            13,
+            383,
+            3797
+          ],
+          "prompt_tokens": 8,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        }
+      ],
+      "format": "monolith-quant-quality-v1",
+      "generation_prompts": [
+        "The capital of France is",
+        "Once upon a time, a small cat"
+      ],
+      "heap_alloc_bytes": 569839168,
+      "kernel_workers": 4,
+      "load_seconds": 0.531143375,
+      "mean_kl": 0,
+      "mean_nll": 3.7773292950822666,
+      "perplexity": 43.699178140985936,
+      "plan": {
+        "format": "monolith-hf-plan-v1",
+        "model_type": "gpt2",
+        "tied_embeddings": true,
+        "config": {
+          "vocab": 50257,
+          "dim": 768,
+          "hidden": 3072,
+          "layers": 12,
+          "heads": 12,
+          "kv_heads": 12,
+          "context": 128,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "parameters": 124439808,
+        "weight_bytes": 497759232,
+        "weight_format": "f32",
+        "fp32_weight_bytes": 497759232,
+        "rope_bytes": 0,
+        "kv_bytes_per_token": 73728,
+        "full_context_kv_bytes": 9437184,
+        "conversion_buffer_bytes": 65536,
+        "source_bytes": 548105171,
+        "shards": 1,
+        "tensor_dtypes": {
+          "F32": 160
+        }
+      },
+      "post_probe_rss_bytes": 579190784,
+      "reference": {
+        "version": "monolith-quality-logits-v1",
+        "source": "openai-community/gpt2@607a30d783dfa663caf39e06633721c8d4cfcd7e",
+        "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
+        "tokens_sha256": "b40ec47dc40ef0abd4619cb8f360f858caeede225943fbb7a270eb065b3889db",
+        "reference_format": "f32",
+        "vocab": 50257,
+        "rows": 96
+      },
+      "reference_vectors_sha256": "a0eaa96e55bae3afa10db3cfef85745b141f9fad0b9090dc8485b511191e1edc",
+      "rows": [
+        {
+          "document": "library",
+          "position": 4,
+          "target_id": 257,
+          "nll": 1.594096347532016,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "garden",
+          "position": 4,
+          "target_id": 262,
+          "nll": 1.3866851277497716,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 4,
+          "target_id": 7404,
+          "nll": 6.942956453487255,
+          "kl_reference_candidate": 0,
+          "top1_id": 9003,
+          "reference_top1_id": 9003
+        },
+        {
+          "document": "kitchen",
+          "position": 4,
+          "target_id": 10601,
+          "nll": 6.851214595867248,
+          "kl_reference_candidate": 0,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "stars",
+          "position": 4,
+          "target_id": 11,
+          "nll": 0.9502628517651175,
+          "kl_reference_candidate": 0,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "workshop",
+          "position": 4,
+          "target_id": 257,
+          "nll": 3.7638747484125332,
+          "kl_reference_candidate": 0,
+          "top1_id": 314,
+          "reference_top1_id": 314
+        },
+        {
+          "document": "library",
+          "position": 5,
+          "target_id": 1402,
+          "nll": 3.2572348187358955,
+          "kl_reference_candidate": 0,
+          "top1_id": 1021,
+          "reference_top1_id": 1021
+        },
+        {
+          "document": "garden",
+          "position": 5,
+          "target_id": 11376,
+          "nll": 6.647178340175998,
+          "kl_reference_candidate": 0,
+          "top1_id": 1748,
+          "reference_top1_id": 1748
+        },
+        {
+          "document": "bicycle",
+          "position": 5,
+          "target_id": 11,
+          "nll": 0.6163537569544388,
+          "kl_reference_candidate": 0,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "kitchen",
+          "position": 5,
+          "target_id": 11,
+          "nll": 1.1212834126381779,
+          "kl_reference_candidate": 0,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 5,
+          "target_id": 262,
+          "nll": 1.7679979613458698,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "workshop",
+          "position": 5,
+          "target_id": 13510,
+          "nll": 9.084027279243003,
+          "kl_reference_candidate": 0,
+          "top1_id": 1448,
+          "reference_top1_id": 1448
+        },
+        {
+          "document": "library",
+          "position": 6,
+          "target_id": 4077,
+          "nll": 6.778687740044319,
+          "kl_reference_candidate": 0,
+          "top1_id": 1492,
+          "reference_top1_id": 1492
+        },
+        {
+          "document": "garden",
+          "position": 6,
+          "target_id": 656,
+          "nll": 1.99368000747792,
+          "kl_reference_candidate": 0,
+          "top1_id": 656,
+          "reference_top1_id": 656
+        },
+        {
+          "document": "bicycle",
+          "position": 6,
+          "target_id": 26041,
+          "nll": 9.356020800859952,
+          "kl_reference_candidate": 0,
+          "top1_id": 339,
+          "reference_top1_id": 339
+        },
+        {
+          "document": "kitchen",
+          "position": 6,
+          "target_id": 7545,
+          "nll": 4.3887332367092995,
+          "kl_reference_candidate": 0,
+          "top1_id": 475,
+          "reference_top1_id": 475
+        },
+        {
+          "document": "stars",
+          "position": 6,
+          "target_id": 1755,
+          "nll": 6.176707397012507,
+          "kl_reference_candidate": 0,
+          "top1_id": 1748,
+          "reference_top1_id": 1748
+        },
+        {
+          "document": "workshop",
+          "position": 6,
+          "target_id": 3091,
+          "nll": 2.723209919955565,
+          "kl_reference_candidate": 0,
+          "top1_id": 3091,
+          "reference_top1_id": 3091
+        },
+        {
+          "document": "library",
+          "position": 7,
+          "target_id": 20922,
+          "nll": 5.399742148692624,
+          "kl_reference_candidate": 0,
+          "top1_id": 1492,
+          "reference_top1_id": 1492
+        },
+        {
+          "document": "garden",
+          "position": 7,
+          "target_id": 734,
+          "nll": 1.3684928807248724,
+          "kl_reference_candidate": 0,
+          "top1_id": 734,
+          "reference_top1_id": 734
+        },
+        {
+          "document": "bicycle",
+          "position": 7,
+          "target_id": 10667,
+          "nll": 7.286751341672698,
+          "kl_reference_candidate": 0,
+          "top1_id": 531,
+          "reference_top1_id": 531
+        },
+        {
+          "document": "kitchen",
+          "position": 7,
+          "target_id": 11,
+          "nll": 0.4387432662067141,
+          "kl_reference_candidate": 0,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 7,
+          "target_id": 6766,
+          "nll": 1.2063913868781384,
+          "kl_reference_candidate": 0,
+          "top1_id": 6766,
+          "reference_top1_id": 6766
+        },
+        {
+          "document": "workshop",
+          "position": 7,
+          "target_id": 2714,
+          "nll": 5.26206025616014,
+          "kl_reference_candidate": 0,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "library",
+          "position": 8,
+          "target_id": 13970,
+          "nll": 4.34435541212838,
+          "kl_reference_candidate": 0,
+          "top1_id": 319,
+          "reference_top1_id": 319
+        },
+        {
+          "document": "garden",
+          "position": 8,
+          "target_id": 9004,
+          "nll": 3.0638422043287505,
+          "kl_reference_candidate": 0,
+          "top1_id": 37192,
+          "reference_top1_id": 37192
+        },
+        {
+          "document": "bicycle",
+          "position": 8,
+          "target_id": 1111,
+          "nll": 7.830155101586897,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "kitchen",
+          "position": 8,
+          "target_id": 290,
+          "nll": 2.004375308875481,
+          "kl_reference_candidate": 0,
+          "top1_id": 7543,
+          "reference_top1_id": 7543
+        },
+        {
+          "document": "stars",
+          "position": 8,
+          "target_id": 3114,
+          "nll": 5.957473617652482,
+          "kl_reference_candidate": 0,
+          "top1_id": 318,
+          "reference_top1_id": 318
+        },
+        {
+          "document": "workshop",
+          "position": 8,
+          "target_id": 23742,
+          "nll": 10.482321542647043,
+          "kl_reference_candidate": 0,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "library",
+          "position": 9,
+          "target_id": 262,
+          "nll": 1.0587394640587888,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "garden",
+          "position": 9,
+          "target_id": 13,
+          "nll": 1.5590394241769303,
+          "kl_reference_candidate": 0,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "bicycle",
+          "position": 9,
+          "target_id": 17920,
+          "nll": 6.987435528522795,
+          "kl_reference_candidate": 0,
+          "top1_id": 607,
+          "reference_top1_id": 607
+        },
+        {
+          "document": "kitchen",
+          "position": 9,
+          "target_id": 1115,
+          "nll": 7.493700637175053,
+          "kl_reference_candidate": 0,
+          "top1_id": 7543,
+          "reference_top1_id": 7543
+        },
+        {
+          "document": "stars",
+          "position": 9,
+          "target_id": 23708,
+          "nll": 7.616048479723588,
+          "kl_reference_candidate": 0,
+          "top1_id": 588,
+          "reference_top1_id": 588
+        },
+        {
+          "document": "workshop",
+          "position": 9,
+          "target_id": 286,
+          "nll": 5.294936810792322,
+          "kl_reference_candidate": 0,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "library",
+          "position": 10,
+          "target_id": 4324,
+          "nll": 5.648540868765025,
+          "kl_reference_candidate": 0,
+          "top1_id": 6915,
+          "reference_top1_id": 6915
+        },
+        {
+          "document": "garden",
+          "position": 10,
+          "target_id": 1881,
+          "nll": 2.9034332929013402,
+          "kl_reference_candidate": 0,
+          "top1_id": 383,
+          "reference_top1_id": 383
+        },
+        {
+          "document": "bicycle",
+          "position": 10,
+          "target_id": 319,
+          "nll": 2.6934330432157765,
+          "kl_reference_candidate": 0,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "kitchen",
+          "position": 10,
+          "target_id": 9653,
+          "nll": 1.303099060766698,
+          "kl_reference_candidate": 0,
+          "top1_id": 9653,
+          "reference_top1_id": 9653
+        },
+        {
+          "document": "stars",
+          "position": 10,
+          "target_id": 1598,
+          "nll": 2.710138375426226,
+          "kl_reference_candidate": 0,
+          "top1_id": 6016,
+          "reference_top1_id": 6016
+        },
+        {
+          "document": "workshop",
+          "position": 10,
+          "target_id": 1811,
+          "nll": 4.545474167003491,
+          "kl_reference_candidate": 0,
+          "top1_id": 2972,
+          "reference_top1_id": 2972
+        },
+        {
+          "document": "library",
+          "position": 11,
+          "target_id": 13,
+          "nll": 1.4114479523476433,
+          "kl_reference_candidate": 0,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "garden",
+          "position": 11,
+          "target_id": 1735,
+          "nll": 2.7722912068066705,
+          "kl_reference_candidate": 0,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "bicycle",
+          "position": 11,
+          "target_id": 607,
+          "nll": 2.033225744939031,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "kitchen",
+          "position": 11,
+          "target_id": 13,
+          "nll": 0.7439616587989519,
+          "kl_reference_candidate": 0,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "stars",
+          "position": 11,
+          "target_id": 13,
+          "nll": 0.948051214900417,
+          "kl_reference_candidate": 0,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "workshop",
+          "position": 11,
+          "target_id": 10620,
+          "nll": 2.322402714247019,
+          "kl_reference_candidate": 0,
+          "top1_id": 1180,
+          "reference_top1_id": 1180
+        },
+        {
+          "document": "library",
+          "position": 12,
+          "target_id": 14384,
+          "nll": 5.603981369118543,
+          "kl_reference_candidate": 0,
+          "top1_id": 366,
+          "reference_top1_id": 366
+        },
+        {
+          "document": "garden",
+          "position": 12,
+          "target_id": 2714,
+          "nll": 5.80444724411727,
+          "kl_reference_candidate": 0,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "bicycle",
+          "position": 12,
+          "target_id": 17026,
+          "nll": 3.5003630644039987,
+          "kl_reference_candidate": 0,
+          "top1_id": 7161,
+          "reference_top1_id": 7161
+        },
+        {
+          "document": "kitchen",
+          "position": 12,
+          "target_id": 2293,
+          "nll": 4.747999408142078,
+          "kl_reference_candidate": 0,
+          "top1_id": 198,
+          "reference_top1_id": 198
+        },
+        {
+          "document": "stars",
+          "position": 12,
+          "target_id": 317,
+          "nll": 3.465555078338184,
+          "kl_reference_candidate": 0,
+          "top1_id": 198,
+          "reference_top1_id": 198
+        },
+        {
+          "document": "workshop",
+          "position": 12,
+          "target_id": 13,
+          "nll": 1.824666481333054,
+          "kl_reference_candidate": 0,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "library",
+          "position": 13,
+          "target_id": 340,
+          "nll": 2.0283805736701055,
+          "kl_reference_candidate": 0,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "garden",
+          "position": 13,
+          "target_id": 13701,
+          "nll": 7.11787525557493,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 13,
+          "target_id": 13,
+          "nll": 1.2337130820575197,
+          "kl_reference_candidate": 0,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "kitchen",
+          "position": 13,
+          "target_id": 17090,
+          "nll": 3.799659418054489,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "stars",
+          "position": 13,
+          "target_id": 1448,
+          "nll": 5.092636008337962,
+          "kl_reference_candidate": 0,
+          "top1_id": 1178,
+          "reference_top1_id": 1178
+        },
+        {
+          "document": "workshop",
+          "position": 13,
+          "target_id": 383,
+          "nll": 1.7358059409797306,
+          "kl_reference_candidate": 0,
+          "top1_id": 383,
+          "reference_top1_id": 383
+        },
+        {
+          "document": "library",
+          "position": 14,
+          "target_id": 11,
+          "nll": 1.817704870027967,
+          "kl_reference_candidate": 0,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "garden",
+          "position": 14,
+          "target_id": 11,
+          "nll": 1.1300140850508882,
+          "kl_reference_candidate": 0,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "bicycle",
+          "position": 14,
+          "target_id": 1375,
+          "nll": 1.6927747414801786,
+          "kl_reference_candidate": 0,
+          "top1_id": 1375,
+          "reference_top1_id": 1375
+        },
+        {
+          "document": "kitchen",
+          "position": 14,
+          "target_id": 262,
+          "nll": 1.464421461022127,
+          "kl_reference_candidate": 0,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 14,
+          "target_id": 286,
+          "nll": 0.04421553005362,
+          "kl_reference_candidate": 0,
+          "top1_id": 286,
+          "reference_top1_id": 286
+        },
+        {
+          "document": "workshop",
+          "position": 14,
+          "target_id": 1097,
+          "nll": 8.189598110579269,
+          "kl_reference_candidate": 0,
+          "top1_id": 3091,
+          "reference_top1_id": 3091
+        },
+        {
+          "document": "library",
+          "position": 15,
+          "target_id": 9692,
+          "nll": 10.71025889894132,
+          "kl_reference_candidate": 0,
+          "top1_id": 673,
+          "reference_top1_id": 673
+        },
+        {
+          "document": "garden",
+          "position": 15,
+          "target_id": 981,
+          "nll": 1.6393120408159945,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 15,
+          "target_id": 11856,
+          "nll": 8.994214095957489,
+          "kl_reference_candidate": 0,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "kitchen",
+          "position": 15,
+          "target_id": 9391,
+          "nll": 1.8841820107646043,
+          "kl_reference_candidate": 0,
+          "top1_id": 10601,
+          "reference_top1_id": 10601
+        },
+        {
+          "document": "stars",
+          "position": 15,
+          "target_id": 2460,
+          "nll": 5.712649643609083,
+          "kl_reference_candidate": 0,
+          "top1_id": 661,
+          "reference_top1_id": 661
+        },
+        {
+          "document": "workshop",
+          "position": 15,
+          "target_id": 26419,
+          "nll": 0.8732594424242563,
+          "kl_reference_candidate": 0,
+          "top1_id": 26419,
+          "reference_top1_id": 26419
+        },
+        {
+          "document": "library",
+          "position": 16,
+          "target_id": 714,
+          "nll": 0.9651562458742262,
+          "kl_reference_candidate": 0,
+          "top1_id": 714,
+          "reference_top1_id": 714
+        },
+        {
+          "document": "garden",
+          "position": 16,
+          "target_id": 262,
+          "nll": 0.05483055885176924,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 16,
+          "target_id": 257,
+          "nll": 2.737579355197397,
+          "kl_reference_candidate": 0,
+          "top1_id": 607,
+          "reference_top1_id": 607
+        },
+        {
+          "document": "kitchen",
+          "position": 16,
+          "target_id": 11,
+          "nll": 0.7899342575217645,
+          "kl_reference_candidate": 0,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 16,
+          "target_id": 3181,
+          "nll": 6.187856645219426,
+          "kl_reference_candidate": 0,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "workshop",
+          "position": 16,
+          "target_id": 23243,
+          "nll": 9.965286317471396,
+          "kl_reference_candidate": 0,
+          "top1_id": 338,
+          "reference_top1_id": 338
+        },
+        {
+          "document": "library",
+          "position": 17,
+          "target_id": 3551,
+          "nll": 3.950333622896011,
+          "kl_reference_candidate": 0,
+          "top1_id": 766,
+          "reference_top1_id": 766
+        },
+        {
+          "document": "garden",
+          "position": 17,
+          "target_id": 584,
+          "nll": 0.044760587008301655,
+          "kl_reference_candidate": 0,
+          "top1_id": 584,
+          "reference_top1_id": 584
+        },
+        {
+          "document": "bicycle",
+          "position": 17,
+          "target_id": 3975,
+          "nll": 6.795404330034472,
+          "kl_reference_candidate": 0,
+          "top1_id": 6131,
+          "reference_top1_id": 6131
+        },
+        {
+          "document": "kitchen",
+          "position": 17,
+          "target_id": 262,
+          "nll": 2.4319469734058288,
+          "kl_reference_candidate": 0,
+          "top1_id": 751,
+          "reference_top1_id": 751
+        },
+        {
+          "document": "stars",
+          "position": 17,
+          "target_id": 257,
+          "nll": 1.9243899854175197,
+          "kl_reference_candidate": 0,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "workshop",
+          "position": 17,
+          "target_id": 606,
+          "nll": 1.7751448351440189,
+          "kl_reference_candidate": 0,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "library",
+          "position": 18,
+          "target_id": 262,
+          "nll": 3.9360006691969005,
+          "kl_reference_candidate": 0,
+          "top1_id": 866,
+          "reference_top1_id": 866
+        },
+        {
+          "document": "garden",
+          "position": 18,
+          "target_id": 373,
+          "nll": 2.053400574023186,
+          "kl_reference_candidate": 0,
+          "top1_id": 1735,
+          "reference_top1_id": 1735
+        },
+        {
+          "document": "bicycle",
+          "position": 18,
+          "target_id": 11,
+          "nll": 2.127222741730833,
+          "kl_reference_candidate": 0,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "kitchen",
+          "position": 18,
+          "target_id": 4255,
+          "nll": 6.3756331881090915,
+          "kl_reference_candidate": 0,
+          "top1_id": 15756,
+          "reference_top1_id": 15756
+        },
+        {
+          "document": "stars",
+          "position": 18,
+          "target_id": 24344,
+          "nll": 6.063224242420347,
+          "kl_reference_candidate": 0,
+          "top1_id": 1402,
+          "reference_top1_id": 1402
+        },
+        {
+          "document": "workshop",
+          "position": 18,
+          "target_id": 656,
+          "nll": 2.2531066383905056,
+          "kl_reference_candidate": 0,
+          "top1_id": 503,
+          "reference_top1_id": 503
+        },
+        {
+          "document": "library",
+          "position": 19,
+          "target_id": 3670,
+          "nll": 5.435264967135254,
+          "kl_reference_candidate": 0,
+          "top1_id": 3891,
+          "reference_top1_id": 3891
+        },
+        {
+          "document": "garden",
+          "position": 19,
+          "target_id": 5901,
+          "nll": 2.2885952884939798,
+          "kl_reference_candidate": 0,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "bicycle",
+          "position": 19,
+          "target_id": 257,
+          "nll": 1.7673052355843737,
+          "kl_reference_candidate": 0,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "kitchen",
+          "position": 19,
+          "target_id": 19036,
+          "nll": 5.909414108223714,
+          "kl_reference_candidate": 0,
+          "top1_id": 900,
+          "reference_top1_id": 900
+        },
+        {
+          "document": "stars",
+          "position": 19,
+          "target_id": 284,
+          "nll": 1.3243249866067828,
+          "kl_reference_candidate": 0,
+          "top1_id": 284,
+          "reference_top1_id": 284
+        },
+        {
+          "document": "workshop",
+          "position": 19,
+          "target_id": 4553,
+          "nll": 5.269499210997097,
+          "kl_reference_candidate": 0,
+          "top1_id": 1115,
+          "reference_top1_id": 1115
+        }
+      ],
+      "rss_method": "one ps observation after scoring/generation; not peak",
+      "score_seconds": 1.9373475409999998,
+      "scored_tokens": 96,
+      "source": "openai-community/gpt2@607a30d783dfa663caf39e06633721c8d4cfcd7e",
+      "source_sha256": "123c26765f2989e5ab2d2d4873ff29cfe12b2025f81656c0c262fc6f474f82e5",
+      "threads": 4,
+      "top1_matches": 96
+    },
+    "q8": {
+      "completions": [
+        {
+          "text": " the capital of the French Republic. The",
+          "token_ids": [
+            262,
+            3139,
+            286,
+            262,
+            4141,
+            2066,
+            13,
+            383
+          ],
+          "prompt_tokens": 5,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        },
+        {
+          "text": " was found in a forest. The cat",
+          "token_ids": [
+            373,
+            1043,
+            287,
+            257,
+            8222,
+            13,
+            383,
+            3797
+          ],
+          "prompt_tokens": 8,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        }
+      ],
+      "format": "monolith-quant-quality-v1",
+      "generation_prompts": [
+        "The capital of France is",
+        "Once upon a time, a small cat"
+      ],
+      "heap_alloc_bytes": 201230328,
+      "kernel_workers": 4,
+      "load_seconds": 0.912215125,
+      "mean_kl": 0.014507422337333977,
+      "mean_nll": 3.783006596406821,
+      "perplexity": 43.947977128068615,
+      "plan": {
+        "format": "monolith-hf-plan-v1",
+        "model_type": "gpt2",
+        "tied_embeddings": true,
+        "config": {
+          "vocab": 50257,
+          "dim": 768,
+          "hidden": 3072,
+          "layers": 12,
+          "heads": 12,
+          "kv_heads": 12,
+          "context": 128,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "parameters": 124439808,
+        "weight_bytes": 134883888,
+        "weight_format": "q8",
+        "fp32_weight_bytes": 497759232,
+        "quantized_parameters": 123532032,
+        "q8_parameters": 123532032,
+        "scale_bytes": 7720752,
+        "quantization_block": 64,
+        "quantization_buffer_bytes": 256,
+        "rope_bytes": 0,
+        "kv_bytes_per_token": 73728,
+        "full_context_kv_bytes": 9437184,
+        "conversion_buffer_bytes": 65536,
+        "source_bytes": 548105171,
+        "shards": 1,
+        "tensor_dtypes": {
+          "F32": 160
+        }
+      },
+      "post_probe_rss_bytes": 210845696,
+      "reference": {
+        "version": "monolith-quality-logits-v1",
+        "source": "openai-community/gpt2@607a30d783dfa663caf39e06633721c8d4cfcd7e",
+        "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
+        "tokens_sha256": "b40ec47dc40ef0abd4619cb8f360f858caeede225943fbb7a270eb065b3889db",
+        "reference_format": "f32",
+        "vocab": 50257,
+        "rows": 96
+      },
+      "reference_vectors_sha256": "a0eaa96e55bae3afa10db3cfef85745b141f9fad0b9090dc8485b511191e1edc",
+      "rows": [
+        {
+          "document": "library",
+          "position": 4,
+          "target_id": 257,
+          "nll": 1.498788007694131,
+          "kl_reference_candidate": 0.011909821335101819,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "garden",
+          "position": 4,
+          "target_id": 262,
+          "nll": 1.5732328025133313,
+          "kl_reference_candidate": 0.00937093838892271,
+          "top1_id": 416,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 4,
+          "target_id": 7404,
+          "nll": 6.826092327593912,
+          "kl_reference_candidate": 0.012947302707086765,
+          "top1_id": 9003,
+          "reference_top1_id": 9003
+        },
+        {
+          "document": "kitchen",
+          "position": 4,
+          "target_id": 10601,
+          "nll": 6.769198781111825,
+          "kl_reference_candidate": 0.008394328722470146,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "stars",
+          "position": 4,
+          "target_id": 11,
+          "nll": 0.9811430424016763,
+          "kl_reference_candidate": 0.009981091568133106,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "workshop",
+          "position": 4,
+          "target_id": 257,
+          "nll": 3.7673728329643836,
+          "kl_reference_candidate": 0.010054510165691964,
+          "top1_id": 314,
+          "reference_top1_id": 314
+        },
+        {
+          "document": "library",
+          "position": 5,
+          "target_id": 1402,
+          "nll": 3.3841465329497566,
+          "kl_reference_candidate": 0.013745691236289298,
+          "top1_id": 1021,
+          "reference_top1_id": 1021
+        },
+        {
+          "document": "garden",
+          "position": 5,
+          "target_id": 11376,
+          "nll": 6.44227302521071,
+          "kl_reference_candidate": 0.013648929027525378,
+          "top1_id": 1748,
+          "reference_top1_id": 1748
+        },
+        {
+          "document": "bicycle",
+          "position": 5,
+          "target_id": 11,
+          "nll": 0.6532672922944442,
+          "kl_reference_candidate": 0.0038562619828460907,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "kitchen",
+          "position": 5,
+          "target_id": 11,
+          "nll": 1.1202421776080485,
+          "kl_reference_candidate": 0.020962631771332316,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 5,
+          "target_id": 262,
+          "nll": 2.0356253900481107,
+          "kl_reference_candidate": 0.01511461696380589,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "workshop",
+          "position": 5,
+          "target_id": 13510,
+          "nll": 9.049494154739747,
+          "kl_reference_candidate": 0.01865295306940992,
+          "top1_id": 1448,
+          "reference_top1_id": 1448
+        },
+        {
+          "document": "library",
+          "position": 6,
+          "target_id": 4077,
+          "nll": 6.8733932691177415,
+          "kl_reference_candidate": 0.01099397621278491,
+          "top1_id": 1492,
+          "reference_top1_id": 1492
+        },
+        {
+          "document": "garden",
+          "position": 6,
+          "target_id": 656,
+          "nll": 1.99958719076065,
+          "kl_reference_candidate": 0.012937139055908625,
+          "top1_id": 656,
+          "reference_top1_id": 656
+        },
+        {
+          "document": "bicycle",
+          "position": 6,
+          "target_id": 26041,
+          "nll": 9.669865129444432,
+          "kl_reference_candidate": 0.010132234617471075,
+          "top1_id": 339,
+          "reference_top1_id": 339
+        },
+        {
+          "document": "kitchen",
+          "position": 6,
+          "target_id": 7545,
+          "nll": 4.66026577094155,
+          "kl_reference_candidate": 0.013383383493543635,
+          "top1_id": 475,
+          "reference_top1_id": 475
+        },
+        {
+          "document": "stars",
+          "position": 6,
+          "target_id": 1755,
+          "nll": 6.103916822856604,
+          "kl_reference_candidate": 0.011777866692874957,
+          "top1_id": 1748,
+          "reference_top1_id": 1748
+        },
+        {
+          "document": "workshop",
+          "position": 6,
+          "target_id": 3091,
+          "nll": 2.8287822280179284,
+          "kl_reference_candidate": 0.01633859464219265,
+          "top1_id": 3091,
+          "reference_top1_id": 3091
+        },
+        {
+          "document": "library",
+          "position": 7,
+          "target_id": 20922,
+          "nll": 5.453172305363935,
+          "kl_reference_candidate": 0.01083367987623002,
+          "top1_id": 1492,
+          "reference_top1_id": 1492
+        },
+        {
+          "document": "garden",
+          "position": 7,
+          "target_id": 734,
+          "nll": 1.2087323028617902,
+          "kl_reference_candidate": 0.010989069705994926,
+          "top1_id": 734,
+          "reference_top1_id": 734
+        },
+        {
+          "document": "bicycle",
+          "position": 7,
+          "target_id": 10667,
+          "nll": 7.195104648887835,
+          "kl_reference_candidate": 0.017190665729145124,
+          "top1_id": 373,
+          "reference_top1_id": 531
+        },
+        {
+          "document": "kitchen",
+          "position": 7,
+          "target_id": 11,
+          "nll": 0.4002352640528173,
+          "kl_reference_candidate": 0.0065957932966293365,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 7,
+          "target_id": 6766,
+          "nll": 1.3306302904063614,
+          "kl_reference_candidate": 0.01305553876142415,
+          "top1_id": 6766,
+          "reference_top1_id": 6766
+        },
+        {
+          "document": "workshop",
+          "position": 7,
+          "target_id": 2714,
+          "nll": 5.492704745952352,
+          "kl_reference_candidate": 0.012050067209312574,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "library",
+          "position": 8,
+          "target_id": 13970,
+          "nll": 4.661051888314873,
+          "kl_reference_candidate": 0.01746759283810149,
+          "top1_id": 287,
+          "reference_top1_id": 319
+        },
+        {
+          "document": "garden",
+          "position": 8,
+          "target_id": 9004,
+          "nll": 2.916998218008743,
+          "kl_reference_candidate": 0.017032480490104498,
+          "top1_id": 37192,
+          "reference_top1_id": 37192
+        },
+        {
+          "document": "bicycle",
+          "position": 8,
+          "target_id": 1111,
+          "nll": 7.680652292929693,
+          "kl_reference_candidate": 0.01874400251932943,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "kitchen",
+          "position": 8,
+          "target_id": 290,
+          "nll": 2.4643970392316987,
+          "kl_reference_candidate": 0.022586879419900445,
+          "top1_id": 8268,
+          "reference_top1_id": 7543
+        },
+        {
+          "document": "stars",
+          "position": 8,
+          "target_id": 3114,
+          "nll": 6.062074447534329,
+          "kl_reference_candidate": 0.015690567308957095,
+          "top1_id": 318,
+          "reference_top1_id": 318
+        },
+        {
+          "document": "workshop",
+          "position": 8,
+          "target_id": 23742,
+          "nll": 10.372335123977876,
+          "kl_reference_candidate": 0.00639190775818037,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "library",
+          "position": 9,
+          "target_id": 262,
+          "nll": 1.2108406124195525,
+          "kl_reference_candidate": 0.008274710507176515,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "garden",
+          "position": 9,
+          "target_id": 13,
+          "nll": 1.390089587614355,
+          "kl_reference_candidate": 0.012238142188946482,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "bicycle",
+          "position": 9,
+          "target_id": 17920,
+          "nll": 7.061797854932763,
+          "kl_reference_candidate": 0.011867623889148951,
+          "top1_id": 607,
+          "reference_top1_id": 607
+        },
+        {
+          "document": "kitchen",
+          "position": 9,
+          "target_id": 1115,
+          "nll": 7.588554157188696,
+          "kl_reference_candidate": 0.012078788197525715,
+          "top1_id": 8268,
+          "reference_top1_id": 7543
+        },
+        {
+          "document": "stars",
+          "position": 9,
+          "target_id": 23708,
+          "nll": 7.779279974620948,
+          "kl_reference_candidate": 0.013565137170775985,
+          "top1_id": 588,
+          "reference_top1_id": 588
+        },
+        {
+          "document": "workshop",
+          "position": 9,
+          "target_id": 286,
+          "nll": 5.264270981977006,
+          "kl_reference_candidate": 0.03862808453742074,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "library",
+          "position": 10,
+          "target_id": 4324,
+          "nll": 5.362207479523505,
+          "kl_reference_candidate": 0.013005892422560455,
+          "top1_id": 6915,
+          "reference_top1_id": 6915
+        },
+        {
+          "document": "garden",
+          "position": 10,
+          "target_id": 1881,
+          "nll": 2.8172320269794113,
+          "kl_reference_candidate": 0.009970354290848988,
+          "top1_id": 383,
+          "reference_top1_id": 383
+        },
+        {
+          "document": "bicycle",
+          "position": 10,
+          "target_id": 319,
+          "nll": 2.9330946691696766,
+          "kl_reference_candidate": 0.04939400467031172,
+          "top1_id": 13,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "kitchen",
+          "position": 10,
+          "target_id": 9653,
+          "nll": 1.3646788038770268,
+          "kl_reference_candidate": 0.011143998893156001,
+          "top1_id": 9653,
+          "reference_top1_id": 9653
+        },
+        {
+          "document": "stars",
+          "position": 10,
+          "target_id": 1598,
+          "nll": 2.9322912819696825,
+          "kl_reference_candidate": 0.019421235640724382,
+          "top1_id": 6016,
+          "reference_top1_id": 6016
+        },
+        {
+          "document": "workshop",
+          "position": 10,
+          "target_id": 1811,
+          "nll": 4.638380316105952,
+          "kl_reference_candidate": 0.012999088335585976,
+          "top1_id": 2972,
+          "reference_top1_id": 2972
+        },
+        {
+          "document": "library",
+          "position": 11,
+          "target_id": 13,
+          "nll": 1.1833207237125691,
+          "kl_reference_candidate": 0.02653415337961814,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "garden",
+          "position": 11,
+          "target_id": 1735,
+          "nll": 2.6390468424764464,
+          "kl_reference_candidate": 0.01175057526493247,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "bicycle",
+          "position": 11,
+          "target_id": 607,
+          "nll": 2.005691938187681,
+          "kl_reference_candidate": 0.005430547903665555,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "kitchen",
+          "position": 11,
+          "target_id": 13,
+          "nll": 0.6644354351409874,
+          "kl_reference_candidate": 0.009291914482728165,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "stars",
+          "position": 11,
+          "target_id": 13,
+          "nll": 0.8206257330930242,
+          "kl_reference_candidate": 0.017001122865023623,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "workshop",
+          "position": 11,
+          "target_id": 10620,
+          "nll": 2.424690451598636,
+          "kl_reference_candidate": 0.014223231725256176,
+          "top1_id": 1180,
+          "reference_top1_id": 1180
+        },
+        {
+          "document": "library",
+          "position": 12,
+          "target_id": 14384,
+          "nll": 5.360507593236832,
+          "kl_reference_candidate": 0.00538130604968378,
+          "top1_id": 366,
+          "reference_top1_id": 366
+        },
+        {
+          "document": "garden",
+          "position": 12,
+          "target_id": 2714,
+          "nll": 5.955993225253138,
+          "kl_reference_candidate": 0.011171407291243388,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "bicycle",
+          "position": 12,
+          "target_id": 17026,
+          "nll": 3.1881184486477707,
+          "kl_reference_candidate": 0.03284823757420701,
+          "top1_id": 1097,
+          "reference_top1_id": 7161
+        },
+        {
+          "document": "kitchen",
+          "position": 12,
+          "target_id": 2293,
+          "nll": 5.056959194208133,
+          "kl_reference_candidate": 0.013056981580576986,
+          "top1_id": 198,
+          "reference_top1_id": 198
+        },
+        {
+          "document": "stars",
+          "position": 12,
+          "target_id": 317,
+          "nll": 3.607994065745146,
+          "kl_reference_candidate": 0.012057445586815353,
+          "top1_id": 198,
+          "reference_top1_id": 198
+        },
+        {
+          "document": "workshop",
+          "position": 12,
+          "target_id": 13,
+          "nll": 1.64039804926594,
+          "kl_reference_candidate": 0.03414601613569567,
+          "top1_id": 13,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "library",
+          "position": 13,
+          "target_id": 340,
+          "nll": 1.931268634736675,
+          "kl_reference_candidate": 0.006142624285976966,
+          "top1_id": 373,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "garden",
+          "position": 13,
+          "target_id": 13701,
+          "nll": 7.301243785314782,
+          "kl_reference_candidate": 0.012939844942647613,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 13,
+          "target_id": 13,
+          "nll": 0.989105543581303,
+          "kl_reference_candidate": 0.034316190800090615,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "kitchen",
+          "position": 13,
+          "target_id": 17090,
+          "nll": 3.731647800765984,
+          "kl_reference_candidate": 0.013822931120579274,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "stars",
+          "position": 13,
+          "target_id": 1448,
+          "nll": 4.988124692082621,
+          "kl_reference_candidate": 0.015290182903989863,
+          "top1_id": 1178,
+          "reference_top1_id": 1178
+        },
+        {
+          "document": "workshop",
+          "position": 13,
+          "target_id": 383,
+          "nll": 1.8308367564506227,
+          "kl_reference_candidate": 0.010928924836971462,
+          "top1_id": 383,
+          "reference_top1_id": 383
+        },
+        {
+          "document": "library",
+          "position": 14,
+          "target_id": 11,
+          "nll": 2.0097092279793074,
+          "kl_reference_candidate": 0.006371465710187547,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "garden",
+          "position": 14,
+          "target_id": 11,
+          "nll": 1.1141482072154076,
+          "kl_reference_candidate": 0.028239635043191776,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "bicycle",
+          "position": 14,
+          "target_id": 1375,
+          "nll": 1.566621195773422,
+          "kl_reference_candidate": 0.01154283873839854,
+          "top1_id": 1375,
+          "reference_top1_id": 1375
+        },
+        {
+          "document": "kitchen",
+          "position": 14,
+          "target_id": 262,
+          "nll": 1.6925910738968355,
+          "kl_reference_candidate": 0.010358403079179707,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 14,
+          "target_id": 286,
+          "nll": 0.044226624842846896,
+          "kl_reference_candidate": 3.6191196290816723e-05,
+          "top1_id": 286,
+          "reference_top1_id": 286
+        },
+        {
+          "document": "workshop",
+          "position": 14,
+          "target_id": 1097,
+          "nll": 7.938406481397109,
+          "kl_reference_candidate": 0.014198577122932233,
+          "top1_id": 23742,
+          "reference_top1_id": 3091
+        },
+        {
+          "document": "library",
+          "position": 15,
+          "target_id": 9692,
+          "nll": 10.779104666569793,
+          "kl_reference_candidate": 0.006613211665464611,
+          "top1_id": 673,
+          "reference_top1_id": 673
+        },
+        {
+          "document": "garden",
+          "position": 15,
+          "target_id": 981,
+          "nll": 1.5182849118728967,
+          "kl_reference_candidate": 0.01779809790814133,
+          "top1_id": 981,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 15,
+          "target_id": 11856,
+          "nll": 8.95626285156564,
+          "kl_reference_candidate": 0.020504711484015985,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "kitchen",
+          "position": 15,
+          "target_id": 9391,
+          "nll": 1.760850691977197,
+          "kl_reference_candidate": 0.011491787744615166,
+          "top1_id": 9391,
+          "reference_top1_id": 10601
+        },
+        {
+          "document": "stars",
+          "position": 15,
+          "target_id": 2460,
+          "nll": 5.664480128807227,
+          "kl_reference_candidate": 0.015496687809257458,
+          "top1_id": 661,
+          "reference_top1_id": 661
+        },
+        {
+          "document": "workshop",
+          "position": 15,
+          "target_id": 26419,
+          "nll": 0.8314744636449518,
+          "kl_reference_candidate": 0.00825812135825989,
+          "top1_id": 26419,
+          "reference_top1_id": 26419
+        },
+        {
+          "document": "library",
+          "position": 16,
+          "target_id": 714,
+          "nll": 0.9917440843798744,
+          "kl_reference_candidate": 0.005790459828332029,
+          "top1_id": 714,
+          "reference_top1_id": 714
+        },
+        {
+          "document": "garden",
+          "position": 16,
+          "target_id": 262,
+          "nll": 0.05952286877502644,
+          "kl_reference_candidate": 0.00026540657614160647,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 16,
+          "target_id": 257,
+          "nll": 2.648718114592853,
+          "kl_reference_candidate": 0.011963971257422294,
+          "top1_id": 607,
+          "reference_top1_id": 607
+        },
+        {
+          "document": "kitchen",
+          "position": 16,
+          "target_id": 11,
+          "nll": 0.8271467746941283,
+          "kl_reference_candidate": 0.008331573990112195,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 16,
+          "target_id": 3181,
+          "nll": 6.116456787125159,
+          "kl_reference_candidate": 0.02203214416471889,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "workshop",
+          "position": 16,
+          "target_id": 23243,
+          "nll": 9.904633364935862,
+          "kl_reference_candidate": 0.021632502750118972,
+          "top1_id": 973,
+          "reference_top1_id": 338
+        },
+        {
+          "document": "library",
+          "position": 17,
+          "target_id": 3551,
+          "nll": 3.763664194838668,
+          "kl_reference_candidate": 0.013761596043028602,
+          "top1_id": 766,
+          "reference_top1_id": 766
+        },
+        {
+          "document": "garden",
+          "position": 17,
+          "target_id": 584,
+          "nll": 0.03901505169544173,
+          "kl_reference_candidate": 0.0005308842642680867,
+          "top1_id": 584,
+          "reference_top1_id": 584
+        },
+        {
+          "document": "bicycle",
+          "position": 17,
+          "target_id": 3975,
+          "nll": 6.833982801099495,
+          "kl_reference_candidate": 0.012417291735714662,
+          "top1_id": 6131,
+          "reference_top1_id": 6131
+        },
+        {
+          "document": "kitchen",
+          "position": 17,
+          "target_id": 262,
+          "nll": 2.738073791573399,
+          "kl_reference_candidate": 0.016113971849970907,
+          "top1_id": 751,
+          "reference_top1_id": 751
+        },
+        {
+          "document": "stars",
+          "position": 17,
+          "target_id": 257,
+          "nll": 1.9405787313495182,
+          "kl_reference_candidate": 0.013105216178804967,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "workshop",
+          "position": 17,
+          "target_id": 606,
+          "nll": 1.6821709226575763,
+          "kl_reference_candidate": 0.021387976797706668,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "library",
+          "position": 18,
+          "target_id": 262,
+          "nll": 4.22599925085801,
+          "kl_reference_candidate": 0.012414453042759266,
+          "top1_id": 866,
+          "reference_top1_id": 866
+        },
+        {
+          "document": "garden",
+          "position": 18,
+          "target_id": 373,
+          "nll": 1.9236133295380142,
+          "kl_reference_candidate": 0.012027390138900956,
+          "top1_id": 1735,
+          "reference_top1_id": 1735
+        },
+        {
+          "document": "bicycle",
+          "position": 18,
+          "target_id": 11,
+          "nll": 2.1048682284124,
+          "kl_reference_candidate": 0.027752415985089863,
+          "top1_id": 286,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "kitchen",
+          "position": 18,
+          "target_id": 4255,
+          "nll": 6.173057976779191,
+          "kl_reference_candidate": 0.013913824202043741,
+          "top1_id": 15756,
+          "reference_top1_id": 15756
+        },
+        {
+          "document": "stars",
+          "position": 18,
+          "target_id": 24344,
+          "nll": 5.929622076457079,
+          "kl_reference_candidate": 0.016874628943605106,
+          "top1_id": 1402,
+          "reference_top1_id": 1402
+        },
+        {
+          "document": "workshop",
+          "position": 18,
+          "target_id": 656,
+          "nll": 2.3049594542776504,
+          "kl_reference_candidate": 0.017653167413943977,
+          "top1_id": 503,
+          "reference_top1_id": 503
+        },
+        {
+          "document": "library",
+          "position": 19,
+          "target_id": 3670,
+          "nll": 5.606980988566065,
+          "kl_reference_candidate": 0.01780668729152063,
+          "top1_id": 3891,
+          "reference_top1_id": 3891
+        },
+        {
+          "document": "garden",
+          "position": 19,
+          "target_id": 5901,
+          "nll": 2.2069441917815453,
+          "kl_reference_candidate": 0.01040549186824502,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "bicycle",
+          "position": 19,
+          "target_id": 257,
+          "nll": 1.6654076148531942,
+          "kl_reference_candidate": 0.02131140212397507,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "kitchen",
+          "position": 19,
+          "target_id": 19036,
+          "nll": 6.1239847042098035,
+          "kl_reference_candidate": 0.01656826038264445,
+          "top1_id": 561,
+          "reference_top1_id": 900
+        },
+        {
+          "document": "stars",
+          "position": 19,
+          "target_id": 284,
+          "nll": 1.2344072172139562,
+          "kl_reference_candidate": 0.02393722424292503,
+          "top1_id": 284,
+          "reference_top1_id": 284
+        },
+        {
+          "document": "workshop",
+          "position": 19,
+          "target_id": 4553,
+          "nll": 5.109418203179899,
+          "kl_reference_candidate": 0.0120536584115483,
+          "top1_id": 1115,
+          "reference_top1_id": 1115
+        }
+      ],
+      "rss_method": "one ps observation after scoring/generation; not peak",
+      "score_seconds": 1.2932895,
+      "scored_tokens": 96,
+      "source": "openai-community/gpt2@607a30d783dfa663caf39e06633721c8d4cfcd7e",
+      "source_sha256": "123c26765f2989e5ab2d2d4873ff29cfe12b2025f81656c0c262fc6f474f82e5",
+      "threads": 4,
+      "top1_matches": 81
+    },
+    "q4": {
+      "completions": [
+        {
+          "text": " a bustling and bustling and bustling. Restaur",
+          "token_ids": [
+            257,
+            46609,
+            290,
+            46609,
+            290,
+            46609,
+            13,
+            22463
+          ],
+          "prompt_tokens": 5,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        },
+        {
+          "text": ", a fox, a fox, a",
+          "token_ids": [
+            11,
+            257,
+            21831,
+            11,
+            257,
+            21831,
+            11,
+            257
+          ],
+          "prompt_tokens": 8,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        }
+      ],
+      "format": "monolith-quant-quality-v1",
+      "generation_prompts": [
+        "The capital of France is",
+        "Once upon a time, a small cat"
+      ],
+      "heap_alloc_bytes": 104498920,
+      "kernel_workers": 4,
+      "load_seconds": 0.975655333,
+      "mean_kl": 3.3304291355615683,
+      "mean_nll": 6.4895077114182,
+      "perplexity": 658.199259465494,
+      "plan": {
+        "format": "monolith-hf-plan-v1",
+        "model_type": "gpt2",
+        "tied_embeddings": true,
+        "config": {
+          "vocab": 50257,
+          "dim": 768,
+          "hidden": 3072,
+          "layers": 12,
+          "heads": 12,
+          "kv_heads": 12,
+          "context": 128,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "parameters": 124439808,
+        "weight_bytes": 73117872,
+        "weight_format": "q4",
+        "fp32_weight_bytes": 497759232,
+        "quantized_parameters": 123532032,
+        "q4_parameters": 123532032,
+        "scale_bytes": 7720752,
+        "quantization_block": 64,
+        "quantization_buffer_bytes": 256,
+        "rope_bytes": 0,
+        "kv_bytes_per_token": 73728,
+        "full_context_kv_bytes": 9437184,
+        "conversion_buffer_bytes": 65536,
+        "source_bytes": 548105171,
+        "shards": 1,
+        "tensor_dtypes": {
+          "F32": 160
+        }
+      },
+      "post_probe_rss_bytes": 144506880,
+      "reference": {
+        "version": "monolith-quality-logits-v1",
+        "source": "openai-community/gpt2@607a30d783dfa663caf39e06633721c8d4cfcd7e",
+        "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
+        "tokens_sha256": "b40ec47dc40ef0abd4619cb8f360f858caeede225943fbb7a270eb065b3889db",
+        "reference_format": "f32",
+        "vocab": 50257,
+        "rows": 96
+      },
+      "reference_vectors_sha256": "a0eaa96e55bae3afa10db3cfef85745b141f9fad0b9090dc8485b511191e1edc",
+      "rows": [
+        {
+          "document": "library",
+          "position": 4,
+          "target_id": 257,
+          "nll": 0.2297634911463291,
+          "kl_reference_candidate": 1.9572420397308117,
+          "top1_id": 257,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "garden",
+          "position": 4,
+          "target_id": 262,
+          "nll": 1.9477912415057261,
+          "kl_reference_candidate": 2.9112537489140804,
+          "top1_id": 257,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 4,
+          "target_id": 7404,
+          "nll": 15.897260452031603,
+          "kl_reference_candidate": 3.22842660497865,
+          "top1_id": 9003,
+          "reference_top1_id": 9003
+        },
+        {
+          "document": "kitchen",
+          "position": 4,
+          "target_id": 10601,
+          "nll": 12.096503160495118,
+          "kl_reference_candidate": 3.744615287620274,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "stars",
+          "position": 4,
+          "target_id": 11,
+          "nll": 0.46692329676515243,
+          "kl_reference_candidate": 1.7869082399168938,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "workshop",
+          "position": 4,
+          "target_id": 257,
+          "nll": 0.746106116846093,
+          "kl_reference_candidate": 3.0774159442024205,
+          "top1_id": 257,
+          "reference_top1_id": 314
+        },
+        {
+          "document": "library",
+          "position": 5,
+          "target_id": 1402,
+          "nll": 4.499060402083757,
+          "kl_reference_candidate": 3.1896789548354256,
+          "top1_id": 8931,
+          "reference_top1_id": 1021
+        },
+        {
+          "document": "garden",
+          "position": 5,
+          "target_id": 11376,
+          "nll": 5.883476719162161,
+          "kl_reference_candidate": 3.2369455812098455,
+          "top1_id": 835,
+          "reference_top1_id": 1748
+        },
+        {
+          "document": "bicycle",
+          "position": 5,
+          "target_id": 11,
+          "nll": 0.2124604754707491,
+          "kl_reference_candidate": 2.044168098846095,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "kitchen",
+          "position": 5,
+          "target_id": 11,
+          "nll": 0.9299974497118058,
+          "kl_reference_candidate": 1.6561237905762867,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 5,
+          "target_id": 262,
+          "nll": 2.34101664568297,
+          "kl_reference_candidate": 3.7348737919405743,
+          "top1_id": 257,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "workshop",
+          "position": 5,
+          "target_id": 13510,
+          "nll": 11.819476973440288,
+          "kl_reference_candidate": 3.3252405631413176,
+          "top1_id": 5273,
+          "reference_top1_id": 1448
+        },
+        {
+          "document": "library",
+          "position": 6,
+          "target_id": 4077,
+          "nll": 8.448776484865874,
+          "kl_reference_candidate": 2.9766412382353686,
+          "top1_id": 8931,
+          "reference_top1_id": 1492
+        },
+        {
+          "document": "garden",
+          "position": 6,
+          "target_id": 656,
+          "nll": 5.239108907359693,
+          "kl_reference_candidate": 3.987120518360646,
+          "top1_id": 13,
+          "reference_top1_id": 656
+        },
+        {
+          "document": "bicycle",
+          "position": 6,
+          "target_id": 26041,
+          "nll": 9.532061328449188,
+          "kl_reference_candidate": 2.88471315565077,
+          "top1_id": 262,
+          "reference_top1_id": 339
+        },
+        {
+          "document": "kitchen",
+          "position": 6,
+          "target_id": 7545,
+          "nll": 11.973584507021101,
+          "kl_reference_candidate": 5.082376287626955,
+          "top1_id": 257,
+          "reference_top1_id": 475
+        },
+        {
+          "document": "stars",
+          "position": 6,
+          "target_id": 1755,
+          "nll": 6.839187059216528,
+          "kl_reference_candidate": 2.8580647766729492,
+          "top1_id": 46609,
+          "reference_top1_id": 1748
+        },
+        {
+          "document": "workshop",
+          "position": 6,
+          "target_id": 3091,
+          "nll": 8.429715137332067,
+          "kl_reference_candidate": 3.3964318192585377,
+          "top1_id": 23441,
+          "reference_top1_id": 3091
+        },
+        {
+          "document": "library",
+          "position": 7,
+          "target_id": 20922,
+          "nll": 6.497816957173754,
+          "kl_reference_candidate": 2.9790672245977428,
+          "top1_id": 8931,
+          "reference_top1_id": 1492
+        },
+        {
+          "document": "garden",
+          "position": 7,
+          "target_id": 734,
+          "nll": 1.9784084770210626,
+          "kl_reference_candidate": 3.411566461023426,
+          "top1_id": 257,
+          "reference_top1_id": 734
+        },
+        {
+          "document": "bicycle",
+          "position": 7,
+          "target_id": 10667,
+          "nll": 14.356470896924435,
+          "kl_reference_candidate": 3.9675147578408096,
+          "top1_id": 338,
+          "reference_top1_id": 531
+        },
+        {
+          "document": "kitchen",
+          "position": 7,
+          "target_id": 11,
+          "nll": 0.9905313639612245,
+          "kl_reference_candidate": 0.4794790140989709,
+          "top1_id": 290,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 7,
+          "target_id": 6766,
+          "nll": 1.2981799286561113,
+          "kl_reference_candidate": 2.342110356113211,
+          "top1_id": 338,
+          "reference_top1_id": 6766
+        },
+        {
+          "document": "workshop",
+          "position": 7,
+          "target_id": 2714,
+          "nll": 9.623617979113618,
+          "kl_reference_candidate": 2.89316275842928,
+          "top1_id": 11,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "library",
+          "position": 8,
+          "target_id": 13970,
+          "nll": 6.816660558212675,
+          "kl_reference_candidate": 3.427032173350396,
+          "top1_id": 13,
+          "reference_top1_id": 319
+        },
+        {
+          "document": "garden",
+          "position": 8,
+          "target_id": 9004,
+          "nll": 9.202102791622963,
+          "kl_reference_candidate": 5.069476382685468,
+          "top1_id": 13,
+          "reference_top1_id": 37192
+        },
+        {
+          "document": "bicycle",
+          "position": 8,
+          "target_id": 1111,
+          "nll": 11.145438356719197,
+          "kl_reference_candidate": 2.6013922734328463,
+          "top1_id": 257,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "kitchen",
+          "position": 8,
+          "target_id": 290,
+          "nll": 0.20846015083338898,
+          "kl_reference_candidate": 4.922852931960288,
+          "top1_id": 290,
+          "reference_top1_id": 7543
+        },
+        {
+          "document": "stars",
+          "position": 8,
+          "target_id": 3114,
+          "nll": 9.511824355245977,
+          "kl_reference_candidate": 2.760853856880917,
+          "top1_id": 11,
+          "reference_top1_id": 318
+        },
+        {
+          "document": "workshop",
+          "position": 8,
+          "target_id": 23742,
+          "nll": 17.97490244612962,
+          "kl_reference_candidate": 2.363623987460304,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "library",
+          "position": 9,
+          "target_id": 262,
+          "nll": 0.6617964532916574,
+          "kl_reference_candidate": 1.2451594872415817,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "garden",
+          "position": 9,
+          "target_id": 13,
+          "nll": 0.2168166178262254,
+          "kl_reference_candidate": 2.152050243158611,
+          "top1_id": 13,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "bicycle",
+          "position": 9,
+          "target_id": 17920,
+          "nll": 7.537468616856884,
+          "kl_reference_candidate": 2.9892357893628243,
+          "top1_id": 262,
+          "reference_top1_id": 607
+        },
+        {
+          "document": "kitchen",
+          "position": 9,
+          "target_id": 1115,
+          "nll": 11.416499570480369,
+          "kl_reference_candidate": 6.090047995191244,
+          "top1_id": 257,
+          "reference_top1_id": 7543
+        },
+        {
+          "document": "stars",
+          "position": 9,
+          "target_id": 23708,
+          "nll": 14.877545097754734,
+          "kl_reference_candidate": 4.141198762453181,
+          "top1_id": 257,
+          "reference_top1_id": 588
+        },
+        {
+          "document": "workshop",
+          "position": 9,
+          "target_id": 286,
+          "nll": 14.767480811856686,
+          "kl_reference_candidate": 2.4652016476878034,
+          "top1_id": 11,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "library",
+          "position": 10,
+          "target_id": 4324,
+          "nll": 15.575434611974401,
+          "kl_reference_candidate": 3.6566486583769753,
+          "top1_id": 3002,
+          "reference_top1_id": 6915
+        },
+        {
+          "document": "garden",
+          "position": 10,
+          "target_id": 1881,
+          "nll": 10.00642787872738,
+          "kl_reference_candidate": 3.9741204682227416,
+          "top1_id": 383,
+          "reference_top1_id": 383
+        },
+        {
+          "document": "bicycle",
+          "position": 10,
+          "target_id": 319,
+          "nll": 5.562975227520795,
+          "kl_reference_candidate": 2.4972446660289065,
+          "top1_id": 13,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "kitchen",
+          "position": 10,
+          "target_id": 9653,
+          "nll": 6.005294276072817,
+          "kl_reference_candidate": 4.039883387891104,
+          "top1_id": 12,
+          "reference_top1_id": 9653
+        },
+        {
+          "document": "stars",
+          "position": 10,
+          "target_id": 1598,
+          "nll": 4.609848754721639,
+          "kl_reference_candidate": 2.8424190923885027,
+          "top1_id": 6016,
+          "reference_top1_id": 6016
+        },
+        {
+          "document": "workshop",
+          "position": 10,
+          "target_id": 1811,
+          "nll": 7.059658681682961,
+          "kl_reference_candidate": 3.1952248010559727,
+          "top1_id": 257,
+          "reference_top1_id": 2972
+        },
+        {
+          "document": "library",
+          "position": 11,
+          "target_id": 13,
+          "nll": 0.4212889838183145,
+          "kl_reference_candidate": 1.7125024823729678,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "garden",
+          "position": 11,
+          "target_id": 1735,
+          "nll": 2.9540655109303913,
+          "kl_reference_candidate": 3.354431844084595,
+          "top1_id": 257,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "bicycle",
+          "position": 11,
+          "target_id": 607,
+          "nll": 4.693742445632985,
+          "kl_reference_candidate": 1.3150060245919097,
+          "top1_id": 257,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "kitchen",
+          "position": 11,
+          "target_id": 13,
+          "nll": 0.19058354605873262,
+          "kl_reference_candidate": 2.0955081247084415,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "stars",
+          "position": 11,
+          "target_id": 13,
+          "nll": 0.3425000229762958,
+          "kl_reference_candidate": 1.6863451462520882,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "workshop",
+          "position": 11,
+          "target_id": 10620,
+          "nll": 8.696381061096815,
+          "kl_reference_candidate": 2.9979487251811885,
+          "top1_id": 1180,
+          "reference_top1_id": 1180
+        },
+        {
+          "document": "library",
+          "position": 12,
+          "target_id": 14384,
+          "nll": 7.776847123137074,
+          "kl_reference_candidate": 3.9019250356091977,
+          "top1_id": 383,
+          "reference_top1_id": 366
+        },
+        {
+          "document": "garden",
+          "position": 12,
+          "target_id": 2714,
+          "nll": 9.255778196780142,
+          "kl_reference_candidate": 4.088488808715242,
+          "top1_id": 11,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "bicycle",
+          "position": 12,
+          "target_id": 17026,
+          "nll": 10.662863626348454,
+          "kl_reference_candidate": 5.103394562623206,
+          "top1_id": 10329,
+          "reference_top1_id": 7161
+        },
+        {
+          "document": "kitchen",
+          "position": 12,
+          "target_id": 2293,
+          "nll": 9.19070658270644,
+          "kl_reference_candidate": 5.035087406622439,
+          "top1_id": 383,
+          "reference_top1_id": 198
+        },
+        {
+          "document": "stars",
+          "position": 12,
+          "target_id": 317,
+          "nll": 15.381080087210222,
+          "kl_reference_candidate": 5.429460411255763,
+          "top1_id": 48463,
+          "reference_top1_id": 198
+        },
+        {
+          "document": "workshop",
+          "position": 12,
+          "target_id": 13,
+          "nll": 0.40106282350785705,
+          "kl_reference_candidate": 2.3579490260075535,
+          "top1_id": 13,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "library",
+          "position": 13,
+          "target_id": 340,
+          "nll": 7.018556929294256,
+          "kl_reference_candidate": 1.8421670611449652,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "garden",
+          "position": 13,
+          "target_id": 13701,
+          "nll": 14.95460034671106,
+          "kl_reference_candidate": 2.1092418601402114,
+          "top1_id": 257,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 13,
+          "target_id": 13,
+          "nll": 0.7123592752235908,
+          "kl_reference_candidate": 1.2634708174746152,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "kitchen",
+          "position": 13,
+          "target_id": 17090,
+          "nll": 11.865103523374131,
+          "kl_reference_candidate": 4.232186388447183,
+          "top1_id": 257,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "stars",
+          "position": 13,
+          "target_id": 1448,
+          "nll": 7.443527508498363,
+          "kl_reference_candidate": 2.889801315574627,
+          "top1_id": 25572,
+          "reference_top1_id": 1178
+        },
+        {
+          "document": "workshop",
+          "position": 13,
+          "target_id": 383,
+          "nll": 1.3582206948524203,
+          "kl_reference_candidate": 4.396253769811828,
+          "top1_id": 383,
+          "reference_top1_id": 383
+        },
+        {
+          "document": "library",
+          "position": 14,
+          "target_id": 11,
+          "nll": 0.770303549376365,
+          "kl_reference_candidate": 1.5085225838942997,
+          "top1_id": 11,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "garden",
+          "position": 14,
+          "target_id": 11,
+          "nll": 1.3599126558030008,
+          "kl_reference_candidate": 1.6864248594883298,
+          "top1_id": 290,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "bicycle",
+          "position": 14,
+          "target_id": 1375,
+          "nll": 10.04957602174369,
+          "kl_reference_candidate": 5.302663866027759,
+          "top1_id": 383,
+          "reference_top1_id": 1375
+        },
+        {
+          "document": "kitchen",
+          "position": 14,
+          "target_id": 262,
+          "nll": 1.7044032481720564,
+          "kl_reference_candidate": 2.8476962399144528,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 14,
+          "target_id": 286,
+          "nll": 0.30642831856790753,
+          "kl_reference_candidate": 0.19287830273834342,
+          "top1_id": 286,
+          "reference_top1_id": 286
+        },
+        {
+          "document": "workshop",
+          "position": 14,
+          "target_id": 1097,
+          "nll": 14.11277516666027,
+          "kl_reference_candidate": 3.756386392149944,
+          "top1_id": 3002,
+          "reference_top1_id": 3091
+        },
+        {
+          "document": "library",
+          "position": 15,
+          "target_id": 9692,
+          "nll": 11.046915323085699,
+          "kl_reference_candidate": 4.833505518384724,
+          "top1_id": 257,
+          "reference_top1_id": 673
+        },
+        {
+          "document": "garden",
+          "position": 15,
+          "target_id": 981,
+          "nll": 5.705261851241659,
+          "kl_reference_candidate": 2.746619145318515,
+          "top1_id": 290,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 15,
+          "target_id": 11856,
+          "nll": 4.920886404771778,
+          "kl_reference_candidate": 6.004530827375205,
+          "top1_id": 4251,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "kitchen",
+          "position": 15,
+          "target_id": 9391,
+          "nll": 4.911779154722069,
+          "kl_reference_candidate": 3.0949087046570773,
+          "top1_id": 734,
+          "reference_top1_id": 10601
+        },
+        {
+          "document": "stars",
+          "position": 15,
+          "target_id": 2460,
+          "nll": 11.758037933738166,
+          "kl_reference_candidate": 4.501013112192218,
+          "top1_id": 23390,
+          "reference_top1_id": 661
+        },
+        {
+          "document": "workshop",
+          "position": 15,
+          "target_id": 26419,
+          "nll": 3.0448549909863942,
+          "kl_reference_candidate": 2.7046879657275857,
+          "top1_id": 338,
+          "reference_top1_id": 26419
+        },
+        {
+          "document": "library",
+          "position": 16,
+          "target_id": 714,
+          "nll": 1.2601645457108503,
+          "kl_reference_candidate": 2.551434087392136,
+          "top1_id": 714,
+          "reference_top1_id": 714
+        },
+        {
+          "document": "garden",
+          "position": 16,
+          "target_id": 262,
+          "nll": 0.12484981593707811,
+          "kl_reference_candidate": 0.0884305226587315,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 16,
+          "target_id": 257,
+          "nll": 0.24703360490721593,
+          "kl_reference_candidate": 4.7411512107693286,
+          "top1_id": 257,
+          "reference_top1_id": 607
+        },
+        {
+          "document": "kitchen",
+          "position": 16,
+          "target_id": 11,
+          "nll": 0.26391167936030513,
+          "kl_reference_candidate": 3.0055923308900856,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 16,
+          "target_id": 3181,
+          "nll": 11.259678470667865,
+          "kl_reference_candidate": 3.965591142374884,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "workshop",
+          "position": 16,
+          "target_id": 23243,
+          "nll": 13.485448071685553,
+          "kl_reference_candidate": 4.975321480854456,
+          "top1_id": 338,
+          "reference_top1_id": 338
+        },
+        {
+          "document": "library",
+          "position": 17,
+          "target_id": 3551,
+          "nll": 11.927403919266197,
+          "kl_reference_candidate": 6.046208684355805,
+          "top1_id": 11691,
+          "reference_top1_id": 766
+        },
+        {
+          "document": "garden",
+          "position": 17,
+          "target_id": 584,
+          "nll": 0.010274056544592014,
+          "kl_reference_candidate": 0.11284641329324654,
+          "top1_id": 584,
+          "reference_top1_id": 584
+        },
+        {
+          "document": "bicycle",
+          "position": 17,
+          "target_id": 3975,
+          "nll": 8.92398993517402,
+          "kl_reference_candidate": 4.064999884918181,
+          "top1_id": 13224,
+          "reference_top1_id": 6131
+        },
+        {
+          "document": "kitchen",
+          "position": 17,
+          "target_id": 262,
+          "nll": 1.9036974967621063,
+          "kl_reference_candidate": 4.517524401197477,
+          "top1_id": 257,
+          "reference_top1_id": 751
+        },
+        {
+          "document": "stars",
+          "position": 17,
+          "target_id": 257,
+          "nll": 0.06787955663416767,
+          "kl_reference_candidate": 4.876037460414378,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "workshop",
+          "position": 17,
+          "target_id": 606,
+          "nll": 10.58245019092874,
+          "kl_reference_candidate": 4.148338412414314,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "library",
+          "position": 18,
+          "target_id": 262,
+          "nll": 4.088810441689063,
+          "kl_reference_candidate": 5.263649201682347,
+          "top1_id": 13,
+          "reference_top1_id": 866
+        },
+        {
+          "document": "garden",
+          "position": 18,
+          "target_id": 373,
+          "nll": 5.757346516594609,
+          "kl_reference_candidate": 2.6991258470526653,
+          "top1_id": 11,
+          "reference_top1_id": 1735
+        },
+        {
+          "document": "bicycle",
+          "position": 18,
+          "target_id": 11,
+          "nll": 1.2236983894478612,
+          "kl_reference_candidate": 3.380133745111234,
+          "top1_id": 13,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "kitchen",
+          "position": 18,
+          "target_id": 4255,
+          "nll": 6.734121160685987,
+          "kl_reference_candidate": 3.4750391262145133,
+          "top1_id": 6174,
+          "reference_top1_id": 15756
+        },
+        {
+          "document": "stars",
+          "position": 18,
+          "target_id": 24344,
+          "nll": 6.797536567446073,
+          "kl_reference_candidate": 4.63655653235874,
+          "top1_id": 38371,
+          "reference_top1_id": 1402
+        },
+        {
+          "document": "workshop",
+          "position": 18,
+          "target_id": 656,
+          "nll": 5.665320556806449,
+          "kl_reference_candidate": 5.406692025968078,
+          "top1_id": 13,
+          "reference_top1_id": 503
+        },
+        {
+          "document": "library",
+          "position": 19,
+          "target_id": 3670,
+          "nll": 14.361285793173906,
+          "kl_reference_candidate": 4.452108856785848,
+          "top1_id": 8714,
+          "reference_top1_id": 3891
+        },
+        {
+          "document": "garden",
+          "position": 19,
+          "target_id": 5901,
+          "nll": 5.3561699703165715,
+          "kl_reference_candidate": 3.4812532184856844,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "bicycle",
+          "position": 19,
+          "target_id": 257,
+          "nll": 0.5635174484222034,
+          "kl_reference_candidate": 4.09039663112395,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "kitchen",
+          "position": 19,
+          "target_id": 19036,
+          "nll": 13.151356636642234,
+          "kl_reference_candidate": 5.10440332797754,
+          "top1_id": 338,
+          "reference_top1_id": 900
+        },
+        {
+          "document": "stars",
+          "position": 19,
+          "target_id": 284,
+          "nll": 5.375291136765043,
+          "kl_reference_candidate": 3.072047034021523,
+          "top1_id": 13,
+          "reference_top1_id": 284
+        },
+        {
+          "document": "workshop",
+          "position": 19,
+          "target_id": 4553,
+          "nll": 15.417170718584998,
+          "kl_reference_candidate": 4.990501488457946,
+          "top1_id": 257,
+          "reference_top1_id": 1115
+        }
+      ],
+      "rss_method": "one ps observation after scoring/generation; not peak",
+      "score_seconds": 1.021234375,
+      "scored_tokens": 96,
+      "source": "openai-community/gpt2@607a30d783dfa663caf39e06633721c8d4cfcd7e",
+      "source_sha256": "123c26765f2989e5ab2d2d4873ff29cfe12b2025f81656c0c262fc6f474f82e5",
+      "threads": 4,
+      "top1_matches": 28
+    },
+    "q4-mixed": {
+      "completions": [
+        {
+          "text": " the capital of the French Republic. The",
+          "token_ids": [
+            262,
+            3139,
+            286,
+            262,
+            4141,
+            2066,
+            13,
+            383
+          ],
+          "prompt_tokens": 5,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        },
+        {
+          "text": " will come to you and say, \"",
+          "token_ids": [
+            481,
+            1282,
+            284,
+            345,
+            290,
+            910,
+            11,
+            366
+          ],
+          "prompt_tokens": 8,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        }
+      ],
+      "format": "monolith-quant-quality-v1",
+      "generation_prompts": [
+        "The capital of France is",
+        "Once upon a time, a small cat"
+      ],
+      "heap_alloc_bytes": 129925912,
+      "kernel_workers": 4,
+      "load_seconds": 0.953612375,
+      "mean_kl": 0.10791567604650497,
+      "mean_nll": 3.928695603682652,
+      "perplexity": 50.84061808401064,
+      "plan": {
+        "format": "monolith-hf-plan-v1",
+        "model_type": "gpt2",
+        "tied_embeddings": true,
+        "config": {
+          "vocab": 50257,
+          "dim": 768,
+          "hidden": 3072,
+          "layers": 12,
+          "heads": 12,
+          "kv_heads": 12,
+          "context": 128,
+          "rope_theta": 10000,
+          "norm_eps": 1e-05
+        },
+        "parameters": 124439808,
+        "weight_bytes": 92416560,
+        "weight_format": "q4-mixed",
+        "fp32_weight_bytes": 497759232,
+        "quantized_parameters": 123532032,
+        "q8_parameters": 38597376,
+        "q4_parameters": 84934656,
+        "scale_bytes": 7720752,
+        "quantization_block": 64,
+        "quantization_buffer_bytes": 256,
+        "rope_bytes": 0,
+        "kv_bytes_per_token": 73728,
+        "full_context_kv_bytes": 9437184,
+        "conversion_buffer_bytes": 65536,
+        "source_bytes": 548105171,
+        "shards": 1,
+        "tensor_dtypes": {
+          "F32": 160
+        }
+      },
+      "post_probe_rss_bytes": 157859840,
+      "reference": {
+        "version": "monolith-quality-logits-v1",
+        "source": "openai-community/gpt2@607a30d783dfa663caf39e06633721c8d4cfcd7e",
+        "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
+        "tokens_sha256": "b40ec47dc40ef0abd4619cb8f360f858caeede225943fbb7a270eb065b3889db",
+        "reference_format": "f32",
+        "vocab": 50257,
+        "rows": 96
+      },
+      "reference_vectors_sha256": "a0eaa96e55bae3afa10db3cfef85745b141f9fad0b9090dc8485b511191e1edc",
+      "rows": [
+        {
+          "document": "library",
+          "position": 4,
+          "target_id": 257,
+          "nll": 1.497909704595159,
+          "kl_reference_candidate": 0.04791376309491799,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "garden",
+          "position": 4,
+          "target_id": 262,
+          "nll": 3.5688280330655573,
+          "kl_reference_candidate": 0.4944567775653854,
+          "top1_id": 416,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 4,
+          "target_id": 7404,
+          "nll": 6.783255199768703,
+          "kl_reference_candidate": 0.11318606869041319,
+          "top1_id": 1110,
+          "reference_top1_id": 9003
+        },
+        {
+          "document": "kitchen",
+          "position": 4,
+          "target_id": 10601,
+          "nll": 6.918411780837104,
+          "kl_reference_candidate": 0.0744344746171712,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "stars",
+          "position": 4,
+          "target_id": 11,
+          "nll": 1.2397516798525388,
+          "kl_reference_candidate": 0.05278343991144897,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "workshop",
+          "position": 4,
+          "target_id": 257,
+          "nll": 3.5105664673749004,
+          "kl_reference_candidate": 0.10514854989767086,
+          "top1_id": 356,
+          "reference_top1_id": 314
+        },
+        {
+          "document": "library",
+          "position": 5,
+          "target_id": 1402,
+          "nll": 3.154345635216245,
+          "kl_reference_candidate": 0.17393616880680451,
+          "top1_id": 1492,
+          "reference_top1_id": 1021
+        },
+        {
+          "document": "garden",
+          "position": 5,
+          "target_id": 11376,
+          "nll": 6.8401914078178265,
+          "kl_reference_candidate": 0.1504244330811541,
+          "top1_id": 734,
+          "reference_top1_id": 1748
+        },
+        {
+          "document": "bicycle",
+          "position": 5,
+          "target_id": 11,
+          "nll": 0.8939443286408988,
+          "kl_reference_candidate": 0.05955961223819029,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "kitchen",
+          "position": 5,
+          "target_id": 11,
+          "nll": 1.5559744213544917,
+          "kl_reference_candidate": 0.19490559273254554,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 5,
+          "target_id": 262,
+          "nll": 2.064911827433278,
+          "kl_reference_candidate": 0.054454399434079925,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "workshop",
+          "position": 5,
+          "target_id": 13510,
+          "nll": 8.540325708861104,
+          "kl_reference_candidate": 0.08693720620317891,
+          "top1_id": 1448,
+          "reference_top1_id": 1448
+        },
+        {
+          "document": "library",
+          "position": 6,
+          "target_id": 4077,
+          "nll": 7.404703059442326,
+          "kl_reference_candidate": 0.09610215872689032,
+          "top1_id": 1492,
+          "reference_top1_id": 1492
+        },
+        {
+          "document": "garden",
+          "position": 6,
+          "target_id": 656,
+          "nll": 2.118341399262647,
+          "kl_reference_candidate": 0.14402391468081244,
+          "top1_id": 656,
+          "reference_top1_id": 656
+        },
+        {
+          "document": "bicycle",
+          "position": 6,
+          "target_id": 26041,
+          "nll": 9.748107466874345,
+          "kl_reference_candidate": 0.05131559655024349,
+          "top1_id": 339,
+          "reference_top1_id": 339
+        },
+        {
+          "document": "kitchen",
+          "position": 6,
+          "target_id": 7545,
+          "nll": 5.370822638162039,
+          "kl_reference_candidate": 0.24389424009686775,
+          "top1_id": 543,
+          "reference_top1_id": 475
+        },
+        {
+          "document": "stars",
+          "position": 6,
+          "target_id": 1755,
+          "nll": 5.428895656989553,
+          "kl_reference_candidate": 0.08790604493590926,
+          "top1_id": 1748,
+          "reference_top1_id": 1748
+        },
+        {
+          "document": "workshop",
+          "position": 6,
+          "target_id": 3091,
+          "nll": 2.743864999294985,
+          "kl_reference_candidate": 0.06184388294062232,
+          "top1_id": 3091,
+          "reference_top1_id": 3091
+        },
+        {
+          "document": "library",
+          "position": 7,
+          "target_id": 20922,
+          "nll": 5.7740325648942985,
+          "kl_reference_candidate": 0.1316912296626851,
+          "top1_id": 1492,
+          "reference_top1_id": 1492
+        },
+        {
+          "document": "garden",
+          "position": 7,
+          "target_id": 734,
+          "nll": 1.3623112806422881,
+          "kl_reference_candidate": 0.02994711949276127,
+          "top1_id": 734,
+          "reference_top1_id": 734
+        },
+        {
+          "document": "bicycle",
+          "position": 7,
+          "target_id": 10667,
+          "nll": 7.532561204636494,
+          "kl_reference_candidate": 0.12685502088531075,
+          "top1_id": 373,
+          "reference_top1_id": 531
+        },
+        {
+          "document": "kitchen",
+          "position": 7,
+          "target_id": 11,
+          "nll": 0.47103205360996014,
+          "kl_reference_candidate": 0.03429408126948069,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 7,
+          "target_id": 6766,
+          "nll": 1.7493550693879882,
+          "kl_reference_candidate": 0.12438073578708377,
+          "top1_id": 6766,
+          "reference_top1_id": 6766
+        },
+        {
+          "document": "workshop",
+          "position": 7,
+          "target_id": 2714,
+          "nll": 6.195969173539126,
+          "kl_reference_candidate": 0.06534974112180643,
+          "top1_id": 351,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "library",
+          "position": 8,
+          "target_id": 13970,
+          "nll": 4.897152377609785,
+          "kl_reference_candidate": 0.047164547668004785,
+          "top1_id": 287,
+          "reference_top1_id": 319
+        },
+        {
+          "document": "garden",
+          "position": 8,
+          "target_id": 9004,
+          "nll": 3.0330141493721783,
+          "kl_reference_candidate": 0.10163566152024049,
+          "top1_id": 37192,
+          "reference_top1_id": 37192
+        },
+        {
+          "document": "bicycle",
+          "position": 8,
+          "target_id": 1111,
+          "nll": 7.511999769470208,
+          "kl_reference_candidate": 0.10346107276189875,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "kitchen",
+          "position": 8,
+          "target_id": 290,
+          "nll": 2.1769174126360724,
+          "kl_reference_candidate": 0.12673399836189825,
+          "top1_id": 7543,
+          "reference_top1_id": 7543
+        },
+        {
+          "document": "stars",
+          "position": 8,
+          "target_id": 3114,
+          "nll": 6.704985177545851,
+          "kl_reference_candidate": 0.14677070486431384,
+          "top1_id": 318,
+          "reference_top1_id": 318
+        },
+        {
+          "document": "workshop",
+          "position": 8,
+          "target_id": 23742,
+          "nll": 10.26322419297857,
+          "kl_reference_candidate": 0.0977775429153299,
+          "top1_id": 257,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "library",
+          "position": 9,
+          "target_id": 262,
+          "nll": 1.344953782111709,
+          "kl_reference_candidate": 0.051063983310901846,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "garden",
+          "position": 9,
+          "target_id": 13,
+          "nll": 1.6089167548455094,
+          "kl_reference_candidate": 0.04891331225888025,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "bicycle",
+          "position": 9,
+          "target_id": 17920,
+          "nll": 7.670253493767618,
+          "kl_reference_candidate": 0.14682450844005673,
+          "top1_id": 607,
+          "reference_top1_id": 607
+        },
+        {
+          "document": "kitchen",
+          "position": 9,
+          "target_id": 1115,
+          "nll": 7.54843731823037,
+          "kl_reference_candidate": 0.19288371454920972,
+          "top1_id": 8268,
+          "reference_top1_id": 7543
+        },
+        {
+          "document": "stars",
+          "position": 9,
+          "target_id": 23708,
+          "nll": 8.089774202259193,
+          "kl_reference_candidate": 0.05420576749173285,
+          "top1_id": 588,
+          "reference_top1_id": 588
+        },
+        {
+          "document": "workshop",
+          "position": 9,
+          "target_id": 286,
+          "nll": 5.0721491180295,
+          "kl_reference_candidate": 0.06821218385746947,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "library",
+          "position": 10,
+          "target_id": 4324,
+          "nll": 4.999233893474951,
+          "kl_reference_candidate": 0.0721703525949555,
+          "top1_id": 6915,
+          "reference_top1_id": 6915
+        },
+        {
+          "document": "garden",
+          "position": 10,
+          "target_id": 1881,
+          "nll": 3.4145616763616715,
+          "kl_reference_candidate": 0.05942664043959218,
+          "top1_id": 383,
+          "reference_top1_id": 383
+        },
+        {
+          "document": "bicycle",
+          "position": 10,
+          "target_id": 319,
+          "nll": 3.146981532313987,
+          "kl_reference_candidate": 0.05440733033033682,
+          "top1_id": 290,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "kitchen",
+          "position": 10,
+          "target_id": 9653,
+          "nll": 2.7081698213212206,
+          "kl_reference_candidate": 0.41536530066116306,
+          "top1_id": 12,
+          "reference_top1_id": 9653
+        },
+        {
+          "document": "stars",
+          "position": 10,
+          "target_id": 1598,
+          "nll": 3.6115999594718744,
+          "kl_reference_candidate": 0.08537351086725281,
+          "top1_id": 6016,
+          "reference_top1_id": 6016
+        },
+        {
+          "document": "workshop",
+          "position": 10,
+          "target_id": 1811,
+          "nll": 4.966339613654128,
+          "kl_reference_candidate": 0.14464929374347005,
+          "top1_id": 262,
+          "reference_top1_id": 2972
+        },
+        {
+          "document": "library",
+          "position": 11,
+          "target_id": 13,
+          "nll": 1.362500154528064,
+          "kl_reference_candidate": 0.07566472365697623,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "garden",
+          "position": 11,
+          "target_id": 1735,
+          "nll": 3.029922820417241,
+          "kl_reference_candidate": 0.07769369165590058,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "bicycle",
+          "position": 11,
+          "target_id": 607,
+          "nll": 2.617874751297734,
+          "kl_reference_candidate": 0.16793653999163716,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "kitchen",
+          "position": 11,
+          "target_id": 13,
+          "nll": 1.2853929943641162,
+          "kl_reference_candidate": 0.23775224978185855,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "stars",
+          "position": 11,
+          "target_id": 13,
+          "nll": 0.7859483998102945,
+          "kl_reference_candidate": 0.041232642339771995,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "workshop",
+          "position": 11,
+          "target_id": 10620,
+          "nll": 2.134231600877172,
+          "kl_reference_candidate": 0.06291685049613277,
+          "top1_id": 1180,
+          "reference_top1_id": 1180
+        },
+        {
+          "document": "library",
+          "position": 12,
+          "target_id": 14384,
+          "nll": 4.9223297237384855,
+          "kl_reference_candidate": 0.039046126773690716,
+          "top1_id": 366,
+          "reference_top1_id": 366
+        },
+        {
+          "document": "garden",
+          "position": 12,
+          "target_id": 2714,
+          "nll": 6.181836256082008,
+          "kl_reference_candidate": 0.09778789200852726,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "bicycle",
+          "position": 12,
+          "target_id": 17026,
+          "nll": 3.802502648833155,
+          "kl_reference_candidate": 0.4140296522974752,
+          "top1_id": 1097,
+          "reference_top1_id": 7161
+        },
+        {
+          "document": "kitchen",
+          "position": 12,
+          "target_id": 2293,
+          "nll": 5.093550248495973,
+          "kl_reference_candidate": 0.08064580457161204,
+          "top1_id": 383,
+          "reference_top1_id": 198
+        },
+        {
+          "document": "stars",
+          "position": 12,
+          "target_id": 317,
+          "nll": 3.8084608453664828,
+          "kl_reference_candidate": 0.039273884971983086,
+          "top1_id": 198,
+          "reference_top1_id": 198
+        },
+        {
+          "document": "workshop",
+          "position": 12,
+          "target_id": 13,
+          "nll": 1.642498515048601,
+          "kl_reference_candidate": 0.06975379429492343,
+          "top1_id": 13,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "library",
+          "position": 13,
+          "target_id": 340,
+          "nll": 1.7929965148601354,
+          "kl_reference_candidate": 0.04116240622925579,
+          "top1_id": 373,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "garden",
+          "position": 13,
+          "target_id": 13701,
+          "nll": 7.538272339972238,
+          "kl_reference_candidate": 0.17147707545889995,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 13,
+          "target_id": 13,
+          "nll": 1.0378785119064986,
+          "kl_reference_candidate": 0.051176586874395864,
+          "top1_id": 13,
+          "reference_top1_id": 13
+        },
+        {
+          "document": "kitchen",
+          "position": 13,
+          "target_id": 17090,
+          "nll": 4.323682214425418,
+          "kl_reference_candidate": 0.11849042708307393,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "stars",
+          "position": 13,
+          "target_id": 1448,
+          "nll": 5.206146515721414,
+          "kl_reference_candidate": 0.044387979704583934,
+          "top1_id": 1178,
+          "reference_top1_id": 1178
+        },
+        {
+          "document": "workshop",
+          "position": 13,
+          "target_id": 383,
+          "nll": 1.7845588091534808,
+          "kl_reference_candidate": 0.04649077388072236,
+          "top1_id": 383,
+          "reference_top1_id": 383
+        },
+        {
+          "document": "library",
+          "position": 14,
+          "target_id": 11,
+          "nll": 2.0549777070656887,
+          "kl_reference_candidate": 0.03772116572988647,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "garden",
+          "position": 14,
+          "target_id": 11,
+          "nll": 1.3637434982427692,
+          "kl_reference_candidate": 0.1017590825178975,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "bicycle",
+          "position": 14,
+          "target_id": 1375,
+          "nll": 1.8800555565419472,
+          "kl_reference_candidate": 0.04360425201685809,
+          "top1_id": 1375,
+          "reference_top1_id": 1375
+        },
+        {
+          "document": "kitchen",
+          "position": 14,
+          "target_id": 262,
+          "nll": 1.6756669264440518,
+          "kl_reference_candidate": 0.11970144052164616,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 14,
+          "target_id": 286,
+          "nll": 0.05906410192004241,
+          "kl_reference_candidate": 0.0041695312312872435,
+          "top1_id": 286,
+          "reference_top1_id": 286
+        },
+        {
+          "document": "workshop",
+          "position": 14,
+          "target_id": 1097,
+          "nll": 7.7627448295547055,
+          "kl_reference_candidate": 0.0750173593676958,
+          "top1_id": 23742,
+          "reference_top1_id": 3091
+        },
+        {
+          "document": "library",
+          "position": 15,
+          "target_id": 9692,
+          "nll": 11.335563179564843,
+          "kl_reference_candidate": 0.1948998936335178,
+          "top1_id": 339,
+          "reference_top1_id": 673
+        },
+        {
+          "document": "garden",
+          "position": 15,
+          "target_id": 981,
+          "nll": 1.8196500838704708,
+          "kl_reference_candidate": 0.0675346383692053,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 15,
+          "target_id": 11856,
+          "nll": 9.075621469670835,
+          "kl_reference_candidate": 0.0518342014562124,
+          "top1_id": 373,
+          "reference_top1_id": 373
+        },
+        {
+          "document": "kitchen",
+          "position": 15,
+          "target_id": 9391,
+          "nll": 2.6859631884235284,
+          "kl_reference_candidate": 0.09536148666691156,
+          "top1_id": 9653,
+          "reference_top1_id": 10601
+        },
+        {
+          "document": "stars",
+          "position": 15,
+          "target_id": 2460,
+          "nll": 6.069662158484988,
+          "kl_reference_candidate": 0.09794455740641371,
+          "top1_id": 661,
+          "reference_top1_id": 661
+        },
+        {
+          "document": "workshop",
+          "position": 15,
+          "target_id": 26419,
+          "nll": 0.6570492466771753,
+          "kl_reference_candidate": 0.06849668601857402,
+          "top1_id": 26419,
+          "reference_top1_id": 26419
+        },
+        {
+          "document": "library",
+          "position": 16,
+          "target_id": 714,
+          "nll": 0.9150841554864826,
+          "kl_reference_candidate": 0.07990098066407744,
+          "top1_id": 714,
+          "reference_top1_id": 714
+        },
+        {
+          "document": "garden",
+          "position": 16,
+          "target_id": 262,
+          "nll": 0.06555388357256842,
+          "kl_reference_candidate": 0.005516436395877435,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "bicycle",
+          "position": 16,
+          "target_id": 257,
+          "nll": 2.810851293197274,
+          "kl_reference_candidate": 0.03447049546494691,
+          "top1_id": 607,
+          "reference_top1_id": 607
+        },
+        {
+          "document": "kitchen",
+          "position": 16,
+          "target_id": 11,
+          "nll": 1.0211475624615503,
+          "kl_reference_candidate": 0.13835023254480236,
+          "top1_id": 11,
+          "reference_top1_id": 11
+        },
+        {
+          "document": "stars",
+          "position": 16,
+          "target_id": 3181,
+          "nll": 5.853930835696062,
+          "kl_reference_candidate": 0.09944089981085726,
+          "top1_id": 550,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "workshop",
+          "position": 16,
+          "target_id": 23243,
+          "nll": 9.295995973909825,
+          "kl_reference_candidate": 0.04532822036274677,
+          "top1_id": 11,
+          "reference_top1_id": 338
+        },
+        {
+          "document": "library",
+          "position": 17,
+          "target_id": 3551,
+          "nll": 2.830915168155883,
+          "kl_reference_candidate": 0.10611180012724925,
+          "top1_id": 766,
+          "reference_top1_id": 766
+        },
+        {
+          "document": "garden",
+          "position": 17,
+          "target_id": 584,
+          "nll": 0.029743839981126285,
+          "kl_reference_candidate": 0.00892384305042216,
+          "top1_id": 584,
+          "reference_top1_id": 584
+        },
+        {
+          "document": "bicycle",
+          "position": 17,
+          "target_id": 3975,
+          "nll": 6.362520715490675,
+          "kl_reference_candidate": 0.13450681045159207,
+          "top1_id": 6131,
+          "reference_top1_id": 6131
+        },
+        {
+          "document": "kitchen",
+          "position": 17,
+          "target_id": 262,
+          "nll": 2.2762390929288756,
+          "kl_reference_candidate": 0.16230435909282043,
+          "top1_id": 262,
+          "reference_top1_id": 751
+        },
+        {
+          "document": "stars",
+          "position": 17,
+          "target_id": 257,
+          "nll": 2.2957279054722335,
+          "kl_reference_candidate": 0.12973862278979031,
+          "top1_id": 502,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "workshop",
+          "position": 17,
+          "target_id": 606,
+          "nll": 1.589770317115537,
+          "kl_reference_candidate": 0.06563487588196057,
+          "top1_id": 262,
+          "reference_top1_id": 262
+        },
+        {
+          "document": "library",
+          "position": 18,
+          "target_id": 262,
+          "nll": 4.025687884248157,
+          "kl_reference_candidate": 0.0924418374061036,
+          "top1_id": 866,
+          "reference_top1_id": 866
+        },
+        {
+          "document": "garden",
+          "position": 18,
+          "target_id": 373,
+          "nll": 1.9891152506330485,
+          "kl_reference_candidate": 0.1323445157903227,
+          "top1_id": 2714,
+          "reference_top1_id": 1735
+        },
+        {
+          "document": "bicycle",
+          "position": 18,
+          "target_id": 11,
+          "nll": 2.703689178673784,
+          "kl_reference_candidate": 0.17739089763084825,
+          "top1_id": 286,
+          "reference_top1_id": 290
+        },
+        {
+          "document": "kitchen",
+          "position": 18,
+          "target_id": 4255,
+          "nll": 5.544436100482628,
+          "kl_reference_candidate": 0.18403499953708424,
+          "top1_id": 15756,
+          "reference_top1_id": 15756
+        },
+        {
+          "document": "stars",
+          "position": 18,
+          "target_id": 24344,
+          "nll": 4.8225524576179595,
+          "kl_reference_candidate": 0.11155283224320485,
+          "top1_id": 1402,
+          "reference_top1_id": 1402
+        },
+        {
+          "document": "workshop",
+          "position": 18,
+          "target_id": 656,
+          "nll": 3.0822193034041163,
+          "kl_reference_candidate": 0.1012905667941578,
+          "top1_id": 503,
+          "reference_top1_id": 503
+        },
+        {
+          "document": "library",
+          "position": 19,
+          "target_id": 3670,
+          "nll": 5.874278625433263,
+          "kl_reference_candidate": 0.10614581722433206,
+          "top1_id": 3891,
+          "reference_top1_id": 3891
+        },
+        {
+          "document": "garden",
+          "position": 19,
+          "target_id": 5901,
+          "nll": 3.1876702965652157,
+          "kl_reference_candidate": 0.15137156851121514,
+          "top1_id": 329,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "bicycle",
+          "position": 19,
+          "target_id": 257,
+          "nll": 2.3124613979080664,
+          "kl_reference_candidate": 0.19930952178968078,
+          "top1_id": 543,
+          "reference_top1_id": 257
+        },
+        {
+          "document": "kitchen",
+          "position": 19,
+          "target_id": 19036,
+          "nll": 6.023754165396113,
+          "kl_reference_candidate": 0.27275260695053066,
+          "top1_id": 531,
+          "reference_top1_id": 900
+        },
+        {
+          "document": "stars",
+          "position": 19,
+          "target_id": 284,
+          "nll": 1.2977583259845176,
+          "kl_reference_candidate": 0.08242567643974438,
+          "top1_id": 284,
+          "reference_top1_id": 284
+        },
+        {
+          "document": "workshop",
+          "position": 19,
+          "target_id": 4553,
+          "nll": 4.916251405351716,
+          "kl_reference_candidate": 0.08086940744244131,
+          "top1_id": 257,
+          "reference_top1_id": 1115
+        }
+      ],
+      "rss_method": "one ps observation after scoring/generation; not peak",
+      "score_seconds": 1.084173542,
+      "scored_tokens": 96,
+      "source": "openai-community/gpt2@607a30d783dfa663caf39e06633721c8d4cfcd7e",
+      "source_sha256": "123c26765f2989e5ab2d2d4873ff29cfe12b2025f81656c0c262fc6f474f82e5",
+      "threads": 4,
+      "top1_matches": 67
+    }
+  }
+}
