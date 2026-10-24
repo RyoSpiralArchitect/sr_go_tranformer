@@ -58,11 +58,13 @@ func TestHFLlamaTransformersReference(t *testing.T) {
 					t.Fatal("allocated optimizer storage")
 				}
 			}
-			// Public scalar path and private fixed-worker path share the oracle.
+			// Public owned results and actor-borrowed results share the oracle.
+			var workspace decodeWorkspace
 			for _, workers := range []int{1, 2, 4} {
 				exec := newKernelExecutor(workers)
 				for _, chunk := range []int{1, 4, 16, 35} {
 					cache := m.NewCache()
+					borrowedCache := m.NewCache()
 					for lo := 0; lo < 35; lo += chunk {
 						hi := min(lo+chunk, 35)
 						got, err := m.prefillBatch(context.Background(), []*KVCache{cache}, [][]int{ref.IDs[lo:hi]}, exec)
@@ -70,6 +72,12 @@ func TestHFLlamaTransformersReference(t *testing.T) {
 							t.Fatal(err)
 						}
 						hfNear(t, got, ref.Logits[hi-1], 2e-5)
+						borrowed, err := m.prefillBorrowed(context.Background(), []*KVCache{borrowedCache}, [][]int{ref.IDs[lo:hi]}, exec, &workspace)
+						if err != nil {
+							t.Fatal(err)
+						}
+						exactWorkerFloats(t, borrowed, got)
+						assertWorkspaceReferencesCleared(t, &workspace)
 					}
 					for pos := 35; pos < len(ref.IDs); pos++ {
 						got, err := m.Step(cache, ref.IDs[pos])
@@ -77,15 +85,25 @@ func TestHFLlamaTransformersReference(t *testing.T) {
 							t.Fatal(err)
 						}
 						hfNear(t, got, ref.Logits[pos], 2e-5)
+						borrowed, err := m.prefillBorrowed(context.Background(), []*KVCache{borrowedCache}, [][]int{{ref.IDs[pos]}}, exec, &workspace)
+						if err != nil {
+							t.Fatal(err)
+						}
+						exactWorkerFloats(t, borrowed, got)
+						assertWorkspaceReferencesCleared(t, &workspace)
 					}
 					for layer := range m.Blocks {
 						for pos := range ref.IDs {
 							k, v := cache.row(layer, pos)
 							hfNear(t, k, ref.Cache[layer].K[pos], 2e-5)
 							hfNear(t, v, ref.Cache[layer].V[pos], 2e-5)
+							bk, bv := borrowedCache.row(layer, pos)
+							exactWorkerFloats(t, bk, k)
+							exactWorkerFloats(t, bv, v)
 						}
 					}
 					cache.Close()
+					borrowedCache.Close()
 				}
 				exec.close()
 			}

@@ -163,6 +163,11 @@ func TestPrefillInvalidInputDoesNotMutateCaches(t *testing.T) {
 			if _, err := m.PrefillBatch(ctx, caches, chunks); err == nil {
 				t.Fatal("accepted invalid prefill input")
 			}
+			var workspace decodeWorkspace
+			if _, err := m.prefillBorrowed(ctx, caches, chunks, nil, &workspace); err == nil {
+				t.Fatal("accepted invalid borrowed prefill input")
+			}
+			assertWorkspaceReferencesCleared(t, &workspace)
 			if cache.Pos != 1 || len(cache.Pages) != 1 || !reflect.DeepEqual(before, cache.Pages[0].Data) {
 				t.Fatal("invalid input changed an earlier valid session")
 			}
