@@ -71,7 +71,7 @@ def oracle(folder, output):
         [dict(role="user", content="Hello! 🐈‍⬛")],
         [dict(role="system", content="Answer briefly."), dict(role="user", content="2+2?")],
         [dict(role="user", content="Hi"), dict(role="assistant", content="Hello."),
-         dict(role="user", content="Let's write Go.")]]:
+         dict(role="user", content="Let's write Go.")]] if tok.chat_template else []:
         text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         ids = tok.apply_chat_template(messages, tokenize=True, add_generation_prompt=True)
         chats.append(dict(messages=messages, prompt=text, ids=ids))
@@ -80,7 +80,7 @@ def oracle(folder, output):
     v = raw["model"]["vocab"]
     decode_cases = []
     candidates = [["ð", "Ł"], ["â", "Ģ", "x"], ["Ģ", "Ģ"], ["í", "ł", "Ģ"],
-                  ["ð", "Ł", "Ĳ", "Ī"], ["<|im_end|>"]]
+                  ["ð", "Ł", "Ĳ", "Ī"], ["<|im_end|>"], ["<|endoftext|>"]]
     for pieces in candidates:
         if all(s in v for s in pieces):
             ids = [v[s] for s in pieces]

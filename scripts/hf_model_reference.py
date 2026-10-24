@@ -40,8 +40,8 @@ def main():
                 attn_implementation="eager", local_files_only=True, trust_remote_code=False).eval()
     binary = str(a.binary.resolve())
     flags = ["-hf-model", str(a.model), "-context", "512", "-weight-mib", "3072", "-threads", "4"]
-    requests = [dict(prompt="The capital of France is"),
-                dict(messages=[dict(role="user", content="Write one short sentence about cats.")])]
+    requests = source.get("requests", [dict(prompt="The capital of France is"),
+                dict(messages=[dict(role="user", content="Write one short sentence about cats.")])])
     cases = []
     for body in requests:
         text = body.get("prompt")
@@ -133,7 +133,7 @@ def main():
     receipt = dict(format="monolith-hf-model-reference-v1", model=source["repo"], revision=source["revision"],
                    files=source["files"], binary_sha256=serving.sha(a.binary), context=512, weight_mib=3072,
                    torch=torch.__version__, transformers=transformers.__version__, tolerance=0.002,
-                   attention="eager", dtype="source BF16 -> CPU FP32", cases=cases,
+                   attention="eager", dtype=source.get("dtype", "source BF16 -> CPU FP32"), cases=cases,
                    final_engine_stats=stats, clean_shutdown=True)
     a.output.write_text(json.dumps(receipt, indent=2, ensure_ascii=False, allow_nan=False) + "\n")
     print(a.id, "HTTP, concurrent SSE and resource release passed", flush=True)
