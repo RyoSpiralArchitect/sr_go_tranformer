@@ -578,11 +578,14 @@ func openHFFlags(dir string, limit int, mib int64) (*hfArchive, error) {
 	}
 	return openHFArchive(dir, limit, mib<<20)
 }
-func runInspectHF(args []string) error {
+func runInspectHF(args []string, validateOnly bool) error {
 	f := flags("inspect-hf")
 	dir, limit, budget := hfFlags(f)
-	if err := parse(f, args); err != nil {
+	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
+	}
+	if validateOnly {
+		return nil
 	}
 	a, err := openHFFlags(*dir, *limit, *budget)
 	if err != nil {
@@ -627,13 +630,16 @@ func checkHF(dir string, limit int, budget int64, requireChat bool) (hfCheck, er
 		KVPageAlignedBytes: int64((a.Plan.Config.Context+pageTokens-1)/pageTokens*pageTokens) * a.Plan.KVBytesPerToken}, nil
 }
 
-func runCheckHF(args []string) error {
+func runCheckHF(args []string, validateOnly bool) error {
 	f := flags("check-hf")
 	dir, limit, budget := hfFlags(f)
 	asJSON := f.Bool("json", false, "emit machine-readable preflight report")
 	chat := f.Bool("chat", false, "require a supported chat template")
-	if err := parse(f, args); err != nil {
+	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
+	}
+	if validateOnly {
+		return nil
 	}
 	report, err := checkHF(*dir, *limit, *budget, *chat)
 	if err != nil {
@@ -846,7 +852,7 @@ func inferHFIDs(ctx context.Context, m *Model, ids []int, count, chunk int, logi
 	}
 	return out, nil
 }
-func runInferHF(ctx context.Context, args []string) error {
+func runInferHF(ctx context.Context, args []string, validateOnly bool) error {
 	f := flags("infer-hf")
 	dir, limit, budget := hfFlags(f)
 	input := f.String("ids", "", "comma-separated token IDs, already framed")
@@ -854,10 +860,7 @@ func runInferHF(ctx context.Context, args []string) error {
 	chunk := f.Int("prefill-chunk", 16, "prompt tokens per call (1..1024)")
 	logits := f.Bool("logits", false, "include full FP32 logits for numerical comparison")
 	threads := threadFlag(f)
-	if err := parse(f, args); err != nil {
-		return err
-	}
-	if err := setThreads(*threads); err != nil {
+	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
 	}
 	if len(*input) > 1<<20 {
@@ -869,7 +872,19 @@ func runInferHF(ctx context.Context, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid token ID: %w", err)
 		}
+		if id < 0 {
+			return errors.New("token IDs must be nonnegative")
+		}
 		ids = append(ids, id)
+	}
+	if *count < 1 || *count > 256 || *chunk < 1 || *chunk > 1024 {
+		return errors.New("HF probe requires 1..256 outputs and 1..1024 prefill chunk")
+	}
+	if validateOnly {
+		return nil
+	}
+	if err := setThreads(*threads); err != nil {
+		return err
 	}
 	m, _, err := loadHFModel(ctx, *dir, *limit, *budget)
 	if err != nil {
@@ -960,15 +975,18 @@ func inferencePrompt(ctx context.Context, f *flag.FlagSet, tok inferenceTokenize
 	}
 	return t.formatChat(messages)
 }
-func runTokenizeHF(ctx context.Context, args []string) error {
+func runTokenizeHF(ctx context.Context, args []string, validateOnly bool) error {
 	f := flags("tokenize-hf")
 	dir := f.String("hf-model", "", "local HF model/tokenizer directory")
 	prompt := f.String("prompt", "", "text to encode")
 	f.String("prompt-file", "", "UTF-8 prompt file; - reads stdin (at most 1 MiB)")
 	limit := f.Int("context", 0, "token limit; 0 uses min(model maximum, 2048)")
 	chat, messages := chatFlags(f)
-	if err := parse(f, args); err != nil {
+	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
+	}
+	if validateOnly {
+		return nil
 	}
 	if *dir == "" {
 		return errors.New("provide -hf-model")
@@ -5124,12 +5142,8 @@ func NewEngine(m *Model, tok inferenceTokenizer, c EngineConfig) (*Engine, error
 	return e, nil
 }
 
-// Construct ownership before starting the actor. Tests can stage a complete
-// cohort before run, without timing assumptions or replacing model kernels.
-func newEngine(m *Model, tok inferenceTokenizer, c EngineConfig) (*Engine, error) {
-	if err := validateInferenceTokenizer(m, tok); err != nil {
-		return nil, err
-	}
+// Capacity validation is shared by CLI preflight and engine construction.
+func normalizeEngineConfig(c EngineConfig) (EngineConfig, error) {
 	if c.StreamBuffer == 0 {
 		c.StreamBuffer = 32
 	}
@@ -5146,10 +5160,23 @@ func newEngine(m *Model, tok inferenceTokenizer, c EngineConfig) (*Engine, error
 		c.KernelWorkers = min(runtime.GOMAXPROCS(0), 256)
 	}
 	if c.KernelWorkers < 1 || c.KernelWorkers > 256 {
-		return nil, errors.New("invalid kernel worker count (1..256, or 0 for automatic)")
+		return c, errors.New("invalid kernel worker count (1..256, or 0 for automatic)")
 	}
 	if c.MaxBatch < 1 || c.MaxBatch > 256 || c.Queue < 1 || c.Queue > 65536 || c.CacheBytes < 1 || c.CacheBytes > 1<<40 || c.StreamBuffer < 1 || c.StreamBuffer > 4096 || c.PrefillChunk < 1 || c.PrefillChunk > 1024 || c.MixedPrefillChunk < 1 || c.MixedPrefillChunk > 1024 || c.TokenBudget < c.MaxBatch || c.TokenBudget > 1024 {
-		return nil, errors.New("invalid engine capacity or token budget")
+		return c, errors.New("invalid engine capacity or token budget")
+	}
+	return c, nil
+}
+
+// Construct ownership before starting the actor. Tests can stage a complete
+// cohort before run, without timing assumptions or replacing model kernels.
+func newEngine(m *Model, tok inferenceTokenizer, c EngineConfig) (*Engine, error) {
+	if err := validateInferenceTokenizer(m, tok); err != nil {
+		return nil, err
+	}
+	c, err := normalizeEngineConfig(c)
+	if err != nil {
+		return nil, err
 	}
 	if err := tok.Validate(); err != nil {
 		return nil, err
@@ -5790,6 +5817,75 @@ func parse(f *flag.FlagSet, args []string) error {
 		return fmt.Errorf("unexpected positional arguments: %v", f.Args())
 	}
 	return nil
+}
+
+// The source wrapper and direct commands share the action's real flag parser.
+// Preflight stops before files, stdin, network, worker changes or model loading.
+func parseInferenceAction(f *flag.FlagSet, args []string, validateOnly bool) error {
+	if err := parse(f, args); err != nil {
+		return err
+	}
+	if validateOnly {
+		for _, name := range []string{"model", "hf-model", "context", "weight-mib"} {
+			if flagSet(f, name) {
+				return errors.New("put model source and HF sizing flags before the infer local action")
+			}
+		}
+	}
+	return validateInferenceFlags(f)
+}
+func validateInferenceFlags(f *flag.FlagSet) error {
+	for _, bound := range []struct {
+		name   string
+		lo, hi int64
+	}{{"threads", 1, 1024}, {"context", 0, 32768}, {"weight-mib", 1, 1 << 20}, {"kv-mib", 1, 1 << 20}} {
+		if v := f.Lookup(bound.name); v != nil {
+			n, err := strconv.ParseInt(v.Value.String(), 10, 64)
+			if err != nil || n < bound.lo || n > bound.hi {
+				return fmt.Errorf("-%s must be %d..%d", bound.name, bound.lo, bound.hi)
+			}
+		}
+	}
+	value := func(name string) string {
+		if v := f.Lookup(name); v != nil {
+			return v.Value.String()
+		}
+		return ""
+	}
+	if value("prompt-file") != "" && (flagSet(f, "prompt") || value("messages") != "") {
+		return errors.New("-prompt-file is mutually exclusive with -prompt/-messages")
+	}
+	if value("messages") != "" && (flagSet(f, "prompt") || value("chat") == "true") {
+		return errors.New("-messages is mutually exclusive with -prompt/-chat")
+	}
+	if len(value("prompt")) > 1<<20 {
+		return errors.New("prompt exceeds 1 MiB")
+	}
+	if system := value("system"); len(system) > 1<<20 || !utf8.ValidString(system) {
+		return errors.New("system message must be valid UTF-8 and at most 1 MiB")
+	}
+	return nil
+}
+
+func runInferenceAction(ctx context.Context, action string, args []string, validateOnly bool) error {
+	switch action {
+	case "check-hf":
+		return runCheckHF(args, validateOnly)
+	case "inspect-hf":
+		return runInspectHF(args, validateOnly)
+	case "tokenize-hf":
+		return runTokenizeHF(ctx, args, validateOnly)
+	case "infer-hf":
+		return runInferHF(ctx, args, validateOnly)
+	case "generate":
+		return runGenerate(ctx, args, validateOnly)
+	case "chat":
+		return runChat(ctx, args, validateOnly)
+	case "serve":
+		return runServe(ctx, args, validateOnly)
+	default:
+		return errors.New("unknown inference action")
+	}
 }
 func threadFlag(f *flag.FlagSet) *int {
 	return f.Int("threads", min(4, runtime.GOMAXPROCS(0)), "maximum CPU workers (GOMAXPROCS)")
@@ -6542,7 +6638,7 @@ func runDemo(ctx context.Context, args []string) error {
 	fmt.Println("the spiral" + result.Text)
 	return nil
 }
-func runGenerate(ctx context.Context, args []string) error {
+func runGenerate(ctx context.Context, args []string, validateOnly bool) error {
 	f := flags("generate")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
 	dir, limit, budget := hfFlags(f)
@@ -6553,8 +6649,14 @@ func runGenerate(ctx context.Context, args []string) error {
 	threads := threadFlag(f)
 	s := defaultSampling()
 	samplingFlags(f, &s)
-	if err := parse(f, args); err != nil {
+	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
+	}
+	if err := s.Validate(Config{Context: 32768}); err != nil {
+		return err
+	}
+	if validateOnly {
+		return nil
 	}
 	if err := setThreads(*threads); err != nil {
 		return err
@@ -6676,7 +6778,7 @@ func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s
 	}
 }
 
-func runChat(ctx context.Context, args []string) error {
+func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	f := flags("chat")
 	dir, limit, budget := hfFlags(f)
 	system := f.String("system", "", "system message; empty uses the model template default")
@@ -6685,8 +6787,17 @@ func runChat(ctx context.Context, args []string) error {
 	threads := threadFlag(f)
 	s := defaultSampling()
 	samplingFlags(f, &s)
-	if err := parse(f, args); err != nil {
+	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
+	}
+	if err := s.Validate(Config{Context: 32768}); err != nil {
+		return err
+	}
+	if _, err := normalizeEngineConfig(EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: *memory << 20, KernelWorkers: *workers}); err != nil {
+		return err
+	}
+	if validateOnly {
+		return nil
 	}
 	if err := setThreads(*threads); err != nil {
 		return err
@@ -6918,7 +7029,7 @@ func (t *inferenceTrace) close() error {
 	return errors.Join(t.writer.err, t.file.Close())
 }
 
-func runServe(ctx context.Context, args []string) (err error) {
+func runServe(ctx context.Context, args []string, validateOnly bool) (err error) {
 	f := flags("serve")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
 	dir, limit, weightBudget := hfFlags(f)
@@ -6933,8 +7044,15 @@ func runServe(ctx context.Context, args []string) (err error) {
 	tracePath := f.String("trace", "", "new Go execution trace file for this serve invocation (process-wide)")
 	workers := f.Int("kernel-workers", 0, "reusable compute workers per engine (1..256); 0 captures min(threads,256), 1 runs inline")
 	threads := threadFlag(f)
-	if err := parse(f, args); err != nil {
+	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
+	}
+	engineConfig := EngineConfig{MaxBatch: *batch, Queue: *queue, CacheBytes: *memory << 20, PrefillChunk: *chunk, MixedPrefillChunk: *mixedChunk, TokenBudget: *budget, StreamBuffer: *buffer, KernelWorkers: *workers}
+	if _, err := normalizeEngineConfig(engineConfig); err != nil {
+		return err
+	}
+	if validateOnly {
+		return nil
 	}
 	if err := setThreads(*threads); err != nil {
 		return err
@@ -6947,7 +7065,7 @@ func runServe(ctx context.Context, args []string) (err error) {
 		return err
 	}
 	m.DropOptimizer()
-	e, err := NewEngine(m, tok, EngineConfig{MaxBatch: *batch, Queue: *queue, CacheBytes: *memory << 20, PrefillChunk: *chunk, MixedPrefillChunk: *mixedChunk, TokenBudget: *budget, StreamBuffer: *buffer, KernelWorkers: *workers})
+	e, err := NewEngine(m, tok, engineConfig)
 	if err != nil {
 		return err
 	}
@@ -7457,11 +7575,11 @@ func runInferLocal(ctx context.Context, args []string) error {
 	if sources != 1 {
 		return errors.New("infer local requires exactly one of -repo, -dir or -checkpoint")
 	}
-	for _, a := range rest[1:] {
-		name := strings.SplitN(strings.TrimLeft(a, "-"), "=", 2)[0]
-		if strings.HasPrefix(a, "-") && (name == "model" || name == "hf-model" || name == "context" || name == "weight-mib") {
-			return errors.New("put model source and HF sizing flags before the infer local action")
-		}
+	if err := validateInferenceFlags(f); err != nil {
+		return err
+	}
+	if err := runInferenceAction(ctx, action, rest[1:], true); err != nil {
+		return err
 	}
 	if *checkpoint != "" {
 		if action != "generate" && action != "serve" && rest[0] != "inspect" {
@@ -7494,7 +7612,12 @@ func runInferLocal(ctx context.Context, args []string) error {
 			return err
 		}
 		*dir = path
-		fmt.Fprintf(os.Stderr, "local Go: %s @ %s\n", m.Repo, m.Revision)
+		status, closeStatus := cliOutput(ctx, os.Stderr)
+		_, err = fmt.Fprintf(status, "local Go: %s @ %s\n", m.Repo, m.Revision)
+		closeStatus()
+		if err != nil {
+			return err
+		}
 	} else if *offline || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") {
 		return errors.New("cache/download flags require -repo")
 	}
@@ -7605,7 +7728,22 @@ func remoteInput(ctx context.Context, f *flag.FlagSet, prompt, source, messages,
 	out = append(out, ChatMessage{Role: "user", Content: prompt})
 	return out, validateRemoteMessages(out)
 }
+func (r hfRemote) requestContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if r.Client != nil && r.Client.Timeout > 0 {
+		return context.WithTimeout(ctx, r.Client.Timeout)
+	}
+	return context.WithCancel(ctx)
+}
 func (r hfRemote) complete(ctx context.Context, messages []ChatMessage, out io.Writer) (hfRemoteResult, error) {
+	// http.Client.Timeout alone only interrupts network I/O. Carry the same
+	// deadline through delivery so a stalled output cannot outlive a request.
+	ctx, cancel := r.requestContext(ctx)
+	defer cancel()
+	if out != nil {
+		var closeOutput func()
+		out, closeOutput = cliOutput(ctx, out)
+		defer closeOutput()
+	}
 	result := hfRemoteResult{Backend: "hf-remote", RequestedModel: r.Model}
 	if err := validateRemoteMessages(messages); err != nil {
 		return result, err
@@ -7837,6 +7975,8 @@ func listHFRemote(ctx context.Context, client *http.Client, base, token string) 
 	return envelope.Data, nil
 }
 func runRemoteChat(ctx context.Context, r hfRemote, system string, in io.Reader, out, status io.Writer) error {
+	status, closeStatus := cliOutput(ctx, status)
+	defer closeStatus()
 	var initial []ChatMessage
 	if system != "" {
 		initial = []ChatMessage{{Role: "system", Content: system}}
@@ -7844,12 +7984,16 @@ func runRemoteChat(ctx context.Context, r hfRemote, system string, in io.Reader,
 	history := append([]ChatMessage(nil), initial...)
 	scan := bufio.NewScanner(in)
 	scan.Buffer(make([]byte, 4096), (1<<20)+2)
-	fmt.Fprintln(status, "Remote chat ready. Prompts go to the selected HF endpoint. /reset clears history; /exit quits; Ctrl-C cancels.")
+	if _, err := fmt.Fprintln(status, "Remote chat ready. Prompts go to the selected HF endpoint. /reset clears history; /exit quits; Ctrl-C cancels."); err != nil {
+		return err
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		fmt.Fprint(status, "you> ")
+		if _, err := fmt.Fprint(status, "you> "); err != nil {
+			return err
+		}
 		if !scan.Scan() {
 			if ctx.Err() != nil {
 				return ctx.Err()
@@ -7864,20 +8008,30 @@ func runRemoteChat(ctx context.Context, r hfRemote, system string, in io.Reader,
 			return nil
 		case "/reset":
 			history = append([]ChatMessage(nil), initial...)
-			fmt.Fprintln(status, "History cleared.")
+			if _, err := fmt.Fprintln(status, "History cleared."); err != nil {
+				return err
+			}
 			continue
 		}
 		trial := append(append([]ChatMessage(nil), history...), ChatMessage{Role: "user", Content: line})
 		if err := validateRemoteMessages(trial); err != nil {
-			fmt.Fprintf(status, "Cannot add turn: %v. Use /reset.\n", err)
+			if _, err := fmt.Fprintf(status, "Cannot add turn: %v. Use /reset.\n", err); err != nil {
+				return err
+			}
 			continue
 		}
-		fmt.Fprint(status, "assistant> ")
-		result, err := r.complete(ctx, trial, out)
-		if err != nil {
+		if _, err := fmt.Fprint(status, "assistant> "); err != nil {
 			return err
 		}
-		if _, err = fmt.Fprintln(out); err != nil {
+		turnCtx, cancel := r.requestContext(ctx)
+		turnOut, closeOutput := cliOutput(turnCtx, out)
+		result, err := r.complete(turnCtx, trial, turnOut)
+		if err == nil {
+			_, err = fmt.Fprintln(turnOut)
+		}
+		closeOutput()
+		cancel()
+		if err != nil {
 			return err
 		}
 		history = append(trial, ChatMessage{Role: "assistant", Content: result.Text})
@@ -7915,6 +8069,15 @@ func runInferRemote(ctx context.Context, args []string) error {
 	if *timeout < time.Second || *timeout > 15*time.Minute {
 		return errors.New("remote timeout must be 1s..15m")
 	}
+	if args[0] != "chat" {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, *timeout)
+		defer cancel()
+	}
+	stdout, closeOutput := cliOutput(ctx, os.Stdout)
+	defer closeOutput()
+	stderr, closeStatus := cliOutput(ctx, os.Stderr)
+	defer closeStatus()
 	client := newHFClient(*timeout)
 	// Remote API redirects are rejected, even to another HF host. A POST must
 	// never be replayed or have prompts/credentials silently redirected.
@@ -7943,7 +8106,7 @@ func runInferRemote(ctx context.Context, args []string) error {
 			}
 		}
 		if *asJSON {
-			return json.NewEncoder(os.Stdout).Encode(filtered)
+			return json.NewEncoder(stdout).Encode(filtered)
 		}
 		for _, row := range filtered {
 			providers := []string{}
@@ -7952,10 +8115,13 @@ func runInferRemote(ctx context.Context, args []string) error {
 					providers = append(providers, p.Name)
 				}
 			}
-			fmt.Fprintf(os.Stdout, "%s\t%s\n", row.ID, strings.Join(providers, ","))
+			if _, err := fmt.Fprintf(stdout, "%s\t%s\n", row.ID, strings.Join(providers, ",")); err != nil {
+				return err
+			}
 		}
 		if len(filtered) == 0 {
-			fmt.Fprintln(os.Stderr, "No matching models in this HF router listing. A dedicated endpoint may still serve the model.")
+			_, err = fmt.Fprintln(stderr, "No matching models in this HF router listing. A dedicated endpoint may still serve the model.")
+			return err
 		}
 		return nil
 	}
@@ -7999,12 +8165,12 @@ func runInferRemote(ctx context.Context, args []string) error {
 		return err
 	}
 	if *asJSON {
-		return json.NewEncoder(os.Stdout).Encode(result)
+		return json.NewEncoder(stdout).Encode(result)
 	}
 	if *stream {
-		_, err = fmt.Fprintln(os.Stdout)
+		_, err = fmt.Fprintln(stdout)
 	} else {
-		_, err = fmt.Fprintln(os.Stdout, result.Text)
+		_, err = fmt.Fprintln(stdout, result.Text)
 	}
 	return err
 }
@@ -8068,22 +8234,10 @@ func run(ctx context.Context, args []string) error {
 		return runTokenizer(args[1:])
 	case "eval":
 		return runEval(ctx, args[1:])
-	case "generate":
-		return runGenerate(ctx, args[1:])
+	case "generate", "inspect-hf", "infer-hf", "tokenize-hf", "check-hf", "chat", "serve":
+		return runInferenceAction(ctx, args[0], args[1:], false)
 	case "inspect":
 		return runInspect(args[1:])
-	case "inspect-hf":
-		return runInspectHF(args[1:])
-	case "infer-hf":
-		return runInferHF(ctx, args[1:])
-	case "tokenize-hf":
-		return runTokenizeHF(ctx, args[1:])
-	case "check-hf":
-		return runCheckHF(args[1:])
-	case "chat":
-		return runChat(ctx, args[1:])
-	case "serve":
-		return runServe(ctx, args[1:])
 	case "help", "-h", "--help":
 		return run(ctx, nil)
 	default:
