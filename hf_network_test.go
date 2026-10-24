@@ -25,6 +25,7 @@ import (
 
 func fakeHFHub(t *testing.T, corrupt bool) (hfHub, hfSource, func() map[string]int) {
 	t.Helper()
+	t.Setenv("HF_HUB_OFFLINE", "0")
 	dir := hfCLIFixture(t)
 	files := map[string][]byte{}
 	var rows []hfHubFile
@@ -171,6 +172,7 @@ func TestHFHubPinnedCacheCanRememberNewRef(t *testing.T) {
 	}
 }
 func TestHFRedirectCredentialBoundary(t *testing.T) {
+	t.Setenv("HF_HUB_OFFLINE", "0")
 	target := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "" {
 			t.Error("token forwarded across origin")
@@ -204,6 +206,7 @@ func testRemote(server *httptest.Server) hfRemote {
 	return hfRemote{Base: server.URL, Token: "private-test-token", Model: "openai/gpt-oss-20b", API: "chat", Client: server.Client(), MaxTokens: 8, Temperature: 0, TopP: 1}
 }
 func TestHFRemoteChatAndStreamProtocol(t *testing.T) {
+	t.Setenv("HF_HUB_OFFLINE", "0")
 	for _, streaming := range []bool{false, true} {
 		t.Run(fmt.Sprint(streaming), func(t *testing.T) {
 			count := 0
@@ -259,6 +262,7 @@ func TestHFRemoteChatAndStreamProtocol(t *testing.T) {
 	}
 }
 func TestHFRemoteFailureBoundaries(t *testing.T) {
+	t.Setenv("HF_HUB_OFFLINE", "0")
 	cases := []struct {
 		name, body string
 		status     int
@@ -300,6 +304,7 @@ func TestHFRemoteFailureBoundaries(t *testing.T) {
 	}
 }
 func TestHFRemoteCancellationAndBrokenOutput(t *testing.T) {
+	t.Setenv("HF_HUB_OFFLINE", "0")
 	for _, broken := range []bool{false, true} {
 		t.Run(fmt.Sprint(broken), func(t *testing.T) {
 			started, released := make(chan struct{}), make(chan struct{})
@@ -344,6 +349,7 @@ func TestHFRemoteCancellationAndBrokenOutput(t *testing.T) {
 	}
 }
 func TestHFRemoteTextEndpoint(t *testing.T) {
+	t.Setenv("HF_HUB_OFFLINE", "0")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
@@ -366,6 +372,7 @@ func TestHFRemoteTextEndpoint(t *testing.T) {
 }
 
 func TestHFRemoteBlockedOutput(t *testing.T) {
+	t.Setenv("HF_HUB_OFFLINE", "0")
 	for _, timeout := range []bool{false, true} {
 		t.Run(fmt.Sprintf("timeout=%t", timeout), func(t *testing.T) {
 			released := make(chan struct{})
@@ -423,6 +430,7 @@ func TestHFRemoteBlockedOutput(t *testing.T) {
 }
 
 func TestHFRemoteChatBlockedStatus(t *testing.T) {
+	t.Setenv("HF_HUB_OFFLINE", "0")
 	reader, writer := io.Pipe()
 	defer reader.Close()
 	defer writer.Close()
@@ -450,6 +458,7 @@ func TestHFRemoteChatBlockedStatus(t *testing.T) {
 }
 
 func TestHFRemoteChatDeadlineIncludesFinalNewline(t *testing.T) {
+	t.Setenv("HF_HUB_OFFLINE", "0")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		io.WriteString(w, "data: "+`{"choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":"stop"}]}`+"\n\ndata: [DONE]\n\n")
