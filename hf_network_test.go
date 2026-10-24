@@ -9,13 +9,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -359,6 +362,207 @@ func TestHFRemoteTextEndpoint(t *testing.T) {
 	result, err := r.complete(context.Background(), []ChatMessage{{Role: "user", Content: "The cat"}}, nil)
 	if err != nil || result.Text != " sat down." {
 		t.Fatal(result, err)
+	}
+}
+
+func TestHFRemoteBlockedOutput(t *testing.T) {
+	for _, timeout := range []bool{false, true} {
+		t.Run(fmt.Sprintf("timeout=%t", timeout), func(t *testing.T) {
+			released := make(chan struct{})
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/event-stream")
+				io.WriteString(w, "data: "+`{"choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}]}`+"\n\n")
+				w.(http.Flusher).Flush()
+				<-r.Context().Done()
+				close(released)
+			}))
+			defer server.Close()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			reader, writer := io.Pipe()
+			defer reader.Close()
+			defer writer.Close()
+			blocked := &stalledCLIWriter{writer: writer, started: make(chan struct{})}
+			r := testRemote(server)
+			if timeout {
+				r.Client.Timeout = 500 * time.Millisecond
+			}
+			done := make(chan error, 1)
+			go func() {
+				_, err := r.complete(ctx, []ChatMessage{{Role: "user", Content: "test"}}, blocked)
+				done <- err
+			}()
+			select {
+			case <-blocked.started:
+			case <-time.After(3 * time.Second):
+				t.Fatal("did not attempt output")
+			}
+			want := context.Canceled
+			if timeout {
+				want = context.DeadlineExceeded
+			} else {
+				cancel()
+			}
+			select {
+			case err := <-done:
+				if !errors.Is(err, want) {
+					t.Fatal(err)
+				}
+			case <-time.After(2 * time.Second):
+				_ = reader.Close()
+				<-done
+				t.Fatal("remote cancellation/timeout waited for the output reader")
+			}
+			select {
+			case <-released:
+			case <-time.After(3 * time.Second):
+				t.Fatal("HTTP body retained")
+			}
+		})
+	}
+}
+
+func TestHFRemoteChatBlockedStatus(t *testing.T) {
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	defer writer.Close()
+	blocked := &stalledCLIWriter{writer: writer, started: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- runRemoteChat(ctx, hfRemote{}, "", strings.NewReader(""), io.Discard, blocked) }()
+	select {
+	case <-blocked.started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("did not attempt status")
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		_ = reader.Close()
+		<-done
+		t.Fatal("remote status did not cancel")
+	}
+}
+
+func TestHFRemoteChatDeadlineIncludesFinalNewline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		io.WriteString(w, "data: "+`{"choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":"stop"}]}`+"\n\ndata: [DONE]\n\n")
+	}))
+	defer server.Close()
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	defer writer.Close()
+	blocked := &stalledCLIWriter{writer: writer, started: make(chan struct{}), match: "\n"}
+	r := testRemote(server)
+	r.Client.Timeout = 500 * time.Millisecond
+	done := make(chan error, 1)
+	go func() {
+		done <- runRemoteChat(context.Background(), r, "", strings.NewReader("hi\n"), blocked, io.Discard)
+	}()
+	select {
+	case <-blocked.started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("did not attempt newline")
+	}
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		_ = reader.Close()
+		<-done
+		t.Fatal("turn timeout did not include final output")
+	}
+}
+
+func TestHFLocalInvalidActionDoesNotFetch(t *testing.T) {
+	// Intercept dialing rather than making any external requests. The client
+	// clones DefaultTransport, so this also observes accidental source fetches.
+	original := http.DefaultTransport
+	transport := original.(*http.Transport).Clone()
+	var dials atomic.Int32
+	transport.DialContext = func(context.Context, string, string) (net.Conn, error) {
+		dials.Add(1)
+		return nil, errors.New("unexpected source download")
+	}
+	http.DefaultTransport = transport
+	defer func() { http.DefaultTransport = original; transport.CloseIdleConnections() }()
+	t.Setenv("HF_TOKEN", "")
+	for _, action := range []string{"check", "inspect", "tokens", "ids", "generate", "chat", "serve"} {
+		t.Run(action, func(t *testing.T) {
+			cache := filepath.Join(t.TempDir(), "cache")
+			before := dials.Load()
+			err := run(context.Background(), []string{"infer", "local", "-repo", "author/toy", "-cache-dir", cache, action, "-temperatur", "0"})
+			if err == nil || !strings.Contains(err.Error(), "flag provided but not defined") || dials.Load() != before {
+				t.Fatalf("invalid action triggered source resolution: dials=%d err=%v", dials.Load()-before, err)
+			}
+			if _, err := os.Stat(cache); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("invalid action created a cache: %v", err)
+			}
+		})
+	}
+	for _, args := range [][]string{
+		{"generate", "-max-tokens", "no"}, {"generate", "-temperature"},
+		{"generate", "extra"}, {"generate", "-temperature", "NaN"},
+		{"generate", "-max-tokens", "0"}, {"generate", "-top-p", "0"},
+		{"generate", "-threads", "0"}, {"generate", "-repeat-penalty", ".5"},
+		{"generate", "-prompt", "hi", "-prompt-file", "-"},
+		{"tokens", "-messages", "-", "-chat"},
+		{"ids", "-ids", "1,no"}, {"ids", "-ids", "-1"},
+		{"ids", "-ids", "1", "-max-tokens", "257"},
+		{"ids", "-ids", "1", "-prefill-chunk", "0"},
+		{"chat", "-kernel-workers", "257"}, {"chat", "-kv-mib", "0"},
+		{"chat", "-system", string([]byte{0xff})},
+		{"serve", "-max-batch", "0"}, {"serve", "-queue", "-1"},
+		{"serve", "-token-budget", "1", "-max-batch", "2"},
+		{"serve", "-stream-buffer", "-1"}, {"serve", "-prefill-chunk", "1025"},
+		{"generate", "-hf-model", "override"}, {"check", "-context", "64"},
+		{"-context", "-1", "check"}, {"-weight-mib", "0", "inspect"},
+	} {
+		t.Run(strings.Join(args, "/"), func(t *testing.T) {
+			cache := filepath.Join(t.TempDir(), "cache")
+			before := dials.Load()
+			err := run(context.Background(), append([]string{"infer", "local", "-repo", "author/toy", "-cache-dir", cache}, args...))
+			if err == nil || dials.Load() != before {
+				t.Fatalf("invalid action triggered source resolution: dials=%d err=%v", dials.Load()-before, err)
+			}
+			if _, err := os.Stat(cache); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("invalid action created a cache: %v", err)
+			}
+		})
+	}
+}
+
+func TestHFLocalPreflightHasNoExecutionEffects(t *testing.T) {
+	trace := filepath.Join(t.TempDir(), "trace.out")
+	threads := runtime.GOMAXPROCS(0)
+	for _, args := range [][]string{
+		{"check-hf", "-json"}, {"inspect-hf"},
+		{"tokenize-hf", "-prompt-file", "-"}, // Must not read stdin.
+		{"infer-hf", "-ids", "1,2", "-threads", "1"},
+		{"generate", "-prompt", "-context", "-threads", "1"}, // A flag-like value is text.
+		{"chat", "-threads", "1", "-kernel-workers", "2"},
+		{"serve", "-threads", "1", "-trace", trace},
+	} {
+		if err := runInferenceAction(context.Background(), args[0], args[1:], true); err != nil {
+			t.Fatal(args, err)
+		}
+		if runtime.GOMAXPROCS(0) != threads {
+			t.Fatal("preflight changed worker configuration")
+		}
+	}
+	if _, err := os.Stat(trace); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("preflight opened a trace", err)
+	}
+	if err := run(context.Background(), []string{"infer", "local", "-dir", hfCLIFixture(t), "tokens", "-prompt", "-context"}); err != nil {
+		t.Fatal("flag-like prompt was mistaken for a source option", err)
 	}
 }
 func TestHFCLIBackendBoundaries(t *testing.T) {

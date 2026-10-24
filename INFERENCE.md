@@ -16,6 +16,11 @@ remain aliases for compatibility.
 
 Put source and memory flags **before** the action, and generation flags after:
 
+Action flags, sampling bounds, input conflicts and engine capacity are checked
+before contacting HF or creating a cache. Preflight uses the same parser as
+execution and does not read prompt files/stdin or change worker settings.
+Model-dependent compatibility and context checks follow source resolution.
+
 ```sh
 ./monolith infer local -repo HuggingFaceTB/SmolLM2-135M-Instruct \
   -revision 12fd25f77366fa6b3b4b768ec3050bf629380bac \
@@ -103,6 +108,8 @@ when available and does not invent local token IDs.
 Requests have a default two-minute timeout (`-timeout`, up to 15 minutes),
 1..4096 output tokens, a 1 MiB input bound, 8 MiB response bound and 256 KiB SSE
 event bound. Ctrl+C propagates cancellation and closes response bodies.
+Cancellation also handles stalled stdout/stderr. The request deadline covers
+stream delivery and final output; interactive input waits have no turn deadline.
 Generation is not retried or switched to another backend on failure.
 Truncated streams are errors, even if partial text was already printed.
 Interactive history commits a reply only after successful completion. Use
