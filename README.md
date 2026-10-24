@@ -18,9 +18,10 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Trainer-owned backward scratch with fixed-shape reuse and exact numerical checks.
 - Evaluation-only forward with bounded per-invocation scratch and no backward tape.
 - Startup memory planning and optional training budgets checked before tensor allocation.
-- Bounded inspection and F32/F16/BF16 decoding of a restricted Hugging Face Llama Safetensors profile.
-- Llama token-ID inference with Transformers reference tests for logits and KV caches.
-- SmolLM2-compatible byte-level BPE, chat formatting, and local HF text generation over CLI/HTTP/SSE.
+- Bounded inspection and F32/F16/BF16 decoding of restricted Hugging Face Llama and Qwen2 Safetensors profiles.
+- Token-ID inference with Transformers reference tests for logits, KV caches and tokenization.
+- SmolLM2 and Qwen2.5 text generation over CLI/HTTP/SSE, with recognized chat templates.
+- Model preflight checks, prompts from files or stdin, and interactive chat with reusable workers.
 
 ## Requirements
 
@@ -37,10 +38,23 @@ Supported text profiles include SmolLM2-135M-Instruct, SmolLM2-360M-Instruct and
 After downloading the documented pinned SmolLM2-135M-Instruct files:
 
 ```sh
-go run . generate -hf-model runs/smollm2 -context 512 \
+go run . check-hf -hf-model runs/smollm2 -chat
+go run . chat -hf-model runs/smollm2
+# Or generate one reply:
+go run . generate -hf-model runs/smollm2 \
   -chat -prompt 'Write one short sentence about cats.' \
   -max-tokens 32 -temperature 0 -repeat-penalty 1
 ```
+
+Interactive chat accepts one message per line. Use `/reset` to clear history,
+`/exit` to quit, or Ctrl+C to cancel. Weights and compute workers are reused
+across turns. The default HF context is capped at 2,048 tokens and the FP32
+weight budget is 2,048 MiB; neither is a total process memory limit.
+
+Use `-prompt-file path/to/prompt.txt` instead of `-prompt`, or
+`-prompt-file -` to read stdin. JSON chat messages can be passed with
+`-messages path/to/messages.json` or `-messages -`. See the
+[HF guide](HF_INFERENCE.md#text-generation-and-chat) for examples and limits.
 
 ## Quick start
 
@@ -131,7 +145,7 @@ Training reuses a fixed-size backward workspace owned by the training loop. See 
 
 The [held-out training validation](TRAINING_VALIDATION.md) provides a small authored fixture, complete evaluation receipts and matched CPU optimization measurements. The standard-library Go comparison tool can repeat the same checks against two local executables.
 
-Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, `inspect-hf`, `infer-hf`, `tokenize-hf`, and `serve`.
+Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, `inspect-hf`, `check-hf`, `infer-hf`, `tokenize-hf`, `chat`, and `serve`.
 
 ## HTTP inference
 
@@ -221,7 +235,7 @@ GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke tes
 
 This is an experimental foundation for further development. Attention avoids storing a quadratic probability matrix, but dense attention still takes quadratic compute. The KV memory limit covers cache pages, not total process memory. Generation beyond the sequence lengths used during training may degrade quality.
 
-The text training path and BPE tokenizer training remain bounded, in-memory implementations. Token-shard preparation processes one bounded document at a time; dataset training reads bounded microbatches with a capped manifest and prefetch budget. All shards are verified on opening and must remain immutable during a run. GPU execution, quantization, distributed training, and compatibility with external pretrained checkpoints are not implemented. Synthetic demo results are implementation checks, not evidence of general language ability.
+The text training path and BPE tokenizer training remain bounded, in-memory implementations. Token-shard preparation processes one bounded document at a time; dataset training reads bounded microbatches with a capped manifest and prefetch budget. All shards are verified on opening and must remain immutable during a run. GPU execution, quantization and distributed training are not implemented. Pretrained model support is limited to the documented HF profiles; imported models are inference-only. Synthetic demo results are implementation checks, not evidence of general language ability.
 
 ## License
 

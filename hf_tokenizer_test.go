@@ -189,14 +189,14 @@ func TestHFChatFileRejectsUnknownFields(t *testing.T) {
 		if err := os.WriteFile(path, []byte(body), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := inferencePrompt(flags("test"), tok, "", false, path); err == nil {
+		if _, err := inferencePrompt(context.Background(), flags("test"), tok, "", false, path); err == nil {
 			t.Fatal("accepted ambiguous/unsupported chat file")
 		}
 	}
 	if err := os.WriteFile(path, []byte(`[{"role":"user","content":"hi"}]`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := inferencePrompt(flags("test"), tok, "", false, path); err != nil {
+	if _, err := inferencePrompt(context.Background(), flags("test"), tok, "", false, path); err != nil {
 		t.Fatal(err)
 	}
 }

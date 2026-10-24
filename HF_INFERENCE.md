@@ -18,14 +18,20 @@ subject to the explicit weight budget and existing activation/KV guards. Native
 training/checkpoint limits remain 250 million parameters and 65,536 IDs.
 Bias and separate-head storage is included before any weights are allocated.
 
-For Qwen, download the same file set below from `Qwen/Qwen2.5-0.5B-Instruct`
-at its pinned revision into `runs/qwen25`, then run:
+For Qwen, download its pinned files, check compatibility, then start chatting:
 
 ```sh
-go run . generate -hf-model runs/qwen25 -context 512 -weight-mib 2048 \
-  -chat -prompt 'Goの並行処理を一文で説明して。' \
-  -temperature 0 -repeat-penalty 1 -max-tokens 64
+hf download Qwen/Qwen2.5-0.5B-Instruct \
+  config.json model.safetensors tokenizer.json tokenizer_config.json \
+  generation_config.json \
+  --revision 7ae557604adf67be50417f59c2c2f167def9a775 \
+  --local-dir runs/qwen25
+go run . check-hf -hf-model runs/qwen25 -chat
+go run . chat -hf-model runs/qwen25
 ```
+
+The HF CLI is only needed for the separate download step. Inference runs
+locally in Go. Each model repository has its own license.
 
 ## Inspect a local model
 
@@ -44,8 +50,18 @@ go run . inspect-hf -hf-model runs/smollm2 -context 512 -weight-mib 600
 `inspect-hf` validates metadata and file extents without allocating model
 weights. It reports FP32 weight storage, RoPE tables, KV bytes per token, the
 full-context KV size for one session, source bytes, shard count and dtypes.
-`-context` can reduce the declared context; it cannot extend it.
-`-weight-mib` bounds FP32 weights only, **not process RSS**. Metadata (up to
+`check-hf` additionally validates the tokenizer and recognized chat template
+before loading weights. Use `-chat` to require chat support and `-json` for a
+machine-readable report. The report includes the original model context and
+page-rounded KV storage per full session. Both commands check metadata and file
+extents; payload values are checked only when weights are loaded. Preflight
+does not promise that available physical memory can accommodate the model.
+
+HF commands default to `-context 0`, meaning `min(model maximum, 2048)`.
+An explicit `-context` selects a larger or smaller window up to the declared
+model maximum, subject to allocation guards. Prompt plus output must fit the
+selected window; overflow is rejected without truncation.
+`-weight-mib` defaults to 2048 and bounds FP32 weights only, **not process RSS**. Metadata (up to
 4 MiB per Safetensors header), tokenizer storage, conversion buffers, Go runtime,
 inference scratch and session KV require additional memory. The existing
 parameter, activation and serving KV limits also apply.
@@ -86,7 +102,7 @@ frequency construction. Native models retain adjacent-pair RoPE and their
 existing exact checkpoint/resume behavior. Imported models cannot be written
 as native `.mglm` checkpoints.
 
-CI uses small seeded, synthetic Llama fixtures generated with Transformers
+CI uses small seeded, synthetic Llama and Qwen2 fixtures generated with Transformers
 4.57.1, Torch 2.8.0 CPU eager attention and Safetensors 0.6.2. F32/F16/BF16
 weights are each loaded as FP32. Tests compare logits and every KV row across
 chunk sizes 1/4/16/35, a page boundary, decode, ragged batches and worker
@@ -144,7 +160,7 @@ go run . generate -hf-model runs/smollm2 -context 512 \
 ```
 
 Plain prompts receive no implicit BOS. Empty encoded prompts are rejected for
-generation. Chat formatting adds the exact supported SmolLM2 template,
+generation. Chat formatting adds the exact supported model template,
 including its default system message when no system message is supplied, and
 the assistant generation prefix. Only the recognized SmolLM2 and Qwen2.5 templates are implemented;
 Jinja is never executed. A different template remains usable for plain prompts
@@ -154,6 +170,48 @@ Use `-messages path/to/messages.json` instead of `-prompt/-chat` for a JSON arra
 of `{ "role": "user", "content": "..." }` objects. Roles are `system`, `user` and
 `assistant`; at most 128 messages are accepted. `tokenize-hf` accepts the same
 chat flags and reports the formatted prompt, IDs and decoded text.
+
+For multiline input, use `-prompt-file path/to/prompt.txt` or read stdin with
+`-prompt-file -`. Message arrays also support stdin with `-messages -`.
+Files must be regular files; input is limited to 1 MiB. These sources cannot
+be combined with `-prompt` or with each other.
+Named pipes are rejected before opening; use `-` for an explicitly selected
+stream instead.
+
+```sh
+printf '%s\n' 'Goの並行処理を一文で説明して。' | \
+  go run . generate -hf-model runs/qwen25 -chat -prompt-file -
+printf '%s\n' '[{"role":"user","content":"Explain a goroutine."}]' | \
+  go run . generate -hf-model runs/qwen25 -messages - -json
+```
+
+Plain `generate -chat` and `-messages` output contains only the assistant reply;
+raw prompt generation prints prompt plus continuation. `-json` returns the
+existing completion object with generated IDs, text and token counts.
+
+### Interactive chat
+
+```sh
+go run . chat -hf-model runs/qwen25 -system 'Answer concisely.' \
+  -threads 4 -kernel-workers 2 -max-tokens 64
+```
+
+Enter one user message per line. Replies stream to stdout; prompts and status
+go to stderr. Blank lines are ignored. `/reset` clears conversation history
+while preserving the system message; `/exit`, `/quit` or EOF exits.
+Ctrl+C cancels an active reply or an idle input wait and exits with status 1.
+Cancellation also releases the engine when stdout or stderr stops accepting
+output. Each output uses one pump with at most one 64 KiB chunk in flight; an
+uninterruptible OS write may remain until its receiver resumes or the process
+exits, without holding an inference session open.
+For multiline single requests, use `generate -prompt-file`.
+
+Weights and the engine's fixed worker set are loaded once. Each turn formats
+the retained messages and recomputes their KV cache; the previous turn's stream,
+admission and KV reservation are released before the next starts. History is
+bounded by the same context, 1 MiB and 128-message limits. A turn that cannot be
+admitted leaves history unchanged and suggests `/reset`. There is no silent
+history truncation or persistent prefix cache. `-kv-mib` defaults to 256.
 
 Generation uses the model's scalar EOS and the existing Go sampling flags;
 `generation_config.json` sampling settings are not applied. ID 256 is an
@@ -254,3 +312,19 @@ The [SmolLM2-360M receipt](validation/hf/smollm2-360m-serving.json) records
 maximum absolute logit error `5.054473876953125e-05` (limit `0.002`), matching text on
 all three interfaces, and released request resources. Its
 [tokenizer oracle](validation/hf/smollm2-360m-tokenizer.json) covers the same 159/3/6 cases.
+
+The [CLI receipt](validation/hf/qwen25-cli.json) checks Qwen with the default
+context and weight budget, text and JSON from stdin, streamed interactive
+replies, `/reset`, and SIGINT while stdin remains open. It binds the model,
+reference receipt and tested executable by SHA-256. These short probes do not
+establish long-context accuracy.
+
+```sh
+go build -trimpath -o monolith .
+python scripts/hf_cli_smoke.py --model runs/qwen25 --binary ./monolith \
+  --reference validation/hf/qwen25-serving.json --output runs/qwen25-cli.json
+```
+
+This smoke script uses only the Python standard library and a local model.
+Go tests cover input cancellation, history continuity, reset, context overflow,
+broken output streams, and request-resource release using small fixtures.
