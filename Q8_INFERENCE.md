@@ -30,7 +30,7 @@ are handled explicitly. A full block uses 68 bytes instead of 256 bytes, about
 
 Token embeddings, tied or separate output heads, and attention/MLP matrices
 use Q8. Normalization weights, biases and GPT-2 position embeddings remain
-FP32. Activations, accumulators, RoPE and session KV also remain FP32. This is
+FP32. Activations, ordinary accumulation, RoPE and session KV also use FP32. This is
 an application-specific weight-only format, not a GGUF, GPTQ, AWQ or LLM.int8()
 importer. Prequantized source files remain unsupported.
 
@@ -125,6 +125,9 @@ and warmup are outside the timed throughput interval.
 
 Measured on an Apple M4 with Go 1.27.1, darwin/arm64 and four Go threads.
 Values below are medians of three trials, with the workload described above.
+The measured kernel source is commit `29dd6e2`; subsequent model-guide text
+updates do not change its arithmetic. Each receipt records source and binary
+hashes. Model loading and measurements were sequential on a 24 GiB host.
 
 | GPT-2 measurement | FP32 | Q8 |
 | --- | ---: | ---: |
@@ -154,3 +157,55 @@ With 16 rows it is 13.306 ms versus 13.192 ms, with overlapping trial ranges.
 The decode benefit does not imply uniformly faster prefill. Kernel callbacks
 still allocate (one allocation per operation here); complete inference is
 not allocation-free.
+
+The same probe also covers pinned Qwen2.5-0.5B-Instruct, including its chat
+template, Q/K/V biases and tied output head. Weight payload falls from 1,976,131,072 to
+525,120,000 bytes; median throughput rises from 4.76 to 6.19 output tokens/s
+(about 30%). Post-warmup observed RSS is 1939.1 versus 553.7 MiB, and warm
+startup is 1.280 versus 2.125 seconds. The two first-token argmaxes agree,
+with KL values 0.00130 and 0.00035. The plain-text continuation matches for
+eight tokens, while the chat continuation changes from `Cats are playful,
+curious, and` to `Cats are fascinating creatures with their unique`.
+[Qwen 0.5B receipt](validation/q8/qwen05.json) contains all trials and outputs.
+Reproduce with `--id qwen25` and its pinned model directory.
+
+### Qwen2.5-1.5B
+
+This model has 1,543,714,304 parameters, exceeding the previous 1-billion
+import limit. It was loaded directly in both formats and passed CLI, HTTP,
+concurrent SSE, resource release and shutdown checks. Every measured trial
+completed all eight requests and 64 output tokens.
+
+| Measurement | FP32 | Q8 |
+| --- | ---: | ---: |
+| Resident weight payload | 6,174,857,216 B | 1,640,622,080 B |
+| Completed output tokens/s | 1.45 | 1.80 |
+| Observed RSS after warmup | 5.814 GiB | 1.584 GiB |
+| Startup to healthy server | 3.516 s | 6.047 s |
+
+Q8 is about 25% faster in this mixed prompt/decode workload and uses about
+73% less weight payload. Its scales account for 96,473,088 bytes of the
+reported payload. Both recorded eight-token continuations match FP32, while
+next-token logits differ: max absolute errors are 0.245 and 0.360, and KL
+values are 0.000504 and 0.0000146. This small sample does not establish
+general quality, long-context accuracy or 8B execution; 1.5B is the largest
+live model tested here. [Raw Qwen 1.5B receipt](validation/q8/qwen15.json).
+Reproduce with `--id qwen25-1.5b` and the pinned files in the catalog.
+
+Separately, the FP32 path passed the pinned Transformers 4.57.1 / Torch 2.8.0
+CPU eager reference with context 512 and prefill chunks 1/16. Both prompts'
+eight greedy IDs matched; maximum absolute logit error was 0.000379, below
+the existing 0.002 bound. CLI, HTTP and simultaneous SSE also agreed. This
+validates the unquantized reference cases, not Q8 numerical parity with Torch.
+[Transformers receipt](validation/q8/qwen15-transformers.json).
+
+```sh
+python scripts/hf_model_reference.py --model PATH_TO_PINNED_MODEL \
+  --id qwen25-1.5b --binary ./monolith --output runs/qwen15-transformers.json
+```
+
+Source acquisition for this validation resumed interrupted public HF HTTP
+transfers and verified the final model against its pinned LFS SHA-256.
+Config/tokenizer Git blob identities were checked as well. This does not
+claim that the Go downloader implements resumable or parallel downloads;
+it retains its existing bounded, atomic snapshot behavior.

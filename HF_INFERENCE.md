@@ -21,6 +21,7 @@ are rejected.
 | SmolLM2-135M-Instruct | `12fd25f77366fa6b3b4b768ec3050bf629380bac` | 600 MiB | 512 |
 | SmolLM2-360M-Instruct | `a10cc1512eabd3dde888204e902eca88bddb4951` | 1600 MiB | 512 |
 | Qwen2.5-0.5B-Instruct | `7ae557604adf67be50417f59c2c2f167def9a775` | 2048 MiB | 512 |
+| Qwen2.5-1.5B-Instruct | `989aa7980e4cf806f80c7fef2b1adb7bc71aa306` | 6144 MiB | 512 |
 | openai-community/gpt2 | `607a30d783dfa663caf39e06633721c8d4cfcd7e` | 600 MiB | 512 |
 
 GPT-2 can be fetched and run directly:

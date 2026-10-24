@@ -2956,7 +2956,7 @@ type Param struct {
 const q8Block = 64
 
 // Symmetric weight-only quantization. Blocks never cross an output row.
-// Activations, accumulators, normalization, biases and KV storage stay FP32.
+// Activations, ordinary accumulation, normalization, biases and KV stay FP32.
 type q8Weights struct {
 	Values []int8
 	Scales []float32
@@ -8949,7 +8949,7 @@ func runInfer(ctx context.Context, args []string) error {
 			Remote string `json:"remote"`
 		}{
 			{"SmolLM2 / Llama", "restricted Llama profile; tested SmolLM2 135M and 360M", "HF chat API; provider or dedicated endpoint required"},
-			{"Qwen2 / Qwen2.5", "restricted Qwen2 profile; tested Qwen2.5 0.5B", "HF chat API; provider or dedicated endpoint required"},
+			{"Qwen2 / Qwen2.5", "restricted Qwen2 profile; tested Qwen2.5 0.5B and 1.5B; optional Q8 weights", "HF chat API; provider or dedicated endpoint required"},
 			{"GPT-2", "tied GPT2LMHeadModel, absolute positions and gelu_new; raw text", "dedicated HF text-generation endpoint"},
 			{"gpt-oss", "not supported (MoE)", "HF chat API; provider or dedicated endpoint required"},
 			{"Mistral", "not supported", "HF chat API; provider or dedicated endpoint required"},

@@ -148,7 +148,7 @@ Interactive history commits a reply only after successful completion. Use
 | --- | --- | --- |
 | GPT-2 | Tied GPT-2, raw text, pinned base model tested | Dedicated text endpoint when absent from the router |
 | Llama / SmolLM2 | Restricted Llama profile; SmolLM2 135M/360M tested | Chat provider or dedicated endpoint |
-| Qwen2 / Qwen2.5 | Restricted Qwen2 profile; Qwen2.5 0.5B tested | Chat provider or dedicated endpoint |
+| Qwen2 / Qwen2.5 | Restricted Qwen2 profile; Qwen2.5 0.5B/1.5B tested, optional Q8 | Chat provider or dedicated endpoint |
 | gpt-oss | No native MoE kernel | Chat provider or dedicated endpoint |
 | Mistral | Not implemented locally | Chat provider or dedicated endpoint |
 | Gemma | Not implemented locally | Chat provider or dedicated endpoint |
