@@ -84,6 +84,8 @@ F32/F16/BF16 files while loading, and can change generated text. The source
 cache still stores the original files; downloads and cache disk usage do not
 shrink. Offline verification works with either format. See
 [Q8 inference](Q8_INFERENCE.md) for memory planning and measurements.
+`-weight-format q4` selects a more aggressive experimental format; see
+[Q4 inference](Q4_INFERENCE.md) for its layout and output degradation.
 
 ## Remote execution without downloading weights
 

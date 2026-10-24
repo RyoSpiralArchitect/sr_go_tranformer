@@ -457,22 +457,26 @@ type HFPlan struct {
 }
 
 func hfWeightStorage(c Config, h hfConfig, format string) (payload, quantized, scales int64, err error) {
-	if format != "f32" && format != "q8" {
-		return 0, 0, 0, errors.New("weight-format must be f32 or q8")
+	if format != "f32" && format != "q8" && format != "q4" {
+		return 0, 0, 0, errors.New("weight-format must be f32, q8 or q4")
 	}
 	for _, s := range hfProfileSpecs(c, h) {
 		count := int64(1)
 		for _, d := range s.Shape {
 			count *= int64(d)
 		}
-		if format == "q8" && len(s.Shape) == 2 && s.Name != "wpe.weight" {
+		if format != "f32" && len(s.Shape) == 2 && s.Name != "wpe.weight" {
 			rows, cols := s.Shape[0], s.Shape[1]
 			if h.ModelType == "gpt2" && s.Name != "wte.weight" {
 				rows, cols = cols, rows // Conv1D transpose, including fused QKV.
 			}
 			quantized += count
 			scales += int64(rows) * int64((cols+q8Block-1)/q8Block) * 4
-			payload += count
+			if format == "q4" {
+				payload += int64(rows) * int64((cols+1)/2)
+			} else {
+				payload += count
+			}
 		} else {
 			payload += count * 4
 		}
@@ -529,7 +533,7 @@ func openHFArchiveFormat(dir string, contextLimit int, weightBudget int64, forma
 	a.Plan = HFPlan{Format: "monolith-hf-plan-v1", ModelType: h.ModelType, TiedEmbeddings: h.Tied, Config: c, Parameters: parameters, WeightBytes: parameters * 4, RopeBytes: int64(c.Context) * (int64(c.Dim) / int64(c.Heads)) * 4, KVBytesPerToken: int64(c.Layers*c.KVDim()) * 8, ConversionBufferBytes: 64 << 10, DTypes: map[string]int{}}
 	a.Plan.WeightBytes, a.Plan.WeightFormat, a.Plan.FP32WeightBytes = storage, format, parameters*4
 	a.Plan.QuantizedParameters, a.Plan.ScaleBytes = quantized, scales
-	if format == "q8" {
+	if format != "f32" {
 		a.Plan.QuantizationBlock = q8Block
 		a.Plan.QuantizationBufferBytes = q8Block * 4
 	}
@@ -711,9 +715,9 @@ func (a *hfArchive) readTensor(ctx context.Context, name string, dst []float32) 
 }
 
 // Row-major tensors need only one small block of converted values. The full
-// FP32 tensor/model is never allocated when q8 storage is selected.
+// FP32 tensor/model is never allocated when quantized storage is selected.
 func (a *hfArchive) readParam(ctx context.Context, name string, p *Param) error {
-	if p.Q8 == nil {
+	if !p.quantized() {
 		return a.readTensor(ctx, name, p.Data)
 	}
 	var block [q8Block]float32
@@ -727,10 +731,10 @@ func (a *hfArchive) readParam(ctx context.Context, name string, p *Param) error 
 			for _, x := range block[:count] {
 				amax = max(amax, float32(math.Abs(float64(x))))
 			}
-			scale := q8Scale(amax)
-			p.Q8.Scales[row*groups+col/q8Block] = scale
+			scale := p.quantScale(amax)
+			p.quantScales()[row*groups+col/q8Block] = scale
 			for j, x := range block[:count] {
-				p.Q8.Values[i-count+1+j] = q8Value(x, scale)
+				p.putQuantized(row, col-count+1+j, x, scale)
 			}
 		}
 		return nil
@@ -781,7 +785,7 @@ func hfFlags(f *flag.FlagSet) (*string, *int, *int64, *string) {
 	dir := f.String("hf-model", "", "local Hugging Face model directory (supported Llama/Qwen2/GPT-2 profiles)")
 	limit := f.Int("context", 0, "HF context cap; 0 uses min(model maximum, 2048)")
 	budget := f.Int64("weight-mib", 2048, "maximum resident HF weight payload in MiB (not RSS)")
-	format := f.String("weight-format", "f32", "resident HF weights: f32 or q8 (lossy, 64-value blocks)")
+	format := f.String("weight-format", "f32", "resident HF weights: f32, q8 or q4 (lossy, 64-value blocks)")
 	return dir, limit, budget, format
 }
 func openHFFlags(dir string, limit int, mib int64) (*hfArchive, error) {
@@ -2951,6 +2955,7 @@ type Param struct {
 	Decay            bool
 	Data, Grad, M, V []float32
 	Q8               *q8Weights // Inference-only; Data is nil when present.
+	Q4               *q4Weights // Packed inference-only weights; no FP32 copy.
 }
 
 const q8Block = 64
@@ -2960,6 +2965,66 @@ const q8Block = 64
 type q8Weights struct {
 	Values []int8
 	Scales []float32
+}
+
+// Two signed four-bit weights per byte, low nibble first. Odd-width rows have
+// a zero high padding nibble; blocks and packing never cross a row boundary.
+type q4Weights struct {
+	Values []byte
+	Scales []float32
+}
+
+// Read-only after initialization. A shared 2 KiB table decodes two weights at
+// once; four prompt/session rows reuse each pair. No per-call LUT or scratch.
+var q4Pairs = func() (table [256][2]float32) {
+	for i := range table {
+		table[i][0] = float32(int8(byte(i)<<4) >> 4)
+		table[i][1] = float32(int8(byte(i)) >> 4)
+	}
+	return
+}()
+
+func (q *q4Weights) put(cols, row, col int, v int8) {
+	i, shift := row*((cols+1)/2)+col/2, uint(col%2)*4
+	q.Values[i] = q.Values[i]&^(15<<shift) | (byte(v)&15)<<shift
+}
+
+func (p *Param) quantized() bool { return p.Q8 != nil || p.Q4 != nil }
+
+func (p *Param) quantScales() []float32 {
+	if p.Q4 != nil {
+		return p.Q4.Scales
+	}
+	return p.Q8.Scales
+}
+
+func (p *Param) quantScale(amax float32) float32 {
+	if p.Q4 != nil {
+		return lowBitScale(amax, 7)
+	}
+	return q8Scale(amax)
+}
+
+func (p *Param) putQuantized(row, col int, v, scale float32) {
+	if p.Q4 != nil {
+		q := int8(0)
+		if scale != 0 {
+			q = int8(max(-7, min(7, math.Round(float64(v)/float64(scale)))))
+		}
+		p.Q4.put(p.Cols, row, col, q)
+	} else {
+		p.Q8.Values[row*p.Cols+col] = q8Value(v, scale)
+	}
+}
+
+func newInferenceParamFormat(name string, rows, cols int, matrix bool, format string) *Param {
+	if matrix && format == "q4" {
+		return &Param{Name: name, Rows: rows, Cols: cols, Q4: &q4Weights{
+			Values: make([]byte, rows*((cols+1)/2)),
+			Scales: make([]float32, rows*((cols+q8Block-1)/q8Block)),
+		}}
+	}
+	return newInferenceParam(name, rows, cols, matrix && format == "q8")
 }
 
 func newInferenceParam(name string, rows, cols int, quantized bool) *Param {
@@ -2973,16 +3038,20 @@ func newInferenceParam(name string, rows, cols int, quantized bool) *Param {
 }
 
 func q8Scale(amax float32) float32 {
+	return lowBitScale(amax, 127)
+}
+
+func lowBitScale(amax float32, levels float64) float32 {
 	if amax == 0 {
 		return 0
 	}
-	scale := float32(float64(amax) / 127)
+	scale := float32(float64(amax) / levels)
 	if scale == 0 {
 		return math.SmallestNonzeroFloat32
 	}
 	// Round the scale downward if needed so reconstruction stays finite even
 	// when a finite source value is near MaxFloat32.
-	if scale > math.SmallestNonzeroFloat32 && float64(scale)*127 > float64(amax) {
+	if scale > math.SmallestNonzeroFloat32 && float64(scale)*levels > float64(amax) {
 		scale = math.Nextafter32(scale, 0)
 	}
 	return scale
@@ -2996,6 +3065,14 @@ func q8Value(v, scale float32) int8 {
 }
 
 func (p *Param) copyRow(dst []float32, row int) {
+	if p.Q4 != nil {
+		stride, groups := (p.Cols+1)/2, (p.Cols+q8Block-1)/q8Block
+		wr := p.Q4.Values[row*stride : (row+1)*stride]
+		for j := 0; j < p.Cols; j++ {
+			dst[j] = q4Pairs[wr[j/2]][j%2] * p.Q4.Scales[row*groups+j/q8Block]
+		}
+		return
+	}
 	if p.Q8 == nil {
 		copy(dst, p.Data[row*p.Cols:(row+1)*p.Cols])
 		return
@@ -3030,6 +3107,10 @@ func addBias(x []float32, bias *Param) {
 }
 
 func linearIntoWithExecutor(e *kernelExecutor, y, x []float32, w *Param, n int) {
+	if w.Q4 != nil {
+		linearQ4Into(e, y, x, w, n)
+		return
+	}
 	if w.Q8 != nil {
 		linearQ8Into(e, y, x, w, n)
 		return
@@ -3194,6 +3275,120 @@ func linearQ8WideInto(e *kernelExecutor, y, x []float32, w *Param, n int) {
 						part += float64(xr[j]) * float64(wr[j])
 					}
 					sum += part * float64(w.Q8.Scales[o*groups+g])
+				}
+				yr[o] = float32(sum)
+			}
+		})
+	}
+}
+
+// Packed pairs are decoded once per four input columns and reused by up to
+// four rows. Both paths use the same reduction order across batching/workers.
+func linearQ4Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
+	in, out := w.Cols, w.Rows
+	if q8NeedsWideSum(x[:n*in]) {
+		linearQ4WideInto(e, y, x, w, n)
+		return
+	}
+
+	groups, tiles := (in+q8Block-1)/q8Block, (out+31)/32
+	e.parallel(((n+3)/4)*tiles, n*in*out, func(lo, hi int) {
+		for task := lo; task < hi; task++ {
+			r, o0 := (task/tiles)*4, (task%tiles)*32
+			for o := o0; o < min(o0+32, out); o++ {
+				wr := w.Q4.Values[o*((in+1)/2) : (o+1)*((in+1)/2)]
+				scales := w.Q4.Scales[o*groups : (o+1)*groups]
+				if r+4 <= n {
+					x0, x1 := x[r*in:(r+1)*in], x[(r+1)*in:(r+2)*in]
+					x2, x3 := x[(r+2)*in:(r+3)*in], x[(r+3)*in:(r+4)*in]
+					var s0, s1, s2, s3 float32
+					for g, scale := range scales {
+						var a0, b0, c0, d0, a1, b1, c1, d1, a2, b2, c2, d2, a3, b3, c3, d3 float32
+						j, end := g*q8Block, min((g+1)*q8Block, in)
+						for ; j+4 <= end; j += 4 {
+							v0, v1, v2, v3 := q4Pairs[wr[j/2]][0], q4Pairs[wr[j/2]][1], q4Pairs[wr[j/2+1]][0], q4Pairs[wr[j/2+1]][1]
+							a0 += x0[j] * v0
+							b0 += x0[j+1] * v1
+							c0 += x0[j+2] * v2
+							d0 += x0[j+3] * v3
+							a1 += x1[j] * v0
+							b1 += x1[j+1] * v1
+							c1 += x1[j+2] * v2
+							d1 += x1[j+3] * v3
+							a2 += x2[j] * v0
+							b2 += x2[j+1] * v1
+							c2 += x2[j+2] * v2
+							d2 += x2[j+3] * v3
+							a3 += x3[j] * v0
+							b3 += x3[j+1] * v1
+							c3 += x3[j+2] * v2
+							d3 += x3[j+3] * v3
+						}
+						p0, p1, p2, p3 := (a0+b0)+(c0+d0), (a1+b1)+(c1+d1), (a2+b2)+(c2+d2), (a3+b3)+(c3+d3)
+						for ; j < end; j++ {
+							v := q4Pairs[wr[(j)/2]][(j)%2]
+							p0 += x0[j] * v
+							p1 += x1[j] * v
+							p2 += x2[j] * v
+							p3 += x3[j] * v
+						}
+						s0 += p0 * scale
+						s1 += p1 * scale
+						s2 += p2 * scale
+						s3 += p3 * scale
+					}
+					y[r*out+o], y[(r+1)*out+o] = s0, s1
+					y[(r+2)*out+o], y[(r+3)*out+o] = s2, s3
+				} else {
+					for row := r; row < min(r+4, n); row++ {
+						xr := x[row*in : (row+1)*in]
+						var sum float32
+						for g, scale := range scales {
+							j, end := g*q8Block, min((g+1)*q8Block, in)
+							var a, b, c, d float32
+							for ; j+4 <= end; j += 4 {
+								v0, v1 := q4Pairs[wr[j/2]][0], q4Pairs[wr[j/2]][1]
+								v2, v3 := q4Pairs[wr[j/2+1]][0], q4Pairs[wr[j/2+1]][1]
+								a += xr[j] * v0
+								b += xr[j+1] * v1
+								c += xr[j+2] * v2
+								d += xr[j+3] * v3
+							}
+							part := (a + b) + (c + d)
+							for ; j < end; j++ {
+								part += xr[j] * q4Pairs[wr[(j)/2]][(j)%2]
+							}
+							sum += part * scale
+						}
+						y[row*out+o] = sum
+					}
+				}
+			}
+		}
+	})
+}
+
+func linearQ4WideInto(e *kernelExecutor, y, x []float32, w *Param, n int) {
+	in, out := w.Cols, w.Rows
+	groups := (in + q8Block - 1) / q8Block
+	for row := 0; row < n; row++ {
+		xr, yr := x[row*in:(row+1)*in], y[row*out:(row+1)*out]
+		if !q8NeedsWideSum(xr) {
+			// Select per row, so a neighbouring extreme input never changes
+			// the reduction order or result of an ordinary row in the batch.
+			linearQ4Into(e, yr, xr, w, 1)
+			continue
+		}
+		e.parallel(out, in*out, func(lo, hi int) {
+			for o := lo; o < hi; o++ {
+				wr := w.Q4.Values[o*((in+1)/2) : (o+1)*((in+1)/2)]
+				var sum float64
+				for g := 0; g < groups; g++ {
+					var part float64
+					for j := g * q8Block; j < min((g+1)*q8Block, in); j++ {
+						part += float64(xr[j]) * float64(q4Pairs[wr[j/2]][j%2])
+					}
+					sum += part * float64(w.Q4.Scales[o*groups+g])
 				}
 				yr[o] = float32(sum)
 			}
@@ -3393,7 +3588,7 @@ func loadHFModelFormat(ctx context.Context, dir string, limit int, mib int64, fo
 	m := allocateModelStorageFormat(a.Plan.Config, nil, format)
 	m.hf = &a.Config
 	makeExtra := func(name string, rows, cols int) *Param {
-		p := newInferenceParam(name, rows, cols, format == "q8" && name == "output")
+		p := newInferenceParamFormat(name, rows, cols, name == "output", format)
 		m.Params = append(m.Params, p)
 		return p
 	}
@@ -3429,9 +3624,8 @@ func loadHFModelFormat(ctx context.Context, dir string, limit int, mib int64, fo
 func loadGPT2(ctx context.Context, a *hfArchive) (*Model, error) {
 	c := a.Plan.Config
 	m := &Model{Config: c, hf: &a.Config}
-	quantized := a.Plan.WeightFormat == "q8"
 	param := func(name string, rows, cols int, matrix bool) *Param {
-		p := newInferenceParam(name, rows, cols, quantized && matrix)
+		p := newInferenceParamFormat(name, rows, cols, matrix, a.Plan.WeightFormat)
 		m.Params = append(m.Params, p)
 		return p
 	}
@@ -3454,7 +3648,7 @@ func loadGPT2(ctx context.Context, a *hfArchive) (*Model, error) {
 			total += p.Rows
 		}
 		passes := 1
-		if dst[0].Q8 != nil {
+		if dst[0].quantized() {
 			passes = 2
 		}
 		for pass := 0; pass < passes; pass++ {
@@ -3464,14 +3658,14 @@ func loadGPT2(ctx context.Context, a *hfArchive) (*Model, error) {
 				in, out := i/total, i%total
 				for _, p := range dst {
 					if out < p.Rows {
-						if p.Q8 == nil {
+						if !p.quantized() {
 							p.Data[out*cols+in] = v
 						} else {
 							g := out*((cols+q8Block-1)/q8Block) + in/q8Block
 							if pass == 0 {
-								p.Q8.Scales[g] = max(p.Q8.Scales[g], float32(math.Abs(float64(v))))
+								p.quantScales()[g] = max(p.quantScales()[g], float32(math.Abs(float64(v))))
 							} else {
-								p.Q8.Values[out*cols+in] = q8Value(v, p.Q8.Scales[g])
+								p.putQuantized(out, in, v, p.quantScales()[g])
 							}
 						}
 						return nil
@@ -3484,8 +3678,8 @@ func loadGPT2(ctx context.Context, a *hfArchive) (*Model, error) {
 			}
 			if passes == 2 && pass == 0 {
 				for _, p := range dst {
-					for g, amax := range p.Q8.Scales {
-						p.Q8.Scales[g] = q8Scale(amax)
+					for g, amax := range p.quantScales() {
+						p.quantScales()[g] = p.quantScale(amax)
 					}
 				}
 			}
@@ -3586,7 +3780,7 @@ func allocateModelStorage(c Config, rng *RNG) *Model {
 func allocateModelStorageFormat(c Config, rng *RNG, format string) *Model {
 	m := &Model{Config: c}
 	makeParam := func(name string, rows, cols int, norm bool, scale float64) *Param {
-		p := newInferenceParam(name, rows, cols, format == "q8" && !norm)
+		p := newInferenceParamFormat(name, rows, cols, !norm, format)
 		p.Decay = !norm
 		if rng != nil {
 			for i := range p.Data {
@@ -6555,8 +6749,8 @@ func parseInferenceAction(f *flag.FlagSet, args []string, validateOnly bool) err
 	return validateInferenceFlags(f)
 }
 func validateInferenceFlags(f *flag.FlagSet) error {
-	if v := f.Lookup("weight-format"); v != nil && v.Value.String() != "f32" && v.Value.String() != "q8" {
-		return errors.New("weight-format must be f32 or q8")
+	if v := f.Lookup("weight-format"); v != nil && v.Value.String() != "f32" && v.Value.String() != "q8" && v.Value.String() != "q4" {
+		return errors.New("weight-format must be f32, q8 or q4")
 	}
 	for _, bound := range []struct {
 		name   string
@@ -8101,8 +8295,8 @@ func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, err
 	if s.WeightFormat == "" {
 		s.WeightFormat = "f32"
 	}
-	if s.WeightFormat != "f32" && s.WeightFormat != "q8" {
-		return "", empty, errors.New("weight-format must be f32 or q8")
+	if s.WeightFormat != "f32" && s.WeightFormat != "q8" && s.WeightFormat != "q4" {
+		return "", empty, errors.New("weight-format must be f32, q8 or q4")
 	}
 	s.Offline = s.Offline || hfOffline()
 	if !validHFRepo(s.Repo) || s.Revision == "" || len(s.Revision) > 200 || strings.ContainsAny(s.Revision, "\x00\r\n") || s.DownloadBytes < 1 || s.DownloadBytes > 16<<30 || s.WeightMiB < 1 || s.WeightMiB > 1<<20 {
@@ -8298,7 +8492,7 @@ func runInferLocal(ctx context.Context, args []string) error {
 	checkpoint := f.String("checkpoint", "", "native .mglm checkpoint")
 	limit := f.Int("context", 0, "HF context cap; 0 selects at most 2048")
 	weight := f.Int64("weight-mib", 2048, "maximum resident HF weight payload in MiB, not RSS")
-	format := f.String("weight-format", "f32", "resident HF weights: f32 or q8 (lossy, 64-value blocks)")
+	format := f.String("weight-format", "f32", "resident HF weights: f32, q8 or q4 (lossy, 64-value blocks)")
 	f.Usage = func() {
 		fmt.Fprintln(f.Output(), "usage: monolith infer local [source flags] <check|inspect|tokens|ids|generate|chat|serve> [action flags]")
 		f.PrintDefaults()
