@@ -454,6 +454,7 @@ var peakMetricNames = []string{
 	"monolith_heap_alloc_bytes", "monolith_heap_sys_bytes", "monolith_goroutines",
 	"monolith_active", "monolith_queue_depth", "monolith_kv_reserved_bytes", "monolith_kv_allocated_bytes",
 	"monolith_computing_sessions", "monolith_admission_used",
+	"monolith_workspace_float_bytes",
 }
 var counterMetricNames = []string{
 	"monolith_gc_cycles_total", "monolith_gc_pause_seconds_total", "monolith_submitted_total",

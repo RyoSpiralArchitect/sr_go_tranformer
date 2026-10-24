@@ -153,6 +153,7 @@ func TestWorkerPrefillBitwiseParity(t *testing.T) {
 				m := workerTestModel(t, kvHeads)
 				e := newKernelExecutor(workers)
 				defer e.close()
+				var workspace decodeWorkspace
 				caches, refs := make([]*KVCache, 4), make([]*KVCache, 4)
 				for i, prefix := range []int{0, 31, 63, 5} {
 					caches[i], refs[i] = m.NewCache(), m.NewCache()
@@ -174,7 +175,7 @@ func TestWorkerPrefillBitwiseParity(t *testing.T) {
 					for i, n := range lengths {
 						chunks[i] = prefillTokens(n, i+7)
 					}
-					got, err := m.prefillBatch(context.Background(), caches, chunks, e)
+					got, err := m.prefillBorrowed(context.Background(), caches, chunks, e, &workspace)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -183,6 +184,7 @@ func TestWorkerPrefillBitwiseParity(t *testing.T) {
 						t.Fatal(err)
 					}
 					exactWorkerFloats(t, got, want)
+					assertWorkspaceReferencesCleared(t, &workspace)
 					for i := range caches {
 						if caches[i].Pos != refs[i].Pos {
 							t.Fatal("committed position changed")
@@ -201,6 +203,7 @@ func TestWorkerCancellationAndRetry(t *testing.T) {
 	m := workerTestModel(t, 2)
 	e := newKernelExecutor(4)
 	defer e.close()
+	var workspace decodeWorkspace
 	for _, cancelAt := range []int{1, 2, 3, 4, 5} {
 		cache, ref := m.NewCache(), m.NewCache()
 		for _, c := range []*KVCache{cache, ref} {
@@ -209,9 +212,10 @@ func TestWorkerCancellationAndRetry(t *testing.T) {
 			}
 		}
 		ctx := &prefillCancelContext{Context: context.Background(), cancelAt: cancelAt}
-		if _, err := m.prefillBatch(ctx, []*KVCache{cache}, [][]int{prefillTokens(35, 4)}, e); !errors.Is(err, context.Canceled) {
+		if _, err := m.prefillBorrowed(ctx, []*KVCache{cache}, [][]int{prefillTokens(35, 4)}, e, &workspace); !errors.Is(err, context.Canceled) {
 			t.Fatalf("checkpoint %d: %v", cancelAt, err)
 		}
+		assertWorkspaceReferencesCleared(t, &workspace)
 		if cache.Pos != ref.Pos {
 			t.Fatal("cancellation committed future rows")
 		}
@@ -224,7 +228,7 @@ func TestWorkerCancellationAndRetry(t *testing.T) {
 			}
 		}
 		chunks := [][]int{prefillTokens(33, 9)}
-		got, err := m.prefillBatch(context.Background(), []*KVCache{cache}, chunks, e)
+		got, err := m.prefillBorrowed(context.Background(), []*KVCache{cache}, chunks, e, &workspace)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -233,6 +237,7 @@ func TestWorkerCancellationAndRetry(t *testing.T) {
 			t.Fatal(err)
 		}
 		exactWorkerFloats(t, got, want)
+		assertWorkspaceReferencesCleared(t, &workspace)
 		cache.Close()
 		ref.Close()
 	}
@@ -273,8 +278,14 @@ func TestEngineWorkerOwnership(t *testing.T) {
 		if e.Stats().KernelWorkers != int64(i+2) {
 			t.Fatalf("unexpected worker count: %+v", e.Stats())
 		}
+		if n := e.Stats().WorkspaceFloatBytes; n <= 0 || n > 4*maxActivationElements {
+			t.Fatalf("workspace retention outside its bound: %d", n)
+		}
 	}
 	engines[0].Close()
+	if engines[0].Stats().WorkspaceFloatBytes != 0 || engines[1].Stats().WorkspaceFloatBytes == 0 {
+		t.Fatal("closing one engine affected another engine's workspace")
+	}
 	if engines[0].Stats().KernelWorkers != 0 || engines[1].Stats().KernelWorkers != 3 {
 		t.Fatal("closing one engine affected another engine's workers")
 	}
@@ -287,8 +298,11 @@ func TestEngineWorkerOwnership(t *testing.T) {
 	if !strings.Contains(r.Body.String(), "monolith_kernel_workers 3\n") {
 		t.Fatal("worker ownership missing from metrics")
 	}
+	if !strings.Contains(r.Body.String(), fmt.Sprintf("monolith_workspace_float_bytes %d\n", engines[1].Stats().WorkspaceFloatBytes)) {
+		t.Fatal("workspace retention missing from metrics")
+	}
 	engines[1].Close()
-	if engines[1].Stats().KernelWorkers != 0 {
+	if engines[1].Stats().KernelWorkers != 0 || engines[1].Stats().WorkspaceFloatBytes != 0 {
 		t.Fatal("Close returned before worker teardown")
 	}
 }

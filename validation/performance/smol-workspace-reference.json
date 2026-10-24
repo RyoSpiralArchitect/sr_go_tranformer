@@ -1,0 +1,139 @@
+{
+  "format": "monolith-hf-serving-v1",
+  "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+  "revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+  "torch": "2.8.0",
+  "transformers": "4.57.1",
+  "files": {
+    "config.json": "8eb740e8bbe4cff95ea7b4588d17a2432deb16e8075bc5828ff7ba9be94d982a",
+    "model.safetensors": "5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c",
+    "tokenizer.json": "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c",
+    "tokenizer_config.json": "4ec77d44f62efeb38d7e044a1db318f6a939438425312dfa333b8382dbad98df"
+  },
+  "binary_sha256": "10c80c49fd747bb568e2550d7979ede0e83590cd71fe5ae7b64ce662f408c1ca",
+  "context": 512,
+  "kernel_workers": 2,
+  "cases": [
+    {
+      "request": {
+        "prompt": "The capital of France is"
+      },
+      "prompt_ids": [
+        504,
+        3575,
+        282,
+        4649,
+        314
+      ],
+      "completion": {
+        "text": " Paris. Paris is the largest city in",
+        "token_ids": [
+          7042,
+          30,
+          7042,
+          314,
+          260,
+          3995,
+          2240,
+          281
+        ],
+        "prompt_tokens": 5,
+        "completion_tokens": 8,
+        "finish_reason": "length"
+      },
+      "cli_match": true,
+      "http_match": true,
+      "concurrent_sse_match": true
+    },
+    {
+      "request": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Write one short sentence about cats."
+          }
+        ]
+      },
+      "prompt_ids": [
+        1,
+        9690,
+        198,
+        2683,
+        359,
+        253,
+        5356,
+        5646,
+        11173,
+        3365,
+        3511,
+        308,
+        34519,
+        28,
+        7018,
+        411,
+        407,
+        19712,
+        8182,
+        2,
+        198,
+        1,
+        4093,
+        198,
+        19161,
+        582,
+        1890,
+        6330,
+        563,
+        7680,
+        30,
+        2,
+        198,
+        1,
+        520,
+        9531,
+        198
+      ],
+      "completion": {
+        "text": "A cat is a majestic creature with a",
+        "token_ids": [
+          49,
+          2644,
+          314,
+          253,
+          26061,
+          12251,
+          351,
+          253
+        ],
+        "prompt_tokens": 37,
+        "completion_tokens": 8,
+        "finish_reason": "length"
+      },
+      "cli_match": true,
+      "http_match": true,
+      "concurrent_sse_match": true
+    }
+  ],
+  "final_engine_stats": {
+    "submitted": 4,
+    "completed": 4,
+    "canceled": 0,
+    "failed": 0,
+    "rejected": 0,
+    "active": 0,
+    "queue": 0,
+    "kv_reserved_bytes": 0,
+    "kv_allocated_bytes": 2949120,
+    "input_tokens": 84,
+    "generated_tokens": 32,
+    "ticks": 39,
+    "slow_consumers": 0,
+    "peak_tick_tokens": 8,
+    "released": 4,
+    "computing": 0,
+    "admission_used": 0,
+    "kernel_workers": 2,
+    "workspace_float_bytes": 646144
+  },
+  "clean_shutdown": true
+}
