@@ -36,6 +36,8 @@ The project runs on the CPU using FP32 tensors. It does not require cgo, Python,
 
 Choose an explicit backend. See [inference setup](INFERENCE.md) for model
 families, cache/offline operation, HF endpoints and compatibility limits.
+See [inference performance](INFERENCE_PERFORMANCE.md) for measured optimizations
+and reproduction commands.
 
 ```sh
 go run . infer models
