@@ -48,7 +48,9 @@ Bias and separate-head storage is included before any weights are allocated.
 This structural ceiling does not establish compatibility or quality for every
 model of that size. `-weight-format q8` reduces weight storage for the same
 supported profiles; [Q8 inference](Q8_INFERENCE.md) describes the format,
-larger-model checks and output differences. The default remains `f32`.
+larger-model checks and output differences. Experimental `-weight-format q4`
+reduces storage further with greater output drift; see [Q4 inference](Q4_INFERENCE.md).
+The default remains `f32`.
 
 For Qwen, download its pinned files, check compatibility, then start chatting:
 
@@ -94,7 +96,7 @@ An explicit `-context` selects a larger or smaller window up to the declared
 model maximum, subject to allocation guards. Prompt plus output must fit the
 selected window; overflow is rejected without truncation.
 `-weight-mib` defaults to 2048 and bounds the selected resident weight payload
-(including Q8 scales and remaining FP32 weights), **not process RSS**. Metadata (up to
+(including Q8/Q4 scales, row padding and remaining FP32 weights), **not process RSS**. Metadata (up to
 4 MiB per Safetensors header), tokenizer storage, conversion buffers, Go runtime,
 inference scratch and session KV require additional memory. The existing
 parameter, activation and serving KV limits also apply.
@@ -109,7 +111,7 @@ Its Apache-2.0 model license is separate from this repository's license.
 - Single `model.safetensors` or `model.safetensors.index.json` with at most
   128 local, basename-only shard paths.
 - F32, F16 and BF16 sources, converted into the selected resident format through
-  a 64 KiB read buffer. Q8 adds at most one 64-value FP32 conversion block;
+  a 64 KiB read buffer. Q8/Q4 add at most one 64-value FP32 conversion block;
   a complete FP32 tensor/model copy is not allocated in that path.
 - Exactly the selected profile's tensor set. Tied output weights must be omitted;
   untied profiles require `lm_head.weight`. Qwen2 requires all Q/K/V bias tensors.

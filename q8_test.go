@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -129,7 +130,7 @@ func TestQ8ExtremeActivationsRemainFiniteAndBatchInvariant(t *testing.T) {
 	}
 }
 
-func TestQ8ExtremeFiniteHFModel(t *testing.T) {
+func TestLowBitExtremeFiniteHFModel(t *testing.T) {
 	h := hfTestConfig()
 	h.Vocab, h.Dim, h.Hidden, h.Layers, h.Heads, h.KVHeads, h.Tied = 258, 2, 2, 1, 1, 1, false
 	dir := t.TempDir()
@@ -168,7 +169,7 @@ func TestQ8ExtremeFiniteHFModel(t *testing.T) {
 	}
 	hfWriteShard(t, filepath.Join(dir, "model.safetensors"), header, data)
 	var reference []float32
-	for _, format := range []string{"f32", "q8"} {
+	for _, format := range []string{"f32", "q8", "q4"} {
 		m, _, err := loadHFModelFormat(context.Background(), dir, 32, 1, format)
 		if err != nil {
 			t.Fatal(err)
@@ -190,159 +191,176 @@ func TestQ8ExtremeFiniteHFModel(t *testing.T) {
 	}
 }
 
-func TestQ8LoaderStorageAndReconstructedModel(t *testing.T) {
-	for _, profile := range []string{"hf-llama/f32", "hf-llama/f16", "hf-llama/bf16", "hf-llama/untied-f32",
-		"hf-qwen2/f32", "hf-qwen2/f16", "hf-qwen2/untied-bf16", "hf-gpt2/legacy-f32", "hf-gpt2/f16", "hf-gpt2/bf16"} {
-		t.Run(profile, func(t *testing.T) {
-			dir := filepath.Join("testdata", profile)
-			m, plan, err := loadHFModelFormat(context.Background(), dir, 64, 1, "q8")
-			if err != nil {
-				t.Fatal(err)
-			}
-			dense, _, err := loadHFModel(context.Background(), dir, 64, 1)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var payload, scales, count int64
-			for i, p := range m.Params {
-				ref := dense.Params[i]
-				if p.Rows != ref.Rows || p.Cols != ref.Cols || p.Name != ref.Name {
-					t.Fatal("parameter layout changed")
-				}
-				if len(p.Grad)+len(p.M)+len(p.V) != 0 {
-					t.Fatal("optimizer allocated")
-				}
-				if p.Q8 == nil {
-					payload += int64(len(p.Data)) * 4
-					exactWorkerFloats(t, p.Data, ref.Data)
-					continue
-				}
-				if len(p.Data) != 0 {
-					t.Fatal("full FP32 copy retained")
-				}
-				expected := quantizeTestParam(t, ref)
-				if len(p.Q8.Values) != len(expected.Q8.Values) || len(p.Q8.Scales) != len(expected.Q8.Scales) {
-					t.Fatal("quantized shape")
-				}
-				for j, v := range p.Q8.Values {
-					if v != expected.Q8.Values[j] {
-						t.Fatal("streamed quantization/transpose differs", p.Name, j)
+func TestLowBitLoaderStorageAndReconstructedModel(t *testing.T) {
+	for _, format := range []string{"q8", "q4"} {
+		t.Run(format, func(t *testing.T) {
+			for _, profile := range []string{"hf-llama/f32", "hf-llama/f16", "hf-llama/bf16", "hf-llama/untied-f32",
+				"hf-qwen2/f32", "hf-qwen2/f16", "hf-qwen2/untied-bf16", "hf-gpt2/legacy-f32", "hf-gpt2/f16", "hf-gpt2/bf16"} {
+				t.Run(profile, func(t *testing.T) {
+					dir := filepath.Join("testdata", profile)
+					m, plan, err := loadHFModelFormat(context.Background(), dir, 64, 1, format)
+					if err != nil {
+						t.Fatal(err)
 					}
-				}
-				exactWorkerFloats(t, p.Q8.Scales, expected.Q8.Scales)
-				scales += int64(len(p.Q8.Scales)) * 4
-				count += int64(len(p.Q8.Values))
-				payload += int64(len(p.Q8.Values)) + int64(len(p.Q8.Scales))*4
-				for row := 0; row < p.Rows; row++ {
-					p.copyRow(ref.Data[row*p.Cols:(row+1)*p.Cols], row)
-				}
-			}
-			if payload != plan.WeightBytes || scales != plan.ScaleBytes || count != plan.QuantizedParameters ||
-				plan.FP32WeightBytes != plan.Parameters*4 || payload >= plan.FP32WeightBytes {
-				t.Fatal("storage accounting", payload, plan)
-			}
-			if a, err := openHFArchiveFormat(dir, 64, payload-1, "q8"); err == nil {
-				a.Close()
-				t.Fatal("budget ignored")
-			}
-			a, err := openHFArchiveFormat(dir, 64, payload, "q8")
-			if err != nil {
-				t.Fatal("exact budget rejected", err)
-			}
-			a.Close()
-			var w decodeWorkspace
-			exec := newKernelExecutor(4)
-			defer exec.close()
-			ca, cb := m.NewCache(), dense.NewCache()
-			defer ca.Close()
-			defer cb.Close()
-			for _, n := range []int{33, 1, 7, 1} {
-				chunks := [][]int{prefillTokens(n, 7)}
-				got, err := m.prefillBorrowed(context.Background(), []*KVCache{ca}, chunks, exec, &w)
-				if err != nil {
-					t.Fatal(err)
-				}
-				want, err := dense.PrefillBatch(context.Background(), []*KVCache{cb}, chunks)
-				if err != nil {
-					t.Fatal(err)
-				}
-				hfNear(t, got, want, 3e-5)
-				assertWorkspaceReferencesCleared(t, &w)
-			}
-			if _, err := m.Forward([]int{1}, 1, 1); err == nil {
-				t.Fatal("quantized training accepted")
-			}
-			if _, err := m.AdamW(defaultTrainSpec(), 1); err == nil {
-				t.Fatal("quantized optimizer accepted")
-			}
-			if err := SaveCheckpoint(filepath.Join(t.TempDir(), "q.mglm"), m, Tokenizer{}, nil); err == nil {
-				t.Fatal("quantized native save accepted")
+					dense, _, err := loadHFModel(context.Background(), dir, 64, 1)
+					if err != nil {
+						t.Fatal(err)
+					}
+					var payload, scales, count int64
+					for i, p := range m.Params {
+						ref := dense.Params[i]
+						if p.Rows != ref.Rows || p.Cols != ref.Cols || p.Name != ref.Name {
+							t.Fatal("parameter layout changed")
+						}
+						if len(p.Grad)+len(p.M)+len(p.V) != 0 {
+							t.Fatal("optimizer allocated")
+						}
+						if !p.quantized() {
+							payload += int64(len(p.Data)) * 4
+							exactWorkerFloats(t, p.Data, ref.Data)
+							continue
+						}
+						if len(p.Data) != 0 {
+							t.Fatal("full FP32 copy retained")
+						}
+						expected := quantizeTestParam(t, ref)
+						if format == "q4" {
+							expected = quantizeQ4TestParam(t, ref)
+						}
+						if !reflect.DeepEqual(p.Q8, expected.Q8) || !reflect.DeepEqual(p.Q4, expected.Q4) {
+							t.Fatal("streamed quantization/transpose differs", p.Name)
+						}
+						scales += int64(len(p.quantScales())) * 4
+						count += int64(p.Rows * p.Cols)
+						payload += int64(len(p.quantScales())) * 4
+						if p.Q4 != nil {
+							payload += int64(len(p.Q4.Values))
+						} else {
+							payload += int64(len(p.Q8.Values))
+						}
+						for row := 0; row < p.Rows; row++ {
+							p.copyRow(ref.Data[row*p.Cols:(row+1)*p.Cols], row)
+						}
+					}
+					if payload != plan.WeightBytes || scales != plan.ScaleBytes || count != plan.QuantizedParameters ||
+						plan.FP32WeightBytes != plan.Parameters*4 || payload >= plan.FP32WeightBytes {
+						t.Fatal("storage accounting", payload, plan)
+					}
+					if a, err := openHFArchiveFormat(dir, 64, payload-1, format); err == nil {
+						a.Close()
+						t.Fatal("budget ignored")
+					}
+					a, err := openHFArchiveFormat(dir, 64, payload, format)
+					if err != nil {
+						t.Fatal("exact budget rejected", err)
+					}
+					a.Close()
+					var w decodeWorkspace
+					exec := newKernelExecutor(4)
+					defer exec.close()
+					ca, cb := m.NewCache(), dense.NewCache()
+					defer ca.Close()
+					defer cb.Close()
+					for _, n := range []int{33, 1, 7, 1} {
+						chunks := [][]int{prefillTokens(n, 7)}
+						got, err := m.prefillBorrowed(context.Background(), []*KVCache{ca}, chunks, exec, &w)
+						if err != nil {
+							t.Fatal(err)
+						}
+						want, err := dense.PrefillBatch(context.Background(), []*KVCache{cb}, chunks)
+						if err != nil {
+							t.Fatal(err)
+						}
+						hfNear(t, got, want, 3e-5)
+						assertWorkspaceReferencesCleared(t, &w)
+					}
+					if _, err := m.Forward([]int{1}, 1, 1); err == nil {
+						t.Fatal("quantized training accepted")
+					}
+					if _, err := m.AdamW(defaultTrainSpec(), 1); err == nil {
+						t.Fatal("quantized optimizer accepted")
+					}
+					if err := SaveCheckpoint(filepath.Join(t.TempDir(), "q.mglm"), m, Tokenizer{}, nil); err == nil {
+						t.Fatal("quantized native save accepted")
+					}
+				})
 			}
 		})
 	}
+
 }
 
-func TestQ8LoadCancellationAndInvalidWeights(t *testing.T) {
-	for _, sharded := range []bool{false, true} {
-		dir, _, _ := hfFixture(t, sharded)
-		if _, _, err := loadHFModelFormat(context.Background(), dir, 32, 1, "q8"); err != nil {
-			t.Fatal(err)
-		}
+func TestLowBitLoadCancellationAndInvalidWeights(t *testing.T) {
+	for _, format := range []string{"q8", "q4"} {
+		t.Run(format, func(t *testing.T) {
+			for _, sharded := range []bool{false, true} {
+				dir, _, _ := hfFixture(t, sharded)
+				if _, _, err := loadHFModelFormat(context.Background(), dir, 32, 1, format); err != nil {
+					t.Fatal(err)
+				}
+			}
+			dir, header, payload := hfFixture(t, false)
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			if _, _, err := loadHFModelFormat(ctx, dir, 32, 1, format); !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+			binary.LittleEndian.PutUint32(payload, math.Float32bits(float32(math.NaN())))
+			hfWriteShard(t, filepath.Join(dir, "model.safetensors"), header, payload)
+			if _, _, err := loadHFModelFormat(context.Background(), dir, 32, 1, format); err == nil {
+				t.Fatal("nonfinite source accepted")
+			}
+			// Public/private inference guards also keep canceled q8 batches uncommitted.
+			m, _, err := loadHFModelFormat(context.Background(), "testdata/hf-qwen2/f32", 64, 1, format)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var w decodeWorkspace
+			for _, at := range []int{1, 2, 3, 4, 5} {
+				cache := m.NewCache()
+				ctx := &prefillCancelContext{Context: context.Background(), cancelAt: at}
+				if _, err := m.prefillBorrowed(ctx, []*KVCache{cache}, [][]int{{1, 2, 3}}, nil, &w); !errors.Is(err, context.Canceled) {
+					t.Fatal(at, err)
+				}
+				if cache.Pos != 0 {
+					t.Fatal("cancellation committed positions")
+				}
+				assertWorkspaceReferencesCleared(t, &w)
+				cache.Close()
+			}
+		})
 	}
-	dir, header, payload := hfFixture(t, false)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if _, _, err := loadHFModelFormat(ctx, dir, 32, 1, "q8"); !errors.Is(err, context.Canceled) {
-		t.Fatal(err)
-	}
-	binary.LittleEndian.PutUint32(payload, math.Float32bits(float32(math.NaN())))
-	hfWriteShard(t, filepath.Join(dir, "model.safetensors"), header, payload)
-	if _, _, err := loadHFModelFormat(context.Background(), dir, 32, 1, "q8"); err == nil {
-		t.Fatal("nonfinite source accepted")
-	}
-	// Public/private inference guards also keep canceled q8 batches uncommitted.
-	m, _, err := loadHFModelFormat(context.Background(), "testdata/hf-qwen2/f32", 64, 1, "q8")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var w decodeWorkspace
-	for _, at := range []int{1, 2, 3, 4, 5} {
-		cache := m.NewCache()
-		ctx := &prefillCancelContext{Context: context.Background(), cancelAt: at}
-		if _, err := m.prefillBorrowed(ctx, []*KVCache{cache}, [][]int{{1, 2, 3}}, nil, &w); !errors.Is(err, context.Canceled) {
-			t.Fatal(at, err)
-		}
-		if cache.Pos != 0 {
-			t.Fatal("cancellation committed positions")
-		}
-		assertWorkspaceReferencesCleared(t, &w)
-		cache.Close()
-	}
+
 }
 
-func TestQ8LargeModelPlanBeforeAllocation(t *testing.T) {
-	h := hfTestConfig()
-	h.ModelType, h.Architectures = "qwen2", []string{"Qwen2ForCausalLM"}
-	h.Vocab, h.Dim, h.Hidden, h.Layers, h.Heads, h.KVHeads = 151936, 1536, 8960, 28, 12, 2
-	dir := t.TempDir()
-	hfWriteJSON(t, filepath.Join(dir, "config.json"), h)
-	_, c, err := readHFConfig(dir, 32)
-	if err != nil {
-		t.Fatal(err)
+func TestLowBitLargeModelPlanBeforeAllocation(t *testing.T) {
+	for _, format := range []string{"q8", "q4"} {
+		t.Run(format, func(t *testing.T) {
+			h := hfTestConfig()
+			h.ModelType, h.Architectures = "qwen2", []string{"Qwen2ForCausalLM"}
+			h.Vocab, h.Dim, h.Hidden, h.Layers, h.Heads, h.KVHeads = 151936, 1536, 8960, 28, 12, 2
+			dir := t.TempDir()
+			hfWriteJSON(t, filepath.Join(dir, "config.json"), h)
+			_, c, err := readHFConfig(dir, 32)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if hfParameterCount(c, h) <= 1_000_000_000 || c.Validate() == nil {
+				t.Fatal("wrong inference/training limits")
+			}
+			bytes, _, _, err := hfWeightStorage(c, h, format)
+			if err != nil || bytes >= 2<<30 || bytes < 512<<20 {
+				t.Fatal(bytes, err)
+			}
+			if _, err := openHFArchiveFormat(dir, 32, bytes-1, format); err == nil || errors.Is(err, os.ErrNotExist) {
+				t.Fatal("budget was not checked before opening weights", err)
+			}
+			if _, err := openHFArchiveFormat(dir, 32, bytes, format); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("unexpected metadata-only acceptance", err)
+			}
+		})
 	}
-	if hfParameterCount(c, h) <= 1_000_000_000 || c.Validate() == nil {
-		t.Fatal("wrong inference/training limits")
-	}
-	bytes, _, _, err := hfWeightStorage(c, h, "q8")
-	if err != nil || bytes >= 2<<30 || bytes < 1<<30 {
-		t.Fatal(bytes, err)
-	}
-	if _, err := openHFArchiveFormat(dir, 32, bytes-1, "q8"); err == nil || errors.Is(err, os.ErrNotExist) {
-		t.Fatal("budget was not checked before opening weights", err)
-	}
-	if _, err := openHFArchiveFormat(dir, 32, bytes, "q8"); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("unexpected metadata-only acceptance", err)
-	}
+
 }
 
 func BenchmarkQ8Linear(b *testing.B) {

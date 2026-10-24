@@ -30,7 +30,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Go 1.22 or later. On macOS 26, use a current Go release.
 - A 64-bit system.
 
-The project runs on the CPU with FP32 computation and optional Q8 weights for
+The project runs on the CPU with FP32 computation and optional Q8/Q4 weights for
 local HF inference. It does not require cgo, Python, or an external
 machine-learning library.
 
@@ -42,6 +42,8 @@ See [inference performance](INFERENCE_PERFORMANCE.md) for measured optimizations
 and reproduction commands.
 For smaller resident weights, see [Q8 inference](Q8_INFERENCE.md), including
 accuracy tradeoffs and bounded larger-model examples.
+[Experimental Q4 inference](Q4_INFERENCE.md) packs weights further with a shared
+pair-decoding table; output degradation can be substantial.
 
 ```sh
 go run . infer models
@@ -239,7 +241,7 @@ GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke tes
 
 This is an experimental foundation for further development. Attention avoids storing a quadratic probability matrix, but dense attention still takes quadratic compute. The KV memory limit covers cache pages, not total process memory. Generation beyond the sequence lengths used during training may degrade quality.
 
-The text training path and BPE tokenizer training remain bounded, in-memory implementations. Token-shard preparation processes one bounded document at a time; dataset training reads bounded microbatches with a capped manifest and prefetch budget. All shards are verified on opening and must remain immutable during a run. GPU execution, quantization and distributed training are not implemented. Pretrained model support is limited to the documented HF profiles; imported models are inference-only. Synthetic demo results are implementation checks, not evidence of general language ability.
+The text training path and BPE tokenizer training remain bounded, in-memory implementations. Token-shard preparation processes one bounded document at a time; dataset training reads bounded microbatches with a capped manifest and prefetch budget. All shards are verified on opening and must remain immutable during a run. GPU execution, quantized training and distributed training are not implemented. Pretrained model support is limited to the documented HF profiles; imported models are inference-only. Synthetic demo results are implementation checks, not evidence of general language ability.
 
 ## License
 

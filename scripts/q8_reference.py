@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright 2026 RyoSpiralArchitect
 # SPDX-License-Identifier: Apache-2.0
-"""Bounded offline Q8/FP32 comparison; Python stdlib only, no downloads.
+"""Bounded offline FP32/Q8/Q4 comparison; Python stdlib only, no downloads.
 
 The numerical reference is this binary's FP32 path, not task quality or Torch.
 Compare logits at the SAME prompt, then record independent greedy rollouts.
@@ -56,20 +56,20 @@ def request(url, body=None):
         return terminal
 
 
-def compare_logits(a, b):
+def compare_logits(a, b, quantized="q8"):
     if len(a) != len(b) or not all(math.isfinite(x) for x in a + b):
         raise RuntimeError("Invalid logits")
-    # Stable log-softmax and KL(FP32 || Q8) at one identical input prefix.
+    # Stable log-softmax and KL(FP32 || quantized) at one identical input prefix.
     ma, mb = max(a), max(b)
     la = ma + math.log(sum(math.exp(x - ma) for x in a))
     lb = mb + math.log(sum(math.exp(x - mb) for x in b))
     errors = [abs(x - y) for x, y in zip(a, b)]
     argmax = lambda row: max(range(len(row)), key=row.__getitem__)
     return dict(max_abs_error=max(errors), mean_abs_error=sum(errors)/len(errors),
-                kl_f32_q8=sum(math.exp(x-la) * ((x-la)-(y-lb)) for x, y in zip(a, b)),
-                f32_argmax=argmax(a), q8_argmax=argmax(b), top1_match=argmax(a) == argmax(b),
+                **{"kl_f32_"+quantized: sum(math.exp(x-la) * ((x-la)-(y-lb)) for x, y in zip(a, b))},
+                f32_argmax=argmax(a), **{quantized+"_argmax":argmax(b)}, top1_match=argmax(a) == argmax(b),
                 f32_logits_sha256=hashlib.sha256(struct.pack("<%df" % len(a), *a)).hexdigest(),
-                q8_logits_sha256=hashlib.sha256(struct.pack("<%df" % len(b), *b)).hexdigest())
+                **{quantized+"_logits_sha256":hashlib.sha256(struct.pack("<%df" % len(b), *b)).hexdigest()})
 
 
 def main():
@@ -79,7 +79,11 @@ def main():
     parser.add_argument("--binary", required=True, type=Path)
     parser.add_argument("--loadtest", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--formats", nargs="+", choices=("f32", "q8", "q4"), default=["f32", "q8"])
     a = parser.parse_args()
+    if len(a.formats) < 2 or a.formats[0] != "f32" or len(set(a.formats)) != len(a.formats):
+        parser.error("--formats must start with f32 and contain unique comparison formats")
+    formats = tuple(a.formats)
     root = Path(__file__).resolve().parents[1]
     source = next(x for x in json.loads((root / "validation/hf/model-profiles.json").read_text())["models"] if x["id"] == a.id)
     for name, expected in source["files"].items():
@@ -95,7 +99,7 @@ def main():
             flags += ["-weight-format", fmt, "-weight-mib", "8192"]
         return json.loads(subprocess.check_output([binary, action] + flags + extra, env=env, timeout=300))
 
-    plans = {fmt: run("inspect-hf", fmt, []) for fmt in ("f32", "q8")}
+    plans = {fmt: run("inspect-hf", fmt, []) for fmt in formats}
     requests = source.get("requests", [dict(prompt="The capital of France is"),
                 dict(messages=[dict(role="user", content="Write one short sentence about cats.")])])
     cases = []
@@ -103,16 +107,17 @@ def main():
         flags = ["-prompt", body["prompt"]] if "prompt" in body else ["-chat", "-prompt", body["messages"][0]["content"]]
         ids = run("tokenize-hf", "", flags)["token_ids"]
         rows, completions = {}, {}
-        for fmt in ("f32", "q8"):
+        for fmt in formats:
             rows[fmt] = run("infer-hf", fmt, ["-ids", ",".join(map(str, ids)), "-max-tokens", "1", "-logits", "-threads", "4"])["logits"][0]
             completions[fmt] = run("generate", fmt, flags + ["-max-tokens", "8", "-temperature", "0", "-repeat-penalty", "1", "-threads", "4", "-json"])
-        numerical = compare_logits(rows["f32"], rows["q8"])
-        cases.append(dict(request=body, prompt_ids=ids, next_token_comparison=numerical, completions=completions))
-        print(a.id, "prefix", len(cases), "top1", numerical["top1_match"], flush=True)
+        comparisons = {fmt: compare_logits(rows["f32"], rows[fmt], fmt) for fmt in formats[1:]}
+        numerical = comparisons[formats[1]]
+        cases.append(dict(request=body, prompt_ids=ids, next_token_comparison=numerical, comparisons=comparisons, completions=completions))
+        print(a.id, "prefix", len(cases), "top1", {fmt: c["top1_match"] for fmt, c in comparisons.items()}, flush=True)
 
     trials = []
     for trial in range(3):
-        for fmt in (("f32", "q8") if trial % 2 == 0 else ("q8", "f32")):
+        for fmt in formats[trial % len(formats):] + formats[:trial % len(formats)]:
             with socket.socket() as sock:
                 sock.bind(("127.0.0.1", 0))
                 port = sock.getsockname()[1]
@@ -178,7 +183,7 @@ def main():
             trials.append(dict(weight_format=fmt, trial=trial+1, weight_mib=budget, startup_seconds=startup,
                 post_warmup_rss_bytes=rss, report=report, final_engine_stats=stats, clean_shutdown=True))
             print(a.id, fmt, trial+1, report["completed_token_events_per_second"], "tokens/s", flush=True)
-    receipt = dict(format="monolith-q8-reference-v1", model=source["repo"], revision=source["revision"],
+    receipt = dict(format="monolith-low-bit-reference-v1", formats=formats, model=source["repo"], revision=source["revision"],
         files=source["files"], binary_sha256=sha(a.binary), loadtest_sha256=sha(a.loadtest),
         source_sha256=sha(root / "monolith.go"), script_sha256=sha(Path(__file__)),
         host=platform.system()+"/"+platform.machine(), hf_hub_offline=True, plans=plans,

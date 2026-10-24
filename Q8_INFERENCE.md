@@ -3,6 +3,8 @@
 `-weight-format q8` stores supported HF model matrices in signed 8-bit blocks
 and computes with FP32 activations. It is opt-in; `f32` remains the default.
 The same local CLI, chat and serving engine work with either format.
+For more aggressive compression, see [experimental Q4](Q4_INFERENCE.md);
+its output drift can be substantially greater.
 
 ```sh
 go run . infer local -repo openai-community/gpt2 \
