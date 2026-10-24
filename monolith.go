@@ -3081,6 +3081,10 @@ func linearIntoWithExecutor(e *kernelExecutor, y, x []float32, w *Param, n int) 
 // Four-row tiles reuse each integer conversion across prompt/session rows.
 func linearQ8Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 	in, out := w.Cols, w.Rows
+	if q8NeedsWideSum(x[:n*in]) {
+		linearQ8WideInto(e, y, x, w, n)
+		return
+	}
 	groups, tiles := (in+q8Block-1)/q8Block, (out+31)/32
 	e.parallel(((n+3)/4)*tiles, n*in*out, func(lo, hi int) {
 		for task := lo; task < hi; task++ {
@@ -3154,6 +3158,47 @@ func linearQ8Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 			}
 		}
 	})
+}
+
+// Integer partial sums precede the block scale. A rare, very large activation
+// can overflow them even when the scaled result is finite. The factor of two
+// leaves rounding headroom; ordinary activations only pay one input scan.
+func q8NeedsWideSum(x []float32) bool {
+	const limit = float32(math.MaxFloat32 / (2 * q8Block * 127))
+	for _, v := range x {
+		if v > limit || v < -limit {
+			return true
+		}
+	}
+	return false
+}
+
+func linearQ8WideInto(e *kernelExecutor, y, x []float32, w *Param, n int) {
+	in, out := w.Cols, w.Rows
+	groups := (in + q8Block - 1) / q8Block
+	for row := 0; row < n; row++ {
+		xr, yr := x[row*in:(row+1)*in], y[row*out:(row+1)*out]
+		if !q8NeedsWideSum(xr) {
+			// Select per row, so a neighbouring extreme input never changes
+			// the reduction order or result of an ordinary row in the batch.
+			linearQ8Into(e, yr, xr, w, 1)
+			continue
+		}
+		e.parallel(out, in*out, func(lo, hi int) {
+			for o := lo; o < hi; o++ {
+				wr := w.Q8.Values[o*in : (o+1)*in]
+				var sum float64
+				for g := 0; g < groups; g++ {
+					var part float64
+					for j := g * q8Block; j < min((g+1)*q8Block, in); j++ {
+						part += float64(xr[j]) * float64(wr[j])
+					}
+					sum += part * float64(w.Q8.Scales[o*groups+g])
+				}
+				yr[o] = float32(sum)
+			}
+		})
+	}
 }
 
 // Gradients accumulate, which is necessary for tied weights and microbatches.

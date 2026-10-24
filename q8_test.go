@@ -94,6 +94,102 @@ func TestQ8LinearReferenceAndBatchDeterminism(t *testing.T) {
 	}
 }
 
+func TestQ8ExtremeActivationsRemainFiniteAndBatchInvariant(t *testing.T) {
+	x, dense, _ := linearFixture(7, 65, 259)
+	for i := range dense.Data {
+		dense.Data[i] = float32(i%13-6) * .0001
+	}
+	x[2*65], x[5*65+64] = math.MaxFloat32/4, -1e37
+	q := quantizeTestParam(t, dense)
+	var baseline []float32
+	for _, workers := range []int{1, 2, 4} {
+		e := newKernelExecutor(workers)
+		got := make([]float32, 7*259)
+		linearIntoWithExecutor(e, got, x, q, 7)
+		for row := 0; row < 7; row++ {
+			one := make([]float32, 259)
+			linearIntoWithExecutor(e, one, x[row*65:(row+1)*65], q, 1)
+			exactWorkerFloats(t, one, got[row*259:(row+1)*259])
+			for o, v := range one {
+				var ref float64
+				for j := 0; j < 65; j++ {
+					ref += float64(x[row*65+j]) * float64(q.Q8.Values[o*65+j]) * float64(q.Q8.Scales[o*2+j/64])
+				}
+				if !finite(float64(v)) || math.Abs(float64(v)-ref) > 2e-5*max(1, math.Abs(ref)) {
+					t.Fatal("avoidable quantized overflow/error", row, o, v, ref)
+				}
+			}
+		}
+		if baseline != nil {
+			exactWorkerFloats(t, got, baseline)
+		} else {
+			baseline = got
+		}
+		e.close()
+	}
+}
+
+func TestQ8ExtremeFiniteHFModel(t *testing.T) {
+	h := hfTestConfig()
+	h.Vocab, h.Dim, h.Hidden, h.Layers, h.Heads, h.KVHeads, h.Tied = 258, 2, 2, 1, 1, 1, false
+	dir := t.TempDir()
+	hfWriteJSON(t, filepath.Join(dir, "config.json"), h)
+	_, c, err := readHFConfig(dir, 32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	header := map[string]any{}
+	var data []byte
+	for _, s := range hfProfileSpecs(c, h) {
+		count := 1
+		for _, d := range s.Shape {
+			count *= d
+		}
+		start := len(data)
+		for i := 0; i < count; i++ {
+			var v float32
+			switch s.Name {
+			case "model.embed_tokens.weight":
+				if i%2 == 0 {
+					v = 1
+				}
+			case "model.norm.weight":
+				v = 1e37
+			case "model.layers.0.input_layernorm.weight", "model.layers.0.post_attention_layernorm.weight":
+				v = 1
+			case "lm_head.weight":
+				if i%2 == 0 {
+					v = .01
+				}
+			}
+			data = binary.LittleEndian.AppendUint32(data, math.Float32bits(v))
+		}
+		header[s.Name] = map[string]any{"dtype": "F32", "shape": s.Shape, "data_offsets": []int{start, len(data)}}
+	}
+	hfWriteShard(t, filepath.Join(dir, "model.safetensors"), header, data)
+	var reference []float32
+	for _, format := range []string{"f32", "q8"} {
+		m, _, err := loadHFModelFormat(context.Background(), dir, 32, 1, format)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := inferHFIDs(context.Background(), m, []int{1, 3, 4, 5}, 2, 4, true)
+		if err != nil {
+			t.Fatal("finite model rejected", format, err)
+		}
+		row := r.Logits[0]
+		if reference == nil {
+			reference = row
+		} else {
+			for i, v := range row {
+				if !finite(float64(v)) || math.Abs(float64(v-reference[i])) > math.Abs(float64(reference[i]))*1e-5 {
+					t.Fatal("extreme HF result", v, reference[i])
+				}
+			}
+		}
+	}
+}
+
 func TestQ8LoaderStorageAndReconstructedModel(t *testing.T) {
 	for _, profile := range []string{"hf-llama/f32", "hf-llama/f16", "hf-llama/bf16", "hf-llama/untied-f32",
 		"hf-qwen2/f32", "hf-qwen2/f16", "hf-qwen2/untied-bf16", "hf-gpt2/legacy-f32", "hf-gpt2/f16", "hf-gpt2/bf16"} {

@@ -15,6 +15,19 @@
       "weight_file_bytes": 988097824
     },
     {
+      "id": "qwen25-1.5b",
+      "repo": "Qwen/Qwen2.5-1.5B-Instruct",
+      "revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+      "files": {
+        "config.json": "98d2ff8cc47488d08a2b0b3acf4eb99ef210779b42bd48605f6b8e36acdbf670",
+        "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+        "tokenizer_config.json": "5b5d4f65d0acd3b2d56a35b56d374a36cbc1c8fa5cf3b3febbbfabf22f359583",
+        "model.safetensors": "dd924a11b4c220f385b51ffa522daea7c9f3d850e31b162bb5661df483c6d3ee"
+      },
+      "weight_file_bytes": 3087467144,
+      "weight_mib": 6144
+    },
+    {
       "id": "smollm2-360m",
       "repo": "HuggingFaceTB/SmolLM2-360M-Instruct",
       "revision": "a10cc1512eabd3dde888204e902eca88bddb4951",

@@ -44,7 +44,10 @@ The kernel consumes the integer weights directly, accumulating four independent
 partial sums per row to expose instruction-level parallelism. Four-row tiles
 reuse each conversion across prompt/session rows. Full and partial tiles use
 the same per-row reduction order, so changing batch shape or worker count
-does not change Q8 results on the same platform. Fixed Go workers share
+does not change Q8 results on the same platform. Exceptionally large input
+rows use FP64 accumulation to avoid overflowing integer partial sums before
+their small scale is applied; ordinary rows retain the fast FP32 path.
+Fixed Go workers share
 immutable weights; each engine owns its bounded workspace and session KV.
 No cgo, assembly, GPU runtime or external inference library is required.
 
@@ -61,6 +64,8 @@ buffers. `-weight-mib` bounds the complete selected weight payload before
 weight allocation or download. It excludes allocator overhead, metadata,
 tokenizer, runtime, scratch, RoPE and KV: it is not a process memory limit.
 Context and `serve -kv-mib` remain separate controls.
+Cached source validation still enforces `-download-mib`, including offline
+reuse: retain a larger download budget on subsequent commands for large files.
 
 The HF parameter ceiling is 8 billion; dimensions, tokenizer/architecture
 profiles and activation/KV limits still apply. This permits larger compatible
@@ -76,7 +81,7 @@ go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
   check -json
 HF_HUB_OFFLINE=1 go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
   -revision 989aa7980e4cf806f80c7fef2b1adb7bc71aa306 \
-  -weight-mib 1700 -weight-format q8 -context 128 \
+  -download-mib 4096 -weight-mib 1700 -weight-format q8 -context 128 \
   generate -chat -prompt 'Write one short sentence about cats.' \
   -max-tokens 24 -temperature 0 -repeat-penalty 1
 ```
@@ -115,3 +120,37 @@ chunk 8, mixed chunk 4 and 16 tokens per tick. Two warmup requests precede
 eight measured requests at concurrency 2, with eight greedy output tokens
 per request and alternating short/long prompts. Startup, correctness checks
 and warmup are outside the timed throughput interval.
+
+## Recorded measurements
+
+Measured on an Apple M4 with Go 1.27.1, darwin/arm64 and four Go threads.
+Values below are medians of three trials, with the workload described above.
+
+| GPT-2 measurement | FP32 | Q8 |
+| --- | ---: | ---: |
+| Resident weight payload | 497,759,232 B | 134,883,888 B |
+| Completed output tokens/s | 18.38 | 25.03 |
+| Observed RSS after warmup | 508.6 MiB | 161.8 MiB |
+| Startup to healthy server | 0.452 s | 0.820 s |
+
+In this workload, Q8 improves throughput by about 36% and reduces weight
+payload by about 73%. RSS is one `ps` observation after warmup per server,
+not peak memory or a configured limit. Startup uses already cached source
+files, whose OS page-cache state is not controlled; it includes conversion
+and tokenizer initialization. These timings do not represent cold downloads.
+Raw trials, plans, source hashes, output differences and resource-release
+results: [GPT-2 receipt](validation/q8/gpt2.json).
+
+Both GPT-2 prompt prefixes keep the same next-token argmax, but their
+eight-token continuations differ. For `The capital of France is`, FP32 emits
+` the capital of the French Republic, and`, while Q8 emits
+` the capital of the French Republic. The`. Next-token KL(FP32 || Q8) is
+0.0147 and 0.0124 for the two recorded prefixes; maximum absolute logit
+differences are 1.119 and 0.929. No general quality-preservation claim is made.
+
+The [matrix microbenchmark](validation/q8/linear.txt) isolates one 8960×1536
+projection. One-row median time is 2.981 ms in FP32 versus 1.062 ms in Q8.
+With 16 rows it is 13.306 ms versus 13.192 ms, with overlapping trial ranges.
+The decode benefit does not imply uniformly faster prefill. Kernel callbacks
+still allocate (one allocation per operation here); complete inference is
+not allocation-free.
