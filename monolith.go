@@ -44,7 +44,7 @@ const (
 	EOS                   = 257
 	baseVocab             = 258
 	maxParameters         = 250_000_000
-	maxHFParameters       = 1_000_000_000
+	maxHFParameters       = 8_000_000_000
 	maxHFVocab            = 262144
 	maxActivationElements = 128 * 1024 * 1024
 	checkpointMagic       = "MGLM0001"
@@ -435,20 +435,51 @@ type hfTensor struct {
 	count   int
 }
 type HFPlan struct {
-	Format                string         `json:"format"`
-	ModelType             string         `json:"model_type"`
-	TiedEmbeddings        bool           `json:"tied_embeddings"`
-	Config                Config         `json:"config"`
-	Parameters            int64          `json:"parameters"`
-	WeightBytes           int64          `json:"weight_bytes"`
-	RopeBytes             int64          `json:"rope_bytes"`
-	KVBytesPerToken       int64          `json:"kv_bytes_per_token"`
-	FullContextKVBytes    int64          `json:"full_context_kv_bytes"`
-	ConversionBufferBytes int            `json:"conversion_buffer_bytes"`
-	SourceBytes           int64          `json:"source_bytes"`
-	Shards                int            `json:"shards"`
-	DTypes                map[string]int `json:"tensor_dtypes"`
+	Format                  string         `json:"format"`
+	ModelType               string         `json:"model_type"`
+	TiedEmbeddings          bool           `json:"tied_embeddings"`
+	Config                  Config         `json:"config"`
+	Parameters              int64          `json:"parameters"`
+	WeightBytes             int64          `json:"weight_bytes"`
+	WeightFormat            string         `json:"weight_format"`
+	FP32WeightBytes         int64          `json:"fp32_weight_bytes"`
+	QuantizedParameters     int64          `json:"quantized_parameters,omitempty"`
+	ScaleBytes              int64          `json:"scale_bytes,omitempty"`
+	QuantizationBlock       int            `json:"quantization_block,omitempty"`
+	QuantizationBufferBytes int            `json:"quantization_buffer_bytes,omitempty"`
+	RopeBytes               int64          `json:"rope_bytes"`
+	KVBytesPerToken         int64          `json:"kv_bytes_per_token"`
+	FullContextKVBytes      int64          `json:"full_context_kv_bytes"`
+	ConversionBufferBytes   int            `json:"conversion_buffer_bytes"`
+	SourceBytes             int64          `json:"source_bytes"`
+	Shards                  int            `json:"shards"`
+	DTypes                  map[string]int `json:"tensor_dtypes"`
 }
+
+func hfWeightStorage(c Config, h hfConfig, format string) (payload, quantized, scales int64, err error) {
+	if format != "f32" && format != "q8" {
+		return 0, 0, 0, errors.New("weight-format must be f32 or q8")
+	}
+	for _, s := range hfProfileSpecs(c, h) {
+		count := int64(1)
+		for _, d := range s.Shape {
+			count *= int64(d)
+		}
+		if format == "q8" && len(s.Shape) == 2 && s.Name != "wpe.weight" {
+			rows, cols := s.Shape[0], s.Shape[1]
+			if h.ModelType == "gpt2" && s.Name != "wte.weight" {
+				rows, cols = cols, rows // Conv1D transpose, including fused QKV.
+			}
+			quantized += count
+			scales += int64(rows) * int64((cols+q8Block-1)/q8Block) * 4
+			payload += count
+		} else {
+			payload += count * 4
+		}
+	}
+	return payload + scales, quantized, scales, nil
+}
+
 type hfArchive struct {
 	Config  hfConfig
 	Plan    HFPlan
@@ -473,13 +504,21 @@ func hfWidth(dtype string) int {
 }
 
 func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchive, err error) {
+	return openHFArchiveFormat(dir, contextLimit, weightBudget, "f32")
+}
+
+func openHFArchiveFormat(dir string, contextLimit int, weightBudget int64, format string) (_ *hfArchive, err error) {
 	h, c, err := readHFConfig(dir, contextLimit)
 	if err != nil {
 		return nil, err
 	}
 	parameters := hfParameterCount(c, h)
-	if weightBudget < parameters*4 {
-		return nil, fmt.Errorf("HF FP32 weights require %d MiB, exceed weight budget %d MiB; raise -weight-mib", (parameters*4+(1<<20)-1)>>20, weightBudget>>20)
+	storage, quantized, scales, err := hfWeightStorage(c, h, format)
+	if err != nil {
+		return nil, err
+	}
+	if weightBudget < storage {
+		return nil, fmt.Errorf("HF %s weights require %d MiB, exceed weight budget %d MiB; raise -weight-mib", format, (storage+(1<<20)-1)>>20, weightBudget>>20)
 	}
 	a := &hfArchive{Config: h, tensors: map[string]hfTensor{}}
 	defer func() {
@@ -488,6 +527,12 @@ func openHFArchive(dir string, contextLimit int, weightBudget int64) (_ *hfArchi
 		}
 	}()
 	a.Plan = HFPlan{Format: "monolith-hf-plan-v1", ModelType: h.ModelType, TiedEmbeddings: h.Tied, Config: c, Parameters: parameters, WeightBytes: parameters * 4, RopeBytes: int64(c.Context) * (int64(c.Dim) / int64(c.Heads)) * 4, KVBytesPerToken: int64(c.Layers*c.KVDim()) * 8, ConversionBufferBytes: 64 << 10, DTypes: map[string]int{}}
+	a.Plan.WeightBytes, a.Plan.WeightFormat, a.Plan.FP32WeightBytes = storage, format, parameters*4
+	a.Plan.QuantizedParameters, a.Plan.ScaleBytes = quantized, scales
+	if format == "q8" {
+		a.Plan.QuantizationBlock = q8Block
+		a.Plan.QuantizationBufferBytes = q8Block * 4
+	}
 	a.Plan.FullContextKVBytes = int64(c.Context) * a.Plan.KVBytesPerToken
 	gpt2 := h.ModelType == "gpt2"
 	if gpt2 {
@@ -665,6 +710,33 @@ func (a *hfArchive) readTensor(ctx context.Context, name string, dst []float32) 
 	return a.readTensorValues(ctx, name, len(dst), func(i int, v float32) error { dst[i] = v; return nil })
 }
 
+// Row-major tensors need only one small block of converted values. The full
+// FP32 tensor/model is never allocated when q8 storage is selected.
+func (a *hfArchive) readParam(ctx context.Context, name string, p *Param) error {
+	if p.Q8 == nil {
+		return a.readTensor(ctx, name, p.Data)
+	}
+	var block [q8Block]float32
+	groups := (p.Cols + q8Block - 1) / q8Block
+	return a.readTensorValues(ctx, name, p.Rows*p.Cols, func(i int, v float32) error {
+		row, col := i/p.Cols, i%p.Cols
+		block[col%q8Block] = v
+		if col%q8Block == q8Block-1 || col == p.Cols-1 {
+			count := col%q8Block + 1
+			var amax float32
+			for _, x := range block[:count] {
+				amax = max(amax, float32(math.Abs(float64(x))))
+			}
+			scale := q8Scale(amax)
+			p.Q8.Scales[row*groups+col/q8Block] = scale
+			for j, x := range block[:count] {
+				p.Q8.Values[i-count+1+j] = q8Value(x, scale)
+			}
+		}
+		return nil
+	})
+}
+
 // Assignment is streamed so Conv1D transposition and fused-QKV splitting do
 // not allocate a second tensor or a second model.
 func (a *hfArchive) readTensorValues(ctx context.Context, name string, count int, put func(int, float32) error) error {
@@ -705,28 +777,32 @@ func (a *hfArchive) readTensorValues(ctx context.Context, name string, count int
 	return ctx.Err()
 }
 
-func hfFlags(f *flag.FlagSet) (*string, *int, *int64) {
+func hfFlags(f *flag.FlagSet) (*string, *int, *int64, *string) {
 	dir := f.String("hf-model", "", "local Hugging Face model directory (supported Llama/Qwen2/GPT-2 profiles)")
 	limit := f.Int("context", 0, "HF context cap; 0 uses min(model maximum, 2048)")
-	budget := f.Int64("weight-mib", 2048, "maximum FP32 HF weight storage in MiB (not RSS)")
-	return dir, limit, budget
+	budget := f.Int64("weight-mib", 2048, "maximum resident HF weight payload in MiB (not RSS)")
+	format := f.String("weight-format", "f32", "resident HF weights: f32 or q8 (lossy, 64-value blocks)")
+	return dir, limit, budget, format
 }
 func openHFFlags(dir string, limit int, mib int64) (*hfArchive, error) {
+	return openHFFlagsFormat(dir, limit, mib, "f32")
+}
+func openHFFlagsFormat(dir string, limit int, mib int64, format string) (*hfArchive, error) {
 	if dir == "" || mib < 1 || mib > 1<<20 {
 		return nil, errors.New("provide -hf-model and a valid -weight-mib (1..1048576)")
 	}
-	return openHFArchive(dir, limit, mib<<20)
+	return openHFArchiveFormat(dir, limit, mib<<20, format)
 }
 func runInspectHF(args []string, validateOnly bool) error {
 	f := flags("inspect-hf")
-	dir, limit, budget := hfFlags(f)
+	dir, limit, budget, format := hfFlags(f)
 	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
 	}
 	if validateOnly {
 		return nil
 	}
-	a, err := openHFFlags(*dir, *limit, *budget)
+	a, err := openHFFlagsFormat(*dir, *limit, *budget, *format)
 	if err != nil {
 		return err
 	}
@@ -748,7 +824,10 @@ type hfCheck struct {
 }
 
 func checkHF(dir string, limit int, budget int64, requireChat bool) (hfCheck, error) {
-	a, err := openHFFlags(dir, limit, budget)
+	return checkHFFormat(dir, limit, budget, requireChat, "f32")
+}
+func checkHFFormat(dir string, limit int, budget int64, requireChat bool, format string) (hfCheck, error) {
+	a, err := openHFFlagsFormat(dir, limit, budget, format)
 	if err != nil {
 		return hfCheck{}, err
 	}
@@ -774,7 +853,7 @@ func checkHF(dir string, limit int, budget int64, requireChat bool) (hfCheck, er
 
 func runCheckHF(args []string, validateOnly bool) error {
 	f := flags("check-hf")
-	dir, limit, budget := hfFlags(f)
+	dir, limit, budget, format := hfFlags(f)
 	asJSON := f.Bool("json", false, "emit machine-readable preflight report")
 	chat := f.Bool("chat", false, "require a supported chat template")
 	if err := parseInferenceAction(f, args, validateOnly); err != nil {
@@ -783,7 +862,7 @@ func runCheckHF(args []string, validateOnly bool) error {
 	if validateOnly {
 		return nil
 	}
-	report, err := checkHF(*dir, *limit, *budget, *chat)
+	report, err := checkHFFormat(*dir, *limit, *budget, *chat, *format)
 	if err != nil {
 		return err
 	}
@@ -794,7 +873,7 @@ func runCheckHF(args []string, validateOnly bool) error {
 	}
 	fmt.Printf("Compatible metadata: %s / %s\n", report.Weights.ModelType, report.TokenizerProfile)
 	fmt.Printf("Context: %d (model maximum %d); chat supported: %t\n", report.Weights.Config.Context, report.ModelContext, report.ChatSupported)
-	fmt.Printf("FP32 weights: %.1f MiB / %d MiB budget; paged KV per full session: %.1f MiB\n", float64(report.Weights.WeightBytes)/(1<<20), *budget, float64(report.KVPageAlignedBytes)/(1<<20))
+	fmt.Printf("%s weights: %.1f MiB / %d MiB budget; paged KV per full session: %.1f MiB\n", report.Weights.WeightFormat, float64(report.Weights.WeightBytes)/(1<<20), *budget, float64(report.KVPageAlignedBytes)/(1<<20))
 	fmt.Println("Weights are not loaded; payload values are checked at load time. Scratch, tokenizer and Go runtime memory are additional.")
 	return nil
 }
@@ -996,7 +1075,7 @@ func inferHFIDs(ctx context.Context, m *Model, ids []int, count, chunk int, logi
 }
 func runInferHF(ctx context.Context, args []string, validateOnly bool) error {
 	f := flags("infer-hf")
-	dir, limit, budget := hfFlags(f)
+	dir, limit, budget, format := hfFlags(f)
 	input := f.String("ids", "", "comma-separated token IDs, already framed")
 	count := f.Int("max-tokens", 8, "greedy outputs (1..256)")
 	chunk := f.Int("prefill-chunk", 16, "prompt tokens per call (1..1024)")
@@ -1028,7 +1107,7 @@ func runInferHF(ctx context.Context, args []string, validateOnly bool) error {
 	if err := setThreads(*threads); err != nil {
 		return err
 	}
-	m, _, err := loadHFModel(ctx, *dir, *limit, *budget)
+	m, _, err := loadHFModelFormat(ctx, *dir, *limit, *budget, *format)
 	if err != nil {
 		return err
 	}
@@ -1048,7 +1127,7 @@ func flagSet(f *flag.FlagSet, name string) bool {
 	})
 	return set
 }
-func loadInference(ctx context.Context, f *flag.FlagSet, model, dir string, limit int, budget int64) (*Model, inferenceTokenizer, error) {
+func loadInference(ctx context.Context, f *flag.FlagSet, model, dir string, limit int, budget int64, format string) (*Model, inferenceTokenizer, error) {
 	if dir != "" {
 		if flagSet(f, "model") {
 			return nil, nil, errors.New("-model and -hf-model are mutually exclusive")
@@ -1061,7 +1140,7 @@ func loadInference(ctx context.Context, f *flag.FlagSet, model, dir string, limi
 		if err != nil {
 			return nil, nil, err
 		}
-		m, _, err := loadHFModel(ctx, dir, limit, budget)
+		m, _, err := loadHFModelFormat(ctx, dir, limit, budget, format)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1070,8 +1149,8 @@ func loadInference(ctx context.Context, f *flag.FlagSet, model, dir string, limi
 		}
 		return m, tok, nil
 	}
-	if flagSet(f, "context") || flagSet(f, "weight-mib") {
-		return nil, nil, errors.New("-context/-weight-mib require -hf-model")
+	if flagSet(f, "context") || flagSet(f, "weight-mib") || flagSet(f, "weight-format") {
+		return nil, nil, errors.New("-context/-weight-mib/-weight-format require -hf-model")
 	}
 	m, tok, _, err := LoadCheckpoint(model)
 	return m, tok, err
@@ -2871,6 +2950,64 @@ type Param struct {
 	Rows, Cols       int
 	Decay            bool
 	Data, Grad, M, V []float32
+	Q8               *q8Weights // Inference-only; Data is nil when present.
+}
+
+const q8Block = 64
+
+// Symmetric weight-only quantization. Blocks never cross an output row.
+// Activations, accumulators, normalization, biases and KV storage stay FP32.
+type q8Weights struct {
+	Values []int8
+	Scales []float32
+}
+
+func newInferenceParam(name string, rows, cols int, quantized bool) *Param {
+	p := &Param{Name: name, Rows: rows, Cols: cols}
+	if quantized {
+		p.Q8 = &q8Weights{Values: make([]int8, rows*cols), Scales: make([]float32, rows*((cols+q8Block-1)/q8Block))}
+	} else {
+		p.Data = make([]float32, rows*cols)
+	}
+	return p
+}
+
+func q8Scale(amax float32) float32 {
+	if amax == 0 {
+		return 0
+	}
+	scale := float32(float64(amax) / 127)
+	if scale == 0 {
+		return math.SmallestNonzeroFloat32
+	}
+	// Round the scale downward if needed so reconstruction stays finite even
+	// when a finite source value is near MaxFloat32.
+	if scale > math.SmallestNonzeroFloat32 && float64(scale)*127 > float64(amax) {
+		scale = math.Nextafter32(scale, 0)
+	}
+	return scale
+}
+
+func q8Value(v, scale float32) int8 {
+	if scale == 0 {
+		return 0
+	}
+	return int8(max(-127, min(127, math.Round(float64(v)/float64(scale)))))
+}
+
+func (p *Param) copyRow(dst []float32, row int) {
+	if p.Q8 == nil {
+		copy(dst, p.Data[row*p.Cols:(row+1)*p.Cols])
+		return
+	}
+	q := p.Q8
+	groups := (p.Cols + q8Block - 1) / q8Block
+	for g := 0; g < groups; g++ {
+		scale := q.Scales[row*groups+g]
+		for j := g * q8Block; j < min((g+1)*q8Block, p.Cols); j++ {
+			dst[j] = float32(q.Values[row*p.Cols+j]) * scale
+		}
+	}
 }
 
 // linear computes X W^T; W is contiguous [out,in].
@@ -2893,6 +3030,10 @@ func addBias(x []float32, bias *Param) {
 }
 
 func linearIntoWithExecutor(e *kernelExecutor, y, x []float32, w *Param, n int) {
+	if w.Q8 != nil {
+		linearQ8Into(e, y, x, w, n)
+		return
+	}
 	in, out := w.Cols, w.Rows
 	// Four sequence rows share each weight load. Disjoint 4x32 output tiles can
 	// run on different goroutines, including for a single long hidden vector.
@@ -2927,6 +3068,85 @@ func linearIntoWithExecutor(e *kernelExecutor, y, x []float32, w *Param, n int) 
 						var sum float32
 						for j, v := range xr {
 							sum += v * wr[j]
+						}
+						y[row*out+o] = sum
+					}
+				}
+			}
+		}
+	})
+}
+
+// Decode reads one byte per weight, with no full matrix dequantization.
+// Four-row tiles reuse each integer conversion across prompt/session rows.
+func linearQ8Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
+	in, out := w.Cols, w.Rows
+	groups, tiles := (in+q8Block-1)/q8Block, (out+31)/32
+	e.parallel(((n+3)/4)*tiles, n*in*out, func(lo, hi int) {
+		for task := lo; task < hi; task++ {
+			r, o0 := (task/tiles)*4, (task%tiles)*32
+			for o := o0; o < min(o0+32, out); o++ {
+				wr := w.Q8.Values[o*in : (o+1)*in]
+				scales := w.Q8.Scales[o*groups : (o+1)*groups]
+				if r+4 <= n {
+					x0, x1 := x[r*in:(r+1)*in], x[(r+1)*in:(r+2)*in]
+					x2, x3 := x[(r+2)*in:(r+3)*in], x[(r+3)*in:(r+4)*in]
+					var s0, s1, s2, s3 float32
+					for g, scale := range scales {
+						var a0, b0, c0, d0, a1, b1, c1, d1, a2, b2, c2, d2, a3, b3, c3, d3 float32
+						j, end := g*q8Block, min((g+1)*q8Block, in)
+						for ; j+4 <= end; j += 4 {
+							v0, v1, v2, v3 := float32(wr[j]), float32(wr[j+1]), float32(wr[j+2]), float32(wr[j+3])
+							a0 += x0[j] * v0
+							b0 += x0[j+1] * v1
+							c0 += x0[j+2] * v2
+							d0 += x0[j+3] * v3
+							a1 += x1[j] * v0
+							b1 += x1[j+1] * v1
+							c1 += x1[j+2] * v2
+							d1 += x1[j+3] * v3
+							a2 += x2[j] * v0
+							b2 += x2[j+1] * v1
+							c2 += x2[j+2] * v2
+							d2 += x2[j+3] * v3
+							a3 += x3[j] * v0
+							b3 += x3[j+1] * v1
+							c3 += x3[j+2] * v2
+							d3 += x3[j+3] * v3
+						}
+						p0, p1, p2, p3 := (a0+b0)+(c0+d0), (a1+b1)+(c1+d1), (a2+b2)+(c2+d2), (a3+b3)+(c3+d3)
+						for ; j < end; j++ {
+							v := float32(wr[j])
+							p0 += x0[j] * v
+							p1 += x1[j] * v
+							p2 += x2[j] * v
+							p3 += x3[j] * v
+						}
+						s0 += p0 * scale
+						s1 += p1 * scale
+						s2 += p2 * scale
+						s3 += p3 * scale
+					}
+					y[r*out+o], y[(r+1)*out+o] = s0, s1
+					y[(r+2)*out+o], y[(r+3)*out+o] = s2, s3
+				} else {
+					for row := r; row < min(r+4, n); row++ {
+						xr := x[row*in : (row+1)*in]
+						var sum float32
+						for g, scale := range scales {
+							j, end := g*q8Block, min((g+1)*q8Block, in)
+							var a, b, c, d float32
+							for ; j+4 <= end; j += 4 {
+								a += xr[j] * float32(wr[j])
+								b += xr[j+1] * float32(wr[j+1])
+								c += xr[j+2] * float32(wr[j+2])
+								d += xr[j+3] * float32(wr[j+3])
+							}
+							part := (a + b) + (c + d)
+							for ; j < end; j++ {
+								part += xr[j] * float32(wr[j])
+							}
+							sum += part * scale
 						}
 						y[row*out+o] = sum
 					}
@@ -3109,10 +3329,14 @@ func (m *Model) parameterCount() int64 {
 }
 
 func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model, HFPlan, error) {
+	return loadHFModelFormat(ctx, dir, limit, mib, "f32")
+}
+
+func loadHFModelFormat(ctx context.Context, dir string, limit int, mib int64, format string) (*Model, HFPlan, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, HFPlan{}, err
 	}
-	a, err := openHFFlags(dir, limit, mib)
+	a, err := openHFFlagsFormat(dir, limit, mib, format)
 	if err != nil {
 		return nil, HFPlan{}, err
 	}
@@ -3121,10 +3345,10 @@ func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model,
 		m, err := loadGPT2(ctx, a)
 		return m, a.Plan, err
 	}
-	m := allocateModelStorage(a.Plan.Config, nil)
+	m := allocateModelStorageFormat(a.Plan.Config, nil, format)
 	m.hf = &a.Config
 	makeExtra := func(name string, rows, cols int) *Param {
-		p := &Param{Name: name, Rows: rows, Cols: cols, Data: make([]float32, rows*cols)}
+		p := newInferenceParam(name, rows, cols, format == "q8" && name == "output")
 		m.Params = append(m.Params, p)
 		return p
 	}
@@ -3150,7 +3374,7 @@ func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model,
 		}
 	}
 	for i, s := range hfProfileSpecs(m.Config, a.Config) {
-		if err := a.readTensor(ctx, s.Name, m.Params[i].Data); err != nil {
+		if err := a.readParam(ctx, s.Name, m.Params[i]); err != nil {
 			return nil, a.Plan, err
 		}
 	}
@@ -3160,20 +3384,21 @@ func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model,
 func loadGPT2(ctx context.Context, a *hfArchive) (*Model, error) {
 	c := a.Plan.Config
 	m := &Model{Config: c, hf: &a.Config}
-	param := func(name string, rows, cols int) *Param {
-		p := &Param{Name: name, Rows: rows, Cols: cols, Data: make([]float32, rows*cols)}
+	quantized := a.Plan.WeightFormat == "q8"
+	param := func(name string, rows, cols int, matrix bool) *Param {
+		p := newInferenceParam(name, rows, cols, quantized && matrix)
 		m.Params = append(m.Params, p)
 		return p
 	}
 	// All names, dimensions and the complete resident storage budget have
 	// already been validated by openHFArchive.
 	d := c.Dim
-	m.Emb = param("wte.weight", c.Vocab, d)
-	m.Position = param("wpe.weight", a.Config.Context, d)
-	m.Final = param("ln_f.weight", 1, d)
-	m.FinalBias = param("ln_f.bias", 1, d)
+	m.Emb = param("wte.weight", c.Vocab, d, true)
+	m.Position = param("wpe.weight", a.Config.Context, d, false)
+	m.Final = param("ln_f.weight", 1, d, false)
+	m.FinalBias = param("ln_f.bias", 1, d, false)
 	for _, p := range m.Params {
-		if err := a.readTensor(ctx, p.Name, p.Data); err != nil {
+		if err := a.readParam(ctx, p.Name, p); err != nil {
 			return nil, err
 		}
 	}
@@ -3183,28 +3408,55 @@ func loadGPT2(ctx context.Context, a *hfArchive) (*Model, error) {
 		for _, p := range dst {
 			total += p.Rows
 		}
-		return a.readTensorValues(ctx, name, cols*total, func(i int, v float32) error {
-			in, out := i/total, i%total
-			for _, p := range dst {
-				if out < p.Rows {
-					p.Data[out*cols+in] = v
-					return nil
+		passes := 1
+		if dst[0].Q8 != nil {
+			passes = 2
+		}
+		for pass := 0; pass < passes; pass++ {
+			// Transposed input arrives column-first. One streaming pass finds
+			// block maxima, the second writes integers; no transpose buffer.
+			if err := a.readTensorValues(ctx, name, cols*total, func(i int, v float32) error {
+				in, out := i/total, i%total
+				for _, p := range dst {
+					if out < p.Rows {
+						if p.Q8 == nil {
+							p.Data[out*cols+in] = v
+						} else {
+							g := out*((cols+q8Block-1)/q8Block) + in/q8Block
+							if pass == 0 {
+								p.Q8.Scales[g] = max(p.Q8.Scales[g], float32(math.Abs(float64(v))))
+							} else {
+								p.Q8.Values[out*cols+in] = q8Value(v, p.Q8.Scales[g])
+							}
+						}
+						return nil
+					}
+					out -= p.Rows
 				}
-				out -= p.Rows
+				return errors.New("GPT-2 projection destination mismatch")
+			}); err != nil {
+				return err
 			}
-			return errors.New("GPT-2 projection destination mismatch")
-		})
+			if passes == 2 && pass == 0 {
+				for _, p := range dst {
+					for g, amax := range p.Q8.Scales {
+						p.Q8.Scales[g] = q8Scale(amax)
+					}
+				}
+			}
+		}
+		return nil
 	}
 	for i := 0; i < c.Layers; i++ {
 		p := fmt.Sprintf("h.%d.", i)
 		b := Block{
-			N1: param(p+"ln_1.weight", 1, d), N1B: param(p+"ln_1.bias", 1, d),
-			Q: param(p+"q", d, d), K: param(p+"k", d, d), V: param(p+"v", d, d),
-			QB: param(p+"qb", 1, d), KB: param(p+"kb", 1, d), VB: param(p+"vb", 1, d),
-			O: param(p+"attn.c_proj.weight", d, d), OB: param(p+"attn.c_proj.bias", 1, d),
-			N2: param(p+"ln_2.weight", 1, d), N2B: param(p+"ln_2.bias", 1, d),
-			Gate: param(p+"mlp.c_fc.weight", c.Hidden, d), GateB: param(p+"mlp.c_fc.bias", 1, c.Hidden),
-			Down: param(p+"mlp.c_proj.weight", d, c.Hidden), DownB: param(p+"mlp.c_proj.bias", 1, d),
+			N1: param(p+"ln_1.weight", 1, d, false), N1B: param(p+"ln_1.bias", 1, d, false),
+			Q: param(p+"q", d, d, true), K: param(p+"k", d, d, true), V: param(p+"v", d, d, true),
+			QB: param(p+"qb", 1, d, false), KB: param(p+"kb", 1, d, false), VB: param(p+"vb", 1, d, false),
+			O: param(p+"attn.c_proj.weight", d, d, true), OB: param(p+"attn.c_proj.bias", 1, d, false),
+			N2: param(p+"ln_2.weight", 1, d, false), N2B: param(p+"ln_2.bias", 1, d, false),
+			Gate: param(p+"mlp.c_fc.weight", c.Hidden, d, true), GateB: param(p+"mlp.c_fc.bias", 1, c.Hidden, false),
+			Down: param(p+"mlp.c_proj.weight", d, c.Hidden, true), DownB: param(p+"mlp.c_proj.bias", 1, d, false),
 		}
 		for _, v := range []*Param{b.N1, b.N1B, b.OB, b.N2, b.N2B, b.GateB, b.DownB} {
 			if err := a.readTensor(ctx, v.Name, v.Data); err != nil {
@@ -3283,9 +3535,14 @@ func allocateModel(c Config, rng *RNG) (*Model, error) {
 
 // Callers must validate dimensions and their native or HF allocation budget.
 func allocateModelStorage(c Config, rng *RNG) *Model {
+	return allocateModelStorageFormat(c, rng, "f32")
+}
+
+func allocateModelStorageFormat(c Config, rng *RNG, format string) *Model {
 	m := &Model{Config: c}
 	makeParam := func(name string, rows, cols int, norm bool, scale float64) *Param {
-		p := &Param{Name: name, Rows: rows, Cols: cols, Decay: !norm, Data: make([]float32, rows*cols)}
+		p := newInferenceParam(name, rows, cols, format == "q8" && !norm)
+		p.Decay = !norm
 		if rng != nil {
 			for i := range p.Data {
 				if norm {
@@ -4170,7 +4427,7 @@ func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [
 		cache.ensurePages(cache.Pos + len(chunks[i]))
 		for j, token := range chunks[i] {
 			rowCaches[r], positions[r] = cache, cache.Pos+j
-			copy(w.X[r*d:(r+1)*d], m.Emb.Data[token*d:(token+1)*d])
+			m.Emb.copyRow(w.X[r*d:(r+1)*d], token)
 			if m.Position != nil {
 				addInPlace(w.X[r*d:(r+1)*d], m.Position.Data[positions[r]*d:(positions[r]+1)*d])
 			}
@@ -6244,7 +6501,7 @@ func parseInferenceAction(f *flag.FlagSet, args []string, validateOnly bool) err
 		return err
 	}
 	if validateOnly {
-		for _, name := range []string{"model", "hf-model", "context", "weight-mib"} {
+		for _, name := range []string{"model", "hf-model", "context", "weight-mib", "weight-format"} {
 			if flagSet(f, name) {
 				return errors.New("put model source and HF sizing flags before the infer local action")
 			}
@@ -6253,6 +6510,9 @@ func parseInferenceAction(f *flag.FlagSet, args []string, validateOnly bool) err
 	return validateInferenceFlags(f)
 }
 func validateInferenceFlags(f *flag.FlagSet) error {
+	if v := f.Lookup("weight-format"); v != nil && v.Value.String() != "f32" && v.Value.String() != "q8" {
+		return errors.New("weight-format must be f32 or q8")
+	}
 	for _, bound := range []struct {
 		name   string
 		lo, hi int64
@@ -7059,7 +7319,7 @@ func runDemo(ctx context.Context, args []string) error {
 func runGenerate(ctx context.Context, args []string, validateOnly bool) error {
 	f := flags("generate")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
-	dir, limit, budget := hfFlags(f)
+	dir, limit, budget, format := hfFlags(f)
 	chat, messages := chatFlags(f)
 	prompt := f.String("prompt", "", "text prompt")
 	f.String("prompt-file", "", "prompt file; - reads stdin (at most 1 MiB)")
@@ -7079,7 +7339,7 @@ func runGenerate(ctx context.Context, args []string, validateOnly bool) error {
 	if err := setThreads(*threads); err != nil {
 		return err
 	}
-	m, tok, err := loadInference(ctx, f, *model, *dir, *limit, *budget)
+	m, tok, err := loadInference(ctx, f, *model, *dir, *limit, *budget, *format)
 	if err != nil {
 		return err
 	}
@@ -7198,7 +7458,7 @@ func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s
 
 func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	f := flags("chat")
-	dir, limit, budget := hfFlags(f)
+	dir, limit, budget, format := hfFlags(f)
 	system := f.String("system", "", "system message; empty uses the model template default")
 	memory := f.Int64("kv-mib", 256, "KV cache budget in MiB")
 	workers := f.Int("kernel-workers", 0, "fixed kernel workers; 0 selects automatically")
@@ -7223,7 +7483,7 @@ func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	if *dir == "" || *memory < 1 || *memory > 1<<20 {
 		return errors.New("chat requires -hf-model and valid -kv-mib")
 	}
-	report, err := checkHF(*dir, *limit, *budget, true)
+	report, err := checkHFFormat(*dir, *limit, *budget, true, *format)
 	if err != nil {
 		return err
 	}
@@ -7233,7 +7493,7 @@ func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	if !utf8.ValidString(*system) || len(*system) > 1<<20 {
 		return errors.New("system message must be valid UTF-8 and at most 1 MiB")
 	}
-	m, tok, err := loadInference(ctx, f, "", *dir, *limit, *budget)
+	m, tok, err := loadInference(ctx, f, "", *dir, *limit, *budget, *format)
 	if err != nil {
 		return err
 	}
@@ -7450,7 +7710,7 @@ func (t *inferenceTrace) close() error {
 func runServe(ctx context.Context, args []string, validateOnly bool) (err error) {
 	f := flags("serve")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
-	dir, limit, weightBudget := hfFlags(f)
+	dir, limit, weightBudget, format := hfFlags(f)
 	addr := f.String("addr", "127.0.0.1:8080", "HTTP listen address")
 	batch := f.Int("max-batch", 8, "maximum simultaneous sessions per scheduling tick")
 	chunk := f.Int("prefill-chunk", 16, "maximum prompt tokens per session per tick; 1 is the sequential baseline")
@@ -7478,7 +7738,7 @@ func runServe(ctx context.Context, args []string, validateOnly bool) (err error)
 	if *memory < 1 || *memory > 1<<20 {
 		return errors.New("invalid -kv-mib")
 	}
-	m, tok, err := loadInference(ctx, f, *model, *dir, *limit, *weightBudget)
+	m, tok, err := loadInference(ctx, f, *model, *dir, *limit, *weightBudget, *format)
 	if err != nil {
 		return err
 	}
@@ -7538,6 +7798,7 @@ type hfSnapshot struct {
 }
 type hfSource struct {
 	Repo, Revision, Cache    string
+	WeightFormat             string
 	Offline                  bool
 	DownloadBytes, WeightMiB int64
 	Context                  int
@@ -7792,6 +8053,12 @@ func (h hfHub) download(ctx context.Context, dir, repo, sha string, f hfHubFile)
 
 func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, error) {
 	var empty hfSnapshot
+	if s.WeightFormat == "" {
+		s.WeightFormat = "f32"
+	}
+	if s.WeightFormat != "f32" && s.WeightFormat != "q8" {
+		return "", empty, errors.New("weight-format must be f32 or q8")
+	}
 	s.Offline = s.Offline || hfOffline()
 	if !validHFRepo(s.Repo) || s.Revision == "" || len(s.Revision) > 200 || strings.ContainsAny(s.Revision, "\x00\r\n") || s.DownloadBytes < 1 || s.DownloadBytes > 16<<30 || s.WeightMiB < 1 || s.WeightMiB > 1<<20 {
 		return "", empty, errors.New("invalid HF source or byte budget")
@@ -7881,8 +8148,12 @@ func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, err
 	if err != nil {
 		return "", empty, fmt.Errorf("local Go profile: %w (choose infer remote explicitly for other architectures)", err)
 	}
-	if hfParameterCount(c, hcfg)*4 > s.WeightMiB<<20 {
-		return "", empty, errors.New("HF FP32 weight budget exceeded before weight download")
+	storage, _, _, err := hfWeightStorage(c, hcfg, s.WeightFormat)
+	if err != nil {
+		return "", empty, err
+	}
+	if storage > s.WeightMiB<<20 {
+		return "", empty, errors.New("HF resident weight budget exceeded before weight download")
 	}
 	if err = take("tokenizer.json", 32<<20); err != nil {
 		return "", empty, err
@@ -7934,7 +8205,7 @@ func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, err
 			return "", empty, err
 		}
 	}
-	a, err := openHFArchive(stage, s.Context, s.WeightMiB<<20)
+	a, err := openHFArchiveFormat(stage, s.Context, s.WeightMiB<<20, s.WeightFormat)
 	if err != nil {
 		return "", empty, err
 	}
@@ -7981,7 +8252,8 @@ func runInferLocal(ctx context.Context, args []string) error {
 	dir := f.String("dir", "", "existing local HF model directory")
 	checkpoint := f.String("checkpoint", "", "native .mglm checkpoint")
 	limit := f.Int("context", 0, "HF context cap; 0 selects at most 2048")
-	weight := f.Int64("weight-mib", 2048, "maximum FP32 HF weights in MiB, not RSS")
+	weight := f.Int64("weight-mib", 2048, "maximum resident HF weight payload in MiB, not RSS")
+	format := f.String("weight-format", "f32", "resident HF weights: f32 or q8 (lossy, 64-value blocks)")
 	f.Usage = func() {
 		fmt.Fprintln(f.Output(), "usage: monolith infer local [source flags] <check|inspect|tokens|ids|generate|chat|serve> [action flags]")
 		f.PrintDefaults()
@@ -8020,7 +8292,7 @@ func runInferLocal(ctx context.Context, args []string) error {
 		if action != "generate" && action != "serve" && rest[0] != "inspect" {
 			return errors.New("native checkpoints support generate, serve and inspect")
 		}
-		if flagSet(f, "context") || flagSet(f, "weight-mib") || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") || *offline {
+		if flagSet(f, "context") || flagSet(f, "weight-mib") || flagSet(f, "weight-format") || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") || *offline {
 			return errors.New("HF source flags do not apply to a native checkpoint")
 		}
 		if rest[0] == "inspect" {
@@ -8042,7 +8314,7 @@ func runInferLocal(ctx context.Context, args []string) error {
 		client := newHFClient(15 * time.Minute)
 		defer client.CloseIdleConnections()
 		h := hfHub{Base: "https://huggingface.co", Token: os.Getenv("HF_TOKEN"), Client: client}
-		path, m, err := h.resolve(ctx, hfSource{Repo: *repo, Revision: *revision, Cache: *cache, Offline: *offline, DownloadBytes: *download << 20, WeightMiB: *weight, Context: *limit})
+		path, m, err := h.resolve(ctx, hfSource{Repo: *repo, Revision: *revision, Cache: *cache, Offline: *offline, DownloadBytes: *download << 20, WeightMiB: *weight, WeightFormat: *format, Context: *limit})
 		if err != nil {
 			return err
 		}
@@ -8058,7 +8330,7 @@ func runInferLocal(ctx context.Context, args []string) error {
 	}
 	injected := []string{action, "-hf-model", *dir, "-context", strconv.Itoa(*limit)}
 	if action != "tokenize-hf" {
-		injected = append(injected, "-weight-mib", strconv.FormatInt(*weight, 10))
+		injected = append(injected, "-weight-mib", strconv.FormatInt(*weight, 10), "-weight-format", *format)
 	}
 	return run(ctx, append(injected, rest[1:]...))
 }

@@ -2,7 +2,8 @@
 
 Measure token selection separately from model projection, attention, source
 loading and HTTP delivery. A faster sampler does not imply the same speedup
-for end-to-end generation. Weights remain FP32.
+for end-to-end generation. The measurements below use FP32 weights. Separate
+[Q8 measurements](Q8_INFERENCE.md) cover opt-in quantization and larger models.
 
 ## Greedy token selection
 
