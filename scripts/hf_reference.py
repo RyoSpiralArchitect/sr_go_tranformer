@@ -40,6 +40,25 @@ def write_json(path, obj):
     path.write_text(json.dumps(obj, indent=2, ensure_ascii=False, allow_nan=False) + "\n")
 
 
+def llama3_frequencies(root):
+    from transformers.modeling_rope_utils import _compute_llama3_parameters
+    cases = []
+    for theta, head, original, low, high in (
+        (500000.0, 128, 8192, 1.0, 4.0),
+        (10539.012817788489, 16, 32, 1.6, 1.600001),
+        (10000.0, 16, 32, 0.7, 3.1),
+    ):
+        scaling = dict(rope_type="llama3", factor=32.0, low_freq_factor=low,
+                       high_freq_factor=high, original_max_position_embeddings=original)
+        cfg = LlamaConfig(hidden_size=head*2, num_attention_heads=2,
+                          head_dim=head, max_position_embeddings=131072,
+                          rope_theta=theta, rope_scaling=scaling)
+        freq, _ = _compute_llama3_parameters(cfg, torch.device("cpu"))
+        cases.append(dict(theta=theta, head_dim=head, scaling=scaling,
+                          inverse_frequencies=freq.tolist()))
+    write_json(root/"frequencies.json", cases)
+
+
 def fixtures(root, llama3=False):
     root.mkdir(parents=True, exist_ok=True)
     cfg = dict(architectures=["LlamaForCausalLM"], model_type="llama",
@@ -58,6 +77,8 @@ def fixtures(root, llama3=False):
                    rope_scaling=dict(rope_type="llama3", factor=32.0,
                                      low_freq_factor=1.0, high_freq_factor=4.0,
                                      original_max_position_embeddings=32))
+    if llama3:
+        llama3_frequencies(root)
     torch.manual_seed(132)
     model = LlamaForCausalLM(LlamaConfig(**cfg)).eval()
     model.set_attn_implementation("eager")

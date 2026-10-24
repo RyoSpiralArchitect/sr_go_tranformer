@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,9 @@ func TestLlama3ConfigBoundaries(t *testing.T) {
 	}{
 		{"unknown algorithm", func(c, r map[string]any) { r["rope_type"] = "yarn" }},
 		{"unknown field", func(c, r map[string]any) { r["attention_factor"] = 2 }},
+		{"case alias override", func(c, r map[string]any) { r["FACTOR"] = 1 }},
+		{"case alias replacement", func(c, r map[string]any) { r["FACTOR"] = r["factor"]; delete(r, "factor") }},
+		{"null threshold", func(c, r map[string]any) { r["high_freq_factor"] = nil }},
 		{"missing factor", func(c, r map[string]any) { delete(r, "factor") }},
 		{"zero factor", func(c, r map[string]any) { r["factor"] = 0 }},
 		{"huge factor", func(c, r map[string]any) { r["factor"] = 1e39 }},
@@ -122,5 +126,41 @@ func TestQualityExternalTokensEndToEnd(t *testing.T) {
 			t.Setenv("MONOLITH_QUALITY_OUTPUT", filepath.Join(dir, format+".json"))
 			TestHFQualityProbe(t)
 		})
+	}
+}
+
+func TestLlama3FrequencyOracle(t *testing.T) {
+	var cases []struct {
+		Theta       float64      `json:"theta"`
+		Head        int          `json:"head_dim"`
+		Scaling     hfLlama3RoPE `json:"scaling"`
+		Frequencies []float32    `json:"inverse_frequencies"`
+	}
+	b, err := os.ReadFile("testdata/hf-llama3/frequencies.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(b, &cases); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cases {
+		config := hfTestConfig()
+		config.Dim, config.Heads, config.KVHeads, config.Hidden = c.Head*2, 2, 1, c.Head*3
+		config.HeadDim, config.Theta, config.Context, config.RoPE = c.Head, c.Theta, max(128, c.Scaling.Original), &c.Scaling
+		dir := t.TempDir()
+		hfWriteJSON(t, filepath.Join(dir, "config.json"), config)
+		parsed, _, err := readHFConfig(dir, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(c.Frequencies) != c.Head/2 {
+			t.Fatal("oracle frequency count")
+		}
+		for i, want := range c.Frequencies {
+			got := hfInverseFrequency(parsed.Theta, c.Head, i, parsed.RoPE)
+			if !finite(float64(got)) || math.Abs(float64(got-want)) > 2e-7*math.Max(1e-12, math.Abs(float64(want))) {
+				t.Fatalf("theta=%g index=%d got=%.9g want=%.9g", c.Theta, i, got, want)
+			}
+		}
 	}
 }

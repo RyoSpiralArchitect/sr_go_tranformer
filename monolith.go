@@ -115,9 +115,9 @@ const maxHFHeader = 4 << 20
 // Llama 3.1/3.2 frequency scaling; other scaling algorithms remain unsupported.
 type hfLlama3RoPE struct {
 	Type     string  `json:"rope_type"`
-	Factor   float32 `json:"factor"`
-	Low      float32 `json:"low_freq_factor"`
-	High     float32 `json:"high_freq_factor"`
+	Factor   float64 `json:"factor"`
+	Low      float64 `json:"low_freq_factor"`
+	High     float64 `json:"high_freq_factor"`
 	Original int     `json:"original_max_position_embeddings"`
 }
 
@@ -266,13 +266,28 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 		return h, Config{}, errors.New("HF head_dim must equal hidden_size / num_attention_heads")
 	}
 	if h.RoPE != nil {
+		// encoding/json matches struct fields case-insensitively. Check the raw
+		// keys first so aliases cannot override canonical HF computational fields.
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw["rope_scaling"], &fields); err != nil {
+			return h, Config{}, err
+		}
+		required := []string{"rope_type", "factor", "low_freq_factor", "high_freq_factor", "original_max_position_embeddings"}
+		if len(fields) != len(required) {
+			return h, Config{}, errors.New("Llama 3 RoPE requires exactly five canonical fields")
+		}
+		for _, key := range required {
+			if fields[key] == nil || string(fields[key]) == "null" {
+				return h, Config{}, fmt.Errorf("missing or null Llama 3 RoPE field %q", key)
+			}
+		}
 		d := json.NewDecoder(bytes.NewReader(raw["rope_scaling"]))
 		d.DisallowUnknownFields()
 		if err := d.Decode(h.RoPE); err != nil {
 			return h, Config{}, err
 		}
 		r := h.RoPE
-		if h.ModelType != "llama" || r.Type != "llama3" || !finite(float64(r.Factor)) || !finite(float64(r.Low)) || !finite(float64(r.High)) || r.Factor < 1 || r.Factor > 1e6 || r.Low < 1e-6 || r.High <= r.Low || r.High > 1e6 || r.Original < 1 || r.Original > 131072 || r.Original > h.Context {
+		if h.ModelType != "llama" || r.Type != "llama3" || !finite(float64(r.Factor)) || !finite(float64(r.Low)) || !finite(float64(r.High)) || r.Factor < 1 || r.Factor > 1e6 || r.Low < 1e-6 || r.High <= r.Low || float32(r.High) <= float32(r.Low) || r.High > 1e6 || r.Original < 1 || r.Original > 131072 || r.Original > h.Context {
 			return h, Config{}, errors.New("unsupported or invalid Llama 3 RoPE scaling")
 		}
 	}
@@ -3634,20 +3649,22 @@ func loadHFModel(ctx context.Context, dir string, limit int, mib int64) (*Model,
 	return loadHFModelFormat(ctx, dir, limit, mib, "f32")
 }
 
-// Preserve the FP32 operation order used by Transformers' llama3 RoPE.
+// Preserve Transformers' Python scalar arithmetic before each FP32 tensor
+// conversion. Early rounding of close thresholds can materially change RoPE.
 func hfInverseFrequency(theta float64, headDim, index int, scaling *hfLlama3RoPE) float32 {
 	inv := float32(1) / float32(math.Pow(theta, float64(float32(2*index)/float32(headDim))))
 	if scaling == nil {
 		return inv
 	}
 	wave := float32(2*math.Pi) / inv
-	lowWave, highWave := float32(scaling.Original)/scaling.Low, float32(scaling.Original)/scaling.High
+	lowWave, highWave := float32(float64(scaling.Original)/scaling.Low), float32(float64(scaling.Original)/scaling.High)
+	factor := float32(scaling.Factor)
 	if wave > lowWave {
-		return inv / scaling.Factor
+		return inv / factor
 	}
 	if wave >= highWave {
-		smooth := (float32(scaling.Original)/wave - scaling.Low) / (scaling.High - scaling.Low)
-		return (1-smooth)*inv/scaling.Factor + smooth*inv
+		smooth := (float32(scaling.Original)/wave - float32(scaling.Low)) / float32(scaling.High-scaling.Low)
+		return (1-smooth)*inv/factor + smooth*inv
 	}
 	return inv
 }

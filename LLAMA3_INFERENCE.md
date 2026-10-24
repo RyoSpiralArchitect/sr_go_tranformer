@@ -50,7 +50,10 @@ buffers without a second full FP32 weight copy.
 The fixed Llama 3 algorithm preserves high frequencies, divides low frequencies
 by `factor`, and interpolates the middle region using the original context and
 low/high frequency factors. Frequency construction, scaling and position
-products use FP32 operation order. The implementation is checked against
+products use FP32 operation order. JSON scalars retain FP64 precision through
+scalar-only differences/divisions, then convert at the corresponding tensor
+operation; rounding thresholds earlier can change interpolation materially.
+The implementation is checked against
 [Transformers 4.57.1](https://github.com/huggingface/transformers/blob/v4.57.1/src/transformers/modeling_rope_utils.py).
 It applies at every position, including short prompts.
 
@@ -59,7 +62,8 @@ The loader accepts only the five required fields: `rope_type`, `factor`,
 Unknown fields and scaling algorithms fail. Factor must be finite in [1, 1e6],
 low frequency factor at least 1e-6, high factor greater than low and at most 1e6,
 and original context an integer in [1, 131072] within the model's declared
-context. Validation happens after FP32 conversion so equal rounded thresholds
+context. Exact case-sensitive keys are required; aliases such as `FACTOR`
+cannot override `factor`. Validation also checks the FP32 thresholds so equal rounded thresholds
 cannot produce division by zero. Qwen2 scaling remains unsupported.
 
 A runtime context cap does not change pretrained scaling parameters. The
@@ -74,7 +78,9 @@ Three tiny, seeded F32/F16/BF16 fixtures cover all three frequency regions,
 positions crossing the original context and a KV page, GQA, prefill/decode,
 ragged batches, borrowed workspaces, and one/two/four workers. Logits and every
 KV row match the independent Transformers CPU eager-attention oracle within
-`2e-5` absolute error. Low-bit fixtures compare against reconstructed quantized
+`2e-5` absolute error. A separate inverse-frequency oracle covers the real 3B
+configuration and fractional thresholds, including a narrow interpolation band.
+Low-bit fixtures compare against reconstructed quantized
 weights; they do not impose FP32 equality.
 
 ```sh
