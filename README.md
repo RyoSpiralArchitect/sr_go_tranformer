@@ -1,6 +1,6 @@
 # sr_go_tranformer
 
-A self-contained decoder-only Transformer written in Go, with training, text generation, and an HTTP inference server. The implementation uses only the Go standard library and lives in a single source file, [`monolith.go`](monolith.go).
+A self-contained decoder-only Transformer written in Go, with training, text generation, and an HTTP inference server. The implementation lives in a single source file, [`monolith.go`](monolith.go). Model kernels use the Go standard library; the only runtime module dependency is `golang.org/x/text/unicode/norm` for Qwen NFC tokenization.
 
 ## Features
 
@@ -31,6 +31,8 @@ The project runs on the CPU using FP32 tensors. It does not require cgo, Python,
 
 See [Hugging Face inference](HF_INFERENCE.md) for supported model files, memory
 planning and compatibility boundaries.
+
+Supported text profiles include SmolLM2-135M-Instruct, SmolLM2-360M-Instruct and Qwen2.5-0.5B-Instruct. See [HF_INFERENCE.md](HF_INFERENCE.md) for pinned revisions and budgets.
 
 After downloading the documented pinned SmolLM2-135M-Instruct files:
 

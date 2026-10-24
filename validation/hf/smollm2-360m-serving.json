@@ -1,0 +1,166 @@
+{
+  "format": "monolith-hf-model-reference-v1",
+  "model": "HuggingFaceTB/SmolLM2-360M-Instruct",
+  "revision": "a10cc1512eabd3dde888204e902eca88bddb4951",
+  "files": {
+    "config.json": "224f72354f10d617a359cc82ad15a3c96e866b9b2ffadb81997eeea9e88e22ee",
+    "tokenizer.json": "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c",
+    "tokenizer_config.json": "4ec77d44f62efeb38d7e044a1db318f6a939438425312dfa333b8382dbad98df",
+    "generation_config.json": "87b916edaaab66b3899b9d0dd0752727dff6666686da0504d89ae0a6e055a013",
+    "model.safetensors": "e6bffe7435d7ddc10fd3b9a9efd429dafbacb1cb17015fb5562664e7532bf86e"
+  },
+  "binary_sha256": "f860baeb186615000321ee4fe0fc25cc31ce90274036a360897151864a6206a1",
+  "context": 512,
+  "weight_mib": 3072,
+  "torch": "2.8.0",
+  "transformers": "4.57.1",
+  "tolerance": 0.002,
+  "attention": "eager",
+  "dtype": "source BF16 -> CPU FP32",
+  "cases": [
+    {
+      "request": {
+        "prompt": "The capital of France is"
+      },
+      "prompt_ids": [
+        504,
+        3575,
+        282,
+        4649,
+        314
+      ],
+      "completion": {
+        "text": " Paris.\n\nParis is the capital",
+        "token_ids": [
+          7042,
+          30,
+          198,
+          198,
+          38634,
+          314,
+          260,
+          3575
+        ],
+        "prompt_tokens": 5,
+        "completion_tokens": 8,
+        "finish_reason": "length"
+      },
+      "numerical": [
+        {
+          "chunk": 1,
+          "max_abs_error": 4.6253204345703125e-05,
+          "greedy_match": true
+        },
+        {
+          "chunk": 16,
+          "max_abs_error": 4.6253204345703125e-05,
+          "greedy_match": true
+        }
+      ],
+      "cli_match": true,
+      "http_match": true,
+      "concurrent_sse_match": true
+    },
+    {
+      "request": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Write one short sentence about cats."
+          }
+        ]
+      },
+      "prompt_ids": [
+        1,
+        9690,
+        198,
+        2683,
+        359,
+        253,
+        5356,
+        5646,
+        11173,
+        3365,
+        3511,
+        308,
+        34519,
+        28,
+        7018,
+        411,
+        407,
+        19712,
+        8182,
+        2,
+        198,
+        1,
+        4093,
+        198,
+        19161,
+        582,
+        1890,
+        6330,
+        563,
+        7680,
+        30,
+        2,
+        198,
+        1,
+        520,
+        9531,
+        198
+      ],
+      "completion": {
+        "text": "A cat is a domesticated feline animal known",
+        "token_ids": [
+          49,
+          2644,
+          314,
+          253,
+          27996,
+          31801,
+          3161,
+          1343
+        ],
+        "prompt_tokens": 37,
+        "completion_tokens": 8,
+        "finish_reason": "length"
+      },
+      "numerical": [
+        {
+          "chunk": 1,
+          "max_abs_error": 5.054473876953125e-05,
+          "greedy_match": true
+        },
+        {
+          "chunk": 16,
+          "max_abs_error": 5.054473876953125e-05,
+          "greedy_match": true
+        }
+      ],
+      "cli_match": true,
+      "http_match": true,
+      "concurrent_sse_match": true
+    }
+  ],
+  "final_engine_stats": {
+    "submitted": 4,
+    "completed": 4,
+    "canceled": 0,
+    "failed": 0,
+    "rejected": 0,
+    "active": 0,
+    "queue": 0,
+    "kv_reserved_bytes": 0,
+    "kv_allocated_bytes": 5242880,
+    "input_tokens": 84,
+    "generated_tokens": 32,
+    "ticks": 39,
+    "slow_consumers": 0,
+    "peak_tick_tokens": 8,
+    "released": 4,
+    "computing": 0,
+    "admission_used": 0,
+    "kernel_workers": 2
+  },
+  "clean_shutdown": true
+}

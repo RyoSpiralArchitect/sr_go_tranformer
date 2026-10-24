@@ -1,0 +1,165 @@
+{
+  "format": "monolith-hf-model-reference-v1",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "files": {
+    "config.json": "18e18afcaccafade98daf13a54092927904649e1dd4eba8299ab717d5d94ff45",
+    "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+    "tokenizer_config.json": "5b5d4f65d0acd3b2d56a35b56d374a36cbc1c8fa5cf3b3febbbfabf22f359583",
+    "generation_config.json": "e558847a8b4402616f1273797b015104dc266fe4b520056fca88823ba8f8ebe6",
+    "model.safetensors": "fdf756fa7fcbe7404d5c60e26bff1a0c8b8aa1f72ced49e7dd0210fe288fb7fe"
+  },
+  "binary_sha256": "f860baeb186615000321ee4fe0fc25cc31ce90274036a360897151864a6206a1",
+  "context": 512,
+  "weight_mib": 3072,
+  "torch": "2.8.0",
+  "transformers": "4.57.1",
+  "tolerance": 0.002,
+  "attention": "eager",
+  "dtype": "source BF16 -> CPU FP32",
+  "cases": [
+    {
+      "request": {
+        "prompt": "The capital of France is"
+      },
+      "prompt_ids": [
+        785,
+        6722,
+        315,
+        9625,
+        374
+      ],
+      "completion": {
+        "text": " Paris. It is the largest city in",
+        "token_ids": [
+          12095,
+          13,
+          1084,
+          374,
+          279,
+          7772,
+          3283,
+          304
+        ],
+        "prompt_tokens": 5,
+        "completion_tokens": 8,
+        "finish_reason": "length"
+      },
+      "numerical": [
+        {
+          "chunk": 1,
+          "max_abs_error": 5.073845386505127e-05,
+          "greedy_match": true
+        },
+        {
+          "chunk": 16,
+          "max_abs_error": 5.073845386505127e-05,
+          "greedy_match": true
+        }
+      ],
+      "cli_match": true,
+      "http_match": true,
+      "concurrent_sse_match": true
+    },
+    {
+      "request": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Write one short sentence about cats."
+          }
+        ]
+      },
+      "prompt_ids": [
+        151644,
+        8948,
+        198,
+        2610,
+        525,
+        1207,
+        16948,
+        11,
+        3465,
+        553,
+        54364,
+        14817,
+        13,
+        1446,
+        525,
+        264,
+        10950,
+        17847,
+        13,
+        151645,
+        198,
+        151644,
+        872,
+        198,
+        7985,
+        825,
+        2805,
+        11652,
+        911,
+        19423,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198
+      ],
+      "completion": {
+        "text": "Cats are playful, curious, and",
+        "token_ids": [
+          34,
+          1862,
+          525,
+          56069,
+          11,
+          22208,
+          11,
+          323
+        ],
+        "prompt_tokens": 36,
+        "completion_tokens": 8,
+        "finish_reason": "length"
+      },
+      "numerical": [
+        {
+          "chunk": 1,
+          "max_abs_error": 8.296966552734375e-05,
+          "greedy_match": true
+        },
+        {
+          "chunk": 16,
+          "max_abs_error": 8.296966552734375e-05,
+          "greedy_match": true
+        }
+      ],
+      "cli_match": true,
+      "http_match": true,
+      "concurrent_sse_match": true
+    }
+  ],
+  "final_engine_stats": {
+    "submitted": 4,
+    "completed": 4,
+    "canceled": 0,
+    "failed": 0,
+    "rejected": 0,
+    "active": 0,
+    "queue": 0,
+    "kv_reserved_bytes": 0,
+    "kv_allocated_bytes": 1572864,
+    "input_tokens": 82,
+    "generated_tokens": 32,
+    "ticks": 39,
+    "slow_consumers": 0,
+    "peak_tick_tokens": 8,
+    "released": 4,
+    "computing": 0,
+    "admission_used": 0,
+    "kernel_workers": 2
+  },
+  "clean_shutdown": true
+}

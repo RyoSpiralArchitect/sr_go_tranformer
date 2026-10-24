@@ -1,9 +1,31 @@
 # Hugging Face inference
 
-The importer accepts a deliberately restricted `LlamaForCausalLM` profile:
-tied embeddings, bias-free projections, SiLU, GQA, scalar BOS/EOS IDs, and
-unscaled, non-interleaved RoPE. Unknown configuration fields that could alter
-computation are rejected. This is not general Transformers compatibility.
+The importer accepts restricted `LlamaForCausalLM` and `Qwen2ForCausalLM`
+profiles: SiLU, GQA, scalar BOS/EOS IDs, unscaled half-split RoPE and full
+causal attention. Llama projections must be bias-free; Qwen2 includes Q/K/V
+biases. Both tied and separate output embeddings are supported. Sliding-window
+attention, RoPE scaling, MoE and unknown computational settings are rejected.
+This is not general Transformers compatibility.
+
+| Text model | Pinned revision | FP32 weight budget | Example context |
+| --- | --- | --- | --- |
+| SmolLM2-135M-Instruct | `12fd25f77366fa6b3b4b768ec3050bf629380bac` | 600 MiB | 512 |
+| SmolLM2-360M-Instruct | `a10cc1512eabd3dde888204e902eca88bddb4951` | 1600 MiB | 512 |
+| Qwen2.5-0.5B-Instruct | `7ae557604adf67be50417f59c2c2f167def9a775` | 2048 MiB | 512 |
+
+HF inference accepts up to one billion parameters and 262,144 vocabulary IDs,
+subject to the explicit weight budget and existing activation/KV guards. Native
+training/checkpoint limits remain 250 million parameters and 65,536 IDs.
+Bias and separate-head storage is included before any weights are allocated.
+
+For Qwen, download the same file set below from `Qwen/Qwen2.5-0.5B-Instruct`
+at its pinned revision into `runs/qwen25`, then run:
+
+```sh
+go run . generate -hf-model runs/qwen25 -context 512 -weight-mib 2048 \
+  -chat -prompt 'Goの並行処理を一文で説明して。' \
+  -temperature 0 -repeat-penalty 1 -max-tokens 64
+```
 
 ## Inspect a local model
 
@@ -38,8 +60,8 @@ Its Apache-2.0 model license is separate from this repository's license.
 - Single `model.safetensors` or `model.safetensors.index.json` with at most
   128 local, basename-only shard paths.
 - F32, F16 and BF16, converted into FP32 through a 64 KiB read buffer.
-- Exactly the supported Llama tensor set. Tied output weights must be omitted
-  from the file, as in the target model; separate `lm_head.weight` is rejected.
+- Exactly the selected profile's tensor set. Tied output weights must be omitted;
+  untied profiles require `lm_head.weight`. Qwen2 requires all Q/K/V bias tensors.
 - Every tensor name, shape, dtype and extent is validated before allocating
   weights. Payload extents must cover each file without holes or overlaps.
 - Duplicate JSON keys, malformed UTF-8, excessive nesting, missing tensors,
@@ -99,6 +121,18 @@ Unicode numbers), GPT-2 `ByteLevel` splitting, BPE, no normalization or post
 processor, and explicitly registered special tokens. It reads `tokenizer.json`
 and `tokenizer_config.json`; arbitrary tokenizer pipelines are rejected.
 
+Qwen2.5 additionally uses NFC normalization, its ordered Split/ByteLevel regex,
+added tokens outside the BPE vocabulary, and trailing model vocabulary padding.
+Non-special added tokens such as `<tool_call>` remain in decoded text. Padded
+IDs decode to empty text, as in HF Tokenizers. The pinned Qwen chat template is
+recognized by SHA-256; only system/user/assistant messages without tools are
+accepted. No Jinja or model repository code executes.
+
+NFC uses pure Go `golang.org/x/text` v0.22.0 (Go 1.22 compatible, Unicode 15).
+Inputs that would require stream-safe CGJ insertion are rejected explicitly
+instead of receiving different token IDs; this affects long combining-mark
+sequences. Other size/token limits still apply.
+
 ```sh
 go run . tokenize-hf -hf-model runs/smollm2 -prompt 'Goと猫 🐈‍⬛ 2026'
 go run . generate -hf-model runs/smollm2 -context 512 \
@@ -112,7 +146,7 @@ go run . generate -hf-model runs/smollm2 -context 512 \
 Plain prompts receive no implicit BOS. Empty encoded prompts are rejected for
 generation. Chat formatting adds the exact supported SmolLM2 template,
 including its default system message when no system message is supplied, and
-the assistant generation prefix. Only this recognized template is implemented;
+the assistant generation prefix. Only the recognized SmolLM2 and Qwen2.5 templates are implemented;
 Jinja is never executed. A different template remains usable for plain prompts
 but fails explicitly when chat formatting is requested.
 
@@ -131,7 +165,7 @@ are unchanged.
 Vocabulary tables are immutable after loading and shared across requests.
 Each encoding owns a priority queue of BPE merge candidates and checks context
 cancellation. Prompts are limited to 1 MiB, individual regex pre-tokens to
-64 KiB, tokenizer JSON to 16 MiB and expanded vocabulary pieces to 16 MiB.
+64 KiB, tokenizer JSON to 32 MiB and expanded vocabulary pieces to 16 MiB.
 Context overflow is rejected without truncation. Unicode categories follow
 Go's Unicode tables. Some byte-alphabet entries are absent from SmolLM2's
 vocabulary; with its null BPE unknown token, those bytes are omitted exactly as
@@ -186,3 +220,37 @@ python scripts/hf_serving_reference.py --model runs/smollm2 \
 
 Format reference: [Safetensors specification](https://github.com/huggingface/safetensors#format).
 Model source: [SmolLM2-135M-Instruct, pinned revision](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/tree/12fd25f77366fa6b3b4b768ec3050bf629380bac).
+
+## Additional profile validation
+
+Seeded fixtures cover tied Qwen2 F32/F16, untied Qwen2 BF16 and untied Llama
+F32. Qwen biases are deliberately nonzero. Tests compare every logit and KV
+row across worker counts, chunk sizes, a page boundary and ragged sessions
+with absolute tolerance `2e-5`. A synthetic Qwen tokenizer exercises NFC,
+regex boundaries, ordinary added tokens, special tokens and padding IDs.
+
+The [model manifest](validation/hf/model-profiles.json) binds files by SHA-256;
+weight hashes are checked against the Hub's LFS metadata. Real-model probes
+use two short prompts and eight greedy tokens per prompt, chunk sizes 1/16,
+CLI, HTTP and two concurrent SSE requests. These are bounded compatibility
+and lifecycle checks, not model-quality or production-load claims.
+
+```sh
+python scripts/hf_profile_fixtures.py
+python scripts/hf_qwen_tokenizer_fixture.py --source runs/qwen25
+python scripts/hf_model_reference.py --id qwen25 --model runs/qwen25 \
+  --binary ./monolith --output runs/qwen25-reference.json
+```
+
+Use `--id smollm2-360m` for the pinned 360M model. These offline scripts never
+fetch models. The oracle requires `scripts/hf_reference_requirements.txt`.
+
+The [Qwen2.5 receipt](validation/hf/qwen25-serving.json) records a maximum
+absolute logit error of `8.296966552734375e-5` (limit `0.002`) and matching CLI,
+HTTP and concurrent SSE output. Its [tokenizer oracle](validation/hf/qwen25-tokenizer.json)
+covers 159 encodings, three chats and six decode cases.
+
+The [SmolLM2-360M receipt](validation/hf/smollm2-360m-serving.json) records
+maximum absolute logit error `5.054473876953125e-05` (limit `0.002`), matching text on
+all three interfaces, and released request resources. Its
+[tokenizer oracle](validation/hf/smollm2-360m-tokenizer.json) covers the same 159/3/6 cases.

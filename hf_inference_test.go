@@ -30,9 +30,9 @@ func hfNear(t *testing.T, got, want []float32, tolerance float64) {
 	}
 }
 func TestHFLlamaTransformersReference(t *testing.T) {
-	for _, dtype := range []string{"f32", "f16", "bf16"} {
+	for _, dtype := range []string{"hf-llama/f32", "hf-llama/f16", "hf-llama/bf16", "hf-llama/untied-f32", "hf-qwen2/f32", "hf-qwen2/f16", "hf-qwen2/untied-bf16"} {
 		t.Run(dtype, func(t *testing.T) {
-			dir := filepath.Join("testdata", "hf-llama", dtype)
+			dir := filepath.Join("testdata", dtype)
 			var ref hfReference
 			b, err := os.ReadFile(filepath.Join(dir, "reference.json"))
 			if err != nil {
