@@ -97,6 +97,83 @@ The initial GPT-2 probe showed severe drift: both tested next-token argmax IDs
 changed; generated text included repeated words. Use FP32/Q8 when this tradeoff
 is unsuitable. A throughput improvement does not establish acceptable quality.
 
+## Measured GPT-2 example
+
+On Apple M4 / 24 GiB / Go 1.27.1, with the settings above, three-trial
+medians (throughput ranges in parentheses) were:
+
+| Format | Weight payload, bytes | Post-warmup RSS, MiB | Aggregate tokens/s | Startup, s |
+| --- | ---: | ---: | ---: | ---: |
+| f32 | 497,759,232 | 507.1 | 15.12 (11.14–16.03) | 0.541 |
+| q8 | 134,883,888 | 161.8 | 18.63 (18.61–19.68) | 1.110 |
+| q4 | 73,117,872 | 101.8 | 21.66 (21.63–22.32) | 1.169 |
+
+These are mixed prefill/decode request measurements, not an isolated decode
+kernel. Q4 used about 46% less weight payload than Q8 and its median throughput
+was about 16% higher in this workload. Desktop activity, thermal state and
+file cache were uncontrolled; timings, especially FP32, varied noticeably.
+The comparison includes different quantized numerical results and is not a
+measurement of the lookup table alone.
+
+[Raw GPT-2 receipt](validation/q4/gpt2-offline.json) records source revisions,
+file hashes, binary/source/script hashes, logits differences, continuations,
+request outcomes, resource drain and clean shutdown for every trial.
+[Environment](validation/q4/environment.json) identifies the implementation
+and host. GPT-2's two next-token KL(FP32 || Q4) values were about 3.91 and 4.17,
+versus 0.0147 and 0.0124 for Q8: the memory/speed benefit comes with material
+degradation on these inputs.
+
+## Measured Qwen2.5 1.5B example
+
+The same probe and binary also ran the pinned 1,543,714,304-parameter
+Qwen2.5-1.5B-Instruct model, revision
+`989aa7980e4cf806f80c7fef2b1adb7bc71aa306`, using its existing local source files.
+No new model download or provider inference was used for either probe.
+
+| Format | Weight payload, bytes | Post-warmup RSS, GiB | Aggregate tokens/s | Startup, s |
+| --- | ---: | ---: | ---: | ---: |
+| f32 | 6,174,857,216 | 5.814 | 1.215 (0.697–1.372) | 3.768 |
+| q8 | 1,640,622,080 | 1.553 | 1.616 (1.493–1.717) | 10.386 |
+| q4 | 868,837,376 | 0.865 | 1.773 (1.575–2.054) | 8.940 |
+
+Q4 reduced weight payload by about 47% and observed RSS by about 44% relative
+to Q8. Median throughput was about 10% higher, but the trial ranges overlap;
+this does not establish a consistent speedup. FP32 timings were particularly
+variable. Q4 startup was faster than Q8 in this run but still slower than FP32;
+packing/quantization has a load-time cost.
+
+Both initial argmax IDs matched FP32, but both independent eight-token
+continuations changed. For the cat prompt, FP32/Q8 produced
+`Cats are known for their independent nature`, while Q4 produced
+`Cats are known for their independence and`. The two next-token KL(FP32 || Q4)
+values were about 0.373 and 0.0399; maximum logit errors were 5.71 and 7.15.
+This is numerical drift, not evidence of preserved task quality.
+
+[Raw Qwen receipt](validation/q4/qwen25-1.5b-offline.json) includes all nine
+server trials. Every format/trial completed eight requests and 64 token events,
+released admission and KV reservations, and shut down cleanly. CLI, HTTP and
+concurrent SSE matched within each format in the first trial.
+The 1.5B run does not validate arbitrary models up to the structural 8B ceiling.
+
+## Projection kernel measurements
+
+The same host and source produced these medians for an 8,960 × 1,536 linear
+projection with four fixed workers (milliseconds per call, three samples):
+
+| Input rows | FP32 | Q8 | Q4 |
+| ---: | ---: | ---: | ---: |
+| 1 | 3.186 | 1.347 | 1.478 |
+| 4 | 3.850 | 3.882 | 2.994 |
+| 16 | 15.024 | 15.519 | 11.959 |
+
+Q4 was about 10% slower than Q8 for the single-row kernel, while four and
+sixteen rows benefited from sharing pair decodes. This is a memory tradeoff
+with workload-dependent speed, not a universal decode improvement.
+[Raw kernel samples](validation/q4/kernels.txt) also include 3,072 × 768
+projections. The Q4 benchmark reports 112 B and one callback allocation per
+call; it does not allocate a table per token. Timings do not isolate table
+lookup from weight compression, packing and arithmetic changes.
+
 ## Experiment boundary
 
 We explored activation-dependent bit-plane lookup tables, motivated by the

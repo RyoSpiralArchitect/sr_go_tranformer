@@ -1,0 +1,17 @@
+{
+  "format": "monolith-q4-measurement-environment-v1",
+  "implementation_commit": "28f2e1a29de84ed26d5d517846b285a72f1128e8",
+  "source_sha256": "fe1fdd7689e72e6bcac7ee2721cc4b9273a4f3149b4bbcb4551b2ecb592b461a",
+  "binary_sha256": "68c2cb076689a1fba9ce86c9b037e49d5afac8924375e82ca71081e9225ce013",
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "cpu": "Apple M4",
+  "physical_memory_bytes": 25769803776,
+  "host": "Darwin/arm64",
+  "gomaxprocs": 4,
+  "notes": [
+    "Model formats run sequentially within each probe; no parallel model benchmark.",
+    "Ordinary desktop background activity and thermal/OS file cache state are uncontrolled.",
+    "Full precision versus quantized output equality is not required.",
+    "RSS is a single post-warmup observation, not a peak or heap/payload guarantee."
+  ]
+}
