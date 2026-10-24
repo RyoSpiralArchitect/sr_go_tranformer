@@ -10,9 +10,9 @@
     "model-00002-of-00002.safetensors": "27918a4050dd52d318aadaa0f743d6aab0043a7ebc269ffda573c024541e4ff2",
     "model.safetensors.index.json": "de5995e586fc98a942b576a6752034a6d0a741d2dece5f61e697d99c8bb99b3d"
   },
-  "source_sha256": "c380f799dee69d78625d4698ed2ad32955b89761b2714061402c8775d5d300ca",
+  "source_sha256": "a08ed8465f347e677bd9e67049d86b93b19bdb6c178fcacd99f9d3e797cce8a0",
   "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
-  "probe_sha256": "2646a287556f0db9012cbb1466ba0aebe9555aad184f4c9e857deeceae20d33c",
+  "probe_sha256": "054cc6e42cd3ba1ec7770292103e634401c4a6baceb1547227c05fab9859311a",
   "script_sha256": "bd36d20539f09d3fce2c8180a1846ad308ee3f4010650af07b5d34bf68f52d8d",
   "build_inputs_sha256": {
     "dataset_resume_test.go": "e167048ae26ef923ff4f13b4dc2f21278cd1d413b7838f48123f8a720c022883",
@@ -25,7 +25,7 @@
     "hf_cli_test.go": "1572a42c1fac1a79a56eb9dbe6300ab65f69152249b665d588b69872f7bb595e",
     "hf_gpt2_test.go": "88fe7eeea3950d03bfc98287dd71980cc469aa947ab05062ea00c447abdc08ce",
     "hf_inference_test.go": "bc5f551c64d25f105bbd657a0eead66689a4312b1a4f1c391834dd0ee36501ba",
-    "hf_llama3_test.go": "5cb908651269960850f14f7841629377cd24697a1c1187711f4b68689f772938",
+    "hf_llama3_test.go": "20b5709ea361239827b34c3a1c3a0f2616eeb8e944b89fbedc288d1451c2ca9d",
     "hf_loader_test.go": "f3d0ac1870a5fe7791e88dd3d11682bba587a69f6b0ed2ca3f8cb15d17c0fb2b",
     "hf_network_test.go": "d8ce6468b0b7e6c8c21275576b09f37d87633afe2523354a5f1d3becbc3684af",
     "hf_offline_test.go": "e8117b69af4e180b56df32ce24f35e9e8314b4fcb78a43df3cce291f127305a1",
@@ -36,7 +36,7 @@
     "inference_workspace_test.go": "7326d505ece66e26b5c70aa0177ab29d7f847450a8ff22eacfc97a31932cb9f1",
     "linear_backward_test.go": "a4b182071d01432b08c89638cbfb6499dace93258b9b05263bf7842dfbb0ee4c",
     "memory_plan_test.go": "3810d72e03a1d9876014a06cb934849b6bb531ffaa8f68dac7608fb66fb432a8",
-    "monolith.go": "c380f799dee69d78625d4698ed2ad32955b89761b2714061402c8775d5d300ca",
+    "monolith.go": "a08ed8465f347e677bd9e67049d86b93b19bdb6c178fcacd99f9d3e797cce8a0",
     "monolith_test.go": "746ecd6ffee1fc16f80e9dd55a1a2b232a0f9af872dab75c78a1c460a81cf4ae",
     "prefetch_data_test.go": "fd57e6548e7820a9a93c8c861c2474ab38947c88675ff4f7ed21597a08e967eb",
     "prefill_test.go": "37be39c92f72fa9d781b47e2f9aa37796c17ab53545490b585b70f2b9a9b7451",
@@ -382,9 +382,9 @@
         "The capital of France is",
         "Once upon a time, a small cat"
       ],
-      "heap_alloc_bytes": 12947943168,
+      "heap_alloc_bytes": 12947940008,
       "kernel_workers": 4,
-      "load_seconds": 7.95313425,
+      "load_seconds": 8.161694,
       "mean_kl": 0,
       "mean_nll": 3.0772118347297677,
       "perplexity": 21.697820869201102,
@@ -424,7 +424,7 @@
           "BF16": 254
         }
       },
-      "post_probe_rss_bytes": 12936429568,
+      "post_probe_rss_bytes": 12932464640,
       "reference": {
         "version": "monolith-quality-logits-v1",
         "source": "mlx-community/Llama-3.2-3B-bf16@60a99aaf43164077157d64bf909b7b61143c6a6d",
@@ -1302,10 +1302,10 @@
         }
       ],
       "rss_method": "one ps observation after scoring/generation; not peak",
-      "score_seconds": 48.335171041,
+      "score_seconds": 50.157086792,
       "scored_tokens": 96,
       "source": "mlx-community/Llama-3.2-3B-bf16@60a99aaf43164077157d64bf909b7b61143c6a6d",
-      "source_sha256": "c380f799dee69d78625d4698ed2ad32955b89761b2714061402c8775d5d300ca",
+      "source_sha256": "a08ed8465f347e677bd9e67049d86b93b19bdb6c178fcacd99f9d3e797cce8a0",
       "text_decoding": "not performed by Go; token-ID inference only",
       "threads": 4,
       "top1_matches": 96
@@ -1624,9 +1624,9 @@
         "The capital of France is",
         "Once upon a time, a small cat"
       ],
-      "heap_alloc_bytes": 3511113200,
+      "heap_alloc_bytes": 3511111928,
       "kernel_workers": 4,
-      "load_seconds": 16.0829085,
+      "load_seconds": 16.843660083,
       "mean_kl": 0.0003020833757300806,
       "mean_nll": 3.081705661122974,
       "perplexity": 21.79554652590607,
@@ -1671,7 +1671,7 @@
           "BF16": 254
         }
       },
-      "post_probe_rss_bytes": 3511697408,
+      "post_probe_rss_bytes": 3511730176,
       "reference": {
         "version": "monolith-quality-logits-v1",
         "source": "mlx-community/Llama-3.2-3B-bf16@60a99aaf43164077157d64bf909b7b61143c6a6d",
@@ -2549,10 +2549,10 @@
         }
       ],
       "rss_method": "one ps observation after scoring/generation; not peak",
-      "score_seconds": 30.4082035,
+      "score_seconds": 33.124695959,
       "scored_tokens": 96,
       "source": "mlx-community/Llama-3.2-3B-bf16@60a99aaf43164077157d64bf909b7b61143c6a6d",
-      "source_sha256": "c380f799dee69d78625d4698ed2ad32955b89761b2714061402c8775d5d300ca",
+      "source_sha256": "a08ed8465f347e677bd9e67049d86b93b19bdb6c178fcacd99f9d3e797cce8a0",
       "text_decoding": "not performed by Go; token-ID inference only",
       "threads": 4,
       "top1_matches": 93
@@ -2871,9 +2871,9 @@
         "The capital of France is",
         "Once upon a time, a small cat"
       ],
-      "heap_alloc_bytes": 1904827352,
+      "heap_alloc_bytes": 1904828488,
       "kernel_workers": 4,
-      "load_seconds": 16.852365375,
+      "load_seconds": 17.742350791,
       "mean_kl": 0.11941066704677589,
       "mean_nll": 3.106738664336812,
       "perplexity": 22.348040958109028,
@@ -2918,7 +2918,7 @@
           "BF16": 254
         }
       },
-      "post_probe_rss_bytes": 1897005056,
+      "post_probe_rss_bytes": 1898020864,
       "reference": {
         "version": "monolith-quality-logits-v1",
         "source": "mlx-community/Llama-3.2-3B-bf16@60a99aaf43164077157d64bf909b7b61143c6a6d",
@@ -3796,10 +3796,10 @@
         }
       ],
       "rss_method": "one ps observation after scoring/generation; not peak",
-      "score_seconds": 23.780083833,
+      "score_seconds": 26.128500833,
       "scored_tokens": 96,
       "source": "mlx-community/Llama-3.2-3B-bf16@60a99aaf43164077157d64bf909b7b61143c6a6d",
-      "source_sha256": "c380f799dee69d78625d4698ed2ad32955b89761b2714061402c8775d5d300ca",
+      "source_sha256": "a08ed8465f347e677bd9e67049d86b93b19bdb6c178fcacd99f9d3e797cce8a0",
       "text_decoding": "not performed by Go; token-ID inference only",
       "threads": 4,
       "top1_matches": 74
@@ -4118,9 +4118,9 @@
         "The capital of France is",
         "Once upon a time, a small cat"
       ],
-      "heap_alloc_bytes": 2101825728,
+      "heap_alloc_bytes": 2101824280,
       "kernel_workers": 4,
-      "load_seconds": 16.47267175,
+      "load_seconds": 17.45121675,
       "mean_kl": 0.06301437524888139,
       "mean_nll": 3.0261788294716765,
       "perplexity": 20.618295845629024,
@@ -4166,7 +4166,7 @@
           "BF16": 254
         }
       },
-      "post_probe_rss_bytes": 2094088192,
+      "post_probe_rss_bytes": 2099724288,
       "reference": {
         "version": "monolith-quality-logits-v1",
         "source": "mlx-community/Llama-3.2-3B-bf16@60a99aaf43164077157d64bf909b7b61143c6a6d",
@@ -5044,10 +5044,10 @@
         }
       ],
       "rss_method": "one ps observation after scoring/generation; not peak",
-      "score_seconds": 23.726665083,
+      "score_seconds": 26.871533499999998,
       "scored_tokens": 96,
       "source": "mlx-community/Llama-3.2-3B-bf16@60a99aaf43164077157d64bf909b7b61143c6a6d",
-      "source_sha256": "c380f799dee69d78625d4698ed2ad32955b89761b2714061402c8775d5d300ca",
+      "source_sha256": "a08ed8465f347e677bd9e67049d86b93b19bdb6c178fcacd99f9d3e797cce8a0",
       "text_decoding": "not performed by Go; token-ID inference only",
       "threads": 4,
       "top1_matches": 82

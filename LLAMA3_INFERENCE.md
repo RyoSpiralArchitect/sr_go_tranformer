@@ -139,8 +139,8 @@ while using 10.9% more than Q4. It reduced distribution drift relative to Q4 on
 this probe. Its slightly lower NLL than FP32 is a result on this small sample,
 not evidence of a generally better model. Q8 remained closest to FP32.
 
-One post-probe RSS observation per process was 12.05 GiB (FP32), 3.27 GiB (Q8),
-1.77 GiB (Q4) and 1.95 GiB (mixed). These are not peak RSS measurements or an
+One post-probe RSS observation per process was 12.04 GiB (FP32), 3.27 GiB (Q8),
+1.77 GiB (Q4) and 1.96 GiB (mixed). These are not peak RSS measurements or an
 RSS guarantee; timing fields include validation/I/O and are not a throughput
 comparison. Model formats ran sequentially with context 128 and four Go kernel
 workers; the scoring batch had six documents.

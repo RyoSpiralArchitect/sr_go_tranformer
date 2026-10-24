@@ -1,6 +1,6 @@
 {
   "format": "monolith-quality-external-text-v1",
-  "receipt_sha256": "67005bfc550fde686fdc650b5a0e136b4346fb0a1ab011bd2105c7b0f5dc1f35",
+  "receipt_sha256": "5d812fb6ab22c293205fb2ec1125eb387237105b220dfde68386c773d020a397",
   "tokenizer_sha256": "79e3e522635f3171300913bb421464a87de6222182a0570b9b2ccba2a964b2b4",
   "tokenizers_version": "0.22.2",
   "decode": "backend Tokenizer.decode(skip_special_tokens=True); no Transformers whitespace cleanup",
