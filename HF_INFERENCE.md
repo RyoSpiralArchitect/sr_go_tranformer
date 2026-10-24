@@ -50,7 +50,8 @@ model of that size. `-weight-format q8` reduces weight storage for the same
 supported profiles; [Q8 inference](Q8_INFERENCE.md) describes the format,
 larger-model checks and output differences. Experimental `-weight-format q4`
 reduces storage further with greater output drift; see [Q4 inference](Q4_INFERENCE.md).
-The default remains `f32`.
+`-weight-format q4-mixed` keeps embeddings/output heads in Q8 and other matrices
+in Q4; see [quality measurements](QUALITY_INFERENCE.md). The default remains `f32`.
 
 For Qwen, download its pinned files, check compatibility, then start chatting:
 

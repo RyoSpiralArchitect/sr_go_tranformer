@@ -4,6 +4,8 @@
 shared 2 KiB table to decode pairs of weights. It is an opt-in memory/throughput
 tradeoff. **It changes outputs substantially on some models.** FP32 is still
 the default; Q8 is the more conservative quantized option.
+For a measured middle ground, [mixed Q4/Q8](QUALITY_INFERENCE.md) protects
+embeddings/output heads with Q8 while retaining Q4 projections.
 
 ```sh
 go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \

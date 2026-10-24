@@ -444,6 +444,8 @@ type HFPlan struct {
 	WeightFormat            string         `json:"weight_format"`
 	FP32WeightBytes         int64          `json:"fp32_weight_bytes"`
 	QuantizedParameters     int64          `json:"quantized_parameters,omitempty"`
+	Q8Parameters            int64          `json:"q8_parameters,omitempty"`
+	Q4Parameters            int64          `json:"q4_parameters,omitempty"`
 	ScaleBytes              int64          `json:"scale_bytes,omitempty"`
 	QuantizationBlock       int            `json:"quantization_block,omitempty"`
 	QuantizationBufferBytes int            `json:"quantization_buffer_bytes,omitempty"`
@@ -456,9 +458,34 @@ type HFPlan struct {
 	DTypes                  map[string]int `json:"tensor_dtypes"`
 }
 
+func validHFWeightFormat(format string) bool {
+	return format == "f32" || format == "q8" || format == "q4" || format == "q4-mixed"
+}
+
+// Logical native names and HF source names share the same explicit policy.
+// Tied embeddings are allocated only once; untied output heads get Q8 too.
+func hfMatrixFormat(format, name string) string {
+	if format != "q4-mixed" {
+		return format
+	}
+	switch name {
+	case "token_embedding", "output", "model.embed_tokens.weight", "lm_head.weight", "wte.weight":
+		return "q8"
+	default:
+		return "q4"
+	}
+}
+
+type hfWeightLayout struct{ bytes, q8, q4, scales int64 }
+
 func hfWeightStorage(c Config, h hfConfig, format string) (payload, quantized, scales int64, err error) {
-	if format != "f32" && format != "q8" && format != "q4" {
-		return 0, 0, 0, errors.New("weight-format must be f32, q8 or q4")
+	l, err := hfWeightLayoutFor(c, h, format)
+	return l.bytes, l.q8 + l.q4, l.scales, err
+}
+
+func hfWeightLayoutFor(c Config, h hfConfig, format string) (layout hfWeightLayout, err error) {
+	if !validHFWeightFormat(format) {
+		return layout, errors.New("weight-format must be f32, q8, q4 or q4-mixed")
 	}
 	for _, s := range hfProfileSpecs(c, h) {
 		count := int64(1)
@@ -470,18 +497,20 @@ func hfWeightStorage(c Config, h hfConfig, format string) (payload, quantized, s
 			if h.ModelType == "gpt2" && s.Name != "wte.weight" {
 				rows, cols = cols, rows // Conv1D transpose, including fused QKV.
 			}
-			quantized += count
-			scales += int64(rows) * int64((cols+q8Block-1)/q8Block) * 4
-			if format == "q4" {
-				payload += int64(rows) * int64((cols+1)/2)
+			layout.scales += int64(rows) * int64((cols+q8Block-1)/q8Block) * 4
+			if hfMatrixFormat(format, s.Name) == "q4" {
+				layout.q4 += count
+				layout.bytes += int64(rows) * int64((cols+1)/2)
 			} else {
-				payload += count
+				layout.q8 += count
+				layout.bytes += count
 			}
 		} else {
-			payload += count * 4
+			layout.bytes += count * 4
 		}
 	}
-	return payload + scales, quantized, scales, nil
+	layout.bytes += layout.scales
+	return layout, nil
 }
 
 type hfArchive struct {
@@ -517,7 +546,8 @@ func openHFArchiveFormat(dir string, contextLimit int, weightBudget int64, forma
 		return nil, err
 	}
 	parameters := hfParameterCount(c, h)
-	storage, quantized, scales, err := hfWeightStorage(c, h, format)
+	layout, err := hfWeightLayoutFor(c, h, format)
+	storage, quantized, scales := layout.bytes, layout.q8+layout.q4, layout.scales
 	if err != nil {
 		return nil, err
 	}
@@ -533,6 +563,7 @@ func openHFArchiveFormat(dir string, contextLimit int, weightBudget int64, forma
 	a.Plan = HFPlan{Format: "monolith-hf-plan-v1", ModelType: h.ModelType, TiedEmbeddings: h.Tied, Config: c, Parameters: parameters, WeightBytes: parameters * 4, RopeBytes: int64(c.Context) * (int64(c.Dim) / int64(c.Heads)) * 4, KVBytesPerToken: int64(c.Layers*c.KVDim()) * 8, ConversionBufferBytes: 64 << 10, DTypes: map[string]int{}}
 	a.Plan.WeightBytes, a.Plan.WeightFormat, a.Plan.FP32WeightBytes = storage, format, parameters*4
 	a.Plan.QuantizedParameters, a.Plan.ScaleBytes = quantized, scales
+	a.Plan.Q8Parameters, a.Plan.Q4Parameters = layout.q8, layout.q4
 	if format != "f32" {
 		a.Plan.QuantizationBlock = q8Block
 		a.Plan.QuantizationBufferBytes = q8Block * 4
@@ -785,7 +816,7 @@ func hfFlags(f *flag.FlagSet) (*string, *int, *int64, *string) {
 	dir := f.String("hf-model", "", "local Hugging Face model directory (supported Llama/Qwen2/GPT-2 profiles)")
 	limit := f.Int("context", 0, "HF context cap; 0 uses min(model maximum, 2048)")
 	budget := f.Int64("weight-mib", 2048, "maximum resident HF weight payload in MiB (not RSS)")
-	format := f.String("weight-format", "f32", "resident HF weights: f32, q8 or q4 (lossy, 64-value blocks)")
+	format := f.String("weight-format", "f32", "resident HF weights: f32, q8, q4 or q4-mixed (Q8 embeddings/head, Q4 projections)")
 	return dir, limit, budget, format
 }
 func openHFFlags(dir string, limit int, mib int64) (*hfArchive, error) {
@@ -3018,6 +3049,7 @@ func (p *Param) putQuantized(row, col int, v, scale float32) {
 }
 
 func newInferenceParamFormat(name string, rows, cols int, matrix bool, format string) *Param {
+	format = hfMatrixFormat(format, name)
 	if matrix && format == "q4" {
 		return &Param{Name: name, Rows: rows, Cols: cols, Q4: &q4Weights{
 			Values: make([]byte, rows*((cols+1)/2)),
@@ -6749,8 +6781,8 @@ func parseInferenceAction(f *flag.FlagSet, args []string, validateOnly bool) err
 	return validateInferenceFlags(f)
 }
 func validateInferenceFlags(f *flag.FlagSet) error {
-	if v := f.Lookup("weight-format"); v != nil && v.Value.String() != "f32" && v.Value.String() != "q8" && v.Value.String() != "q4" {
-		return errors.New("weight-format must be f32, q8 or q4")
+	if v := f.Lookup("weight-format"); v != nil && !validHFWeightFormat(v.Value.String()) {
+		return errors.New("weight-format must be f32, q8, q4 or q4-mixed")
 	}
 	for _, bound := range []struct {
 		name   string
@@ -8295,8 +8327,8 @@ func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, err
 	if s.WeightFormat == "" {
 		s.WeightFormat = "f32"
 	}
-	if s.WeightFormat != "f32" && s.WeightFormat != "q8" && s.WeightFormat != "q4" {
-		return "", empty, errors.New("weight-format must be f32, q8 or q4")
+	if !validHFWeightFormat(s.WeightFormat) {
+		return "", empty, errors.New("weight-format must be f32, q8, q4 or q4-mixed")
 	}
 	s.Offline = s.Offline || hfOffline()
 	if !validHFRepo(s.Repo) || s.Revision == "" || len(s.Revision) > 200 || strings.ContainsAny(s.Revision, "\x00\r\n") || s.DownloadBytes < 1 || s.DownloadBytes > 16<<30 || s.WeightMiB < 1 || s.WeightMiB > 1<<20 {
@@ -8492,7 +8524,7 @@ func runInferLocal(ctx context.Context, args []string) error {
 	checkpoint := f.String("checkpoint", "", "native .mglm checkpoint")
 	limit := f.Int("context", 0, "HF context cap; 0 selects at most 2048")
 	weight := f.Int64("weight-mib", 2048, "maximum resident HF weight payload in MiB, not RSS")
-	format := f.String("weight-format", "f32", "resident HF weights: f32, q8 or q4 (lossy, 64-value blocks)")
+	format := f.String("weight-format", "f32", "resident HF weights: f32, q8, q4 or q4-mixed (Q8 embeddings/head, Q4 projections)")
 	f.Usage = func() {
 		fmt.Fprintln(f.Output(), "usage: monolith infer local [source flags] <check|inspect|tokens|ids|generate|chat|serve> [action flags]")
 		f.PrintDefaults()

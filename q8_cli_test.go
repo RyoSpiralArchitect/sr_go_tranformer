@@ -45,7 +45,7 @@ func q8BudgetFixture(t *testing.T) string {
 }
 
 func TestLowBitSourceBudgetAndOfflineCLI(t *testing.T) {
-	for _, format := range []string{"q8", "q4"} {
+	for _, format := range []string{"q8", "q4", "q4-mixed"} {
 		t.Run(format, func(t *testing.T) {
 			dir := q8BudgetFixture(t)
 			if _, err := checkHF(dir, 64, 1, false); err == nil {
@@ -111,6 +111,7 @@ func TestQ8FlagPreflight(t *testing.T) {
 		{"infer", "local", "-checkpoint", "missing", "-weight-format", "q8", "generate", "-prompt", "x"},
 		{"generate", "-model", "missing", "-weight-format", "q8", "-prompt", "x"},
 		{"generate", "-model", "missing", "-weight-format", "q4", "-prompt", "x"},
+		{"generate", "-model", "missing", "-weight-format", "q4-mixed", "-prompt", "x"},
 		{"infer", "local", "-checkpoint", "missing", "-weight-format", "q4", "generate", "-prompt", "x"},
 	} {
 		if err := run(context.Background(), args); err == nil || errors.Is(err, os.ErrNotExist) {
@@ -120,7 +121,7 @@ func TestQ8FlagPreflight(t *testing.T) {
 }
 
 func TestLowBitEngineSharedModelAndStreams(t *testing.T) {
-	for _, format := range []string{"q8", "q4"} {
+	for _, format := range []string{"q8", "q4", "q4-mixed"} {
 		t.Run(format, func(t *testing.T) {
 			dir := hfCLIFixture(t)
 			m, _, err := loadHFModelFormat(context.Background(), dir, 64, 1, format)

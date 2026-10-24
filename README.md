@@ -44,6 +44,8 @@ For smaller resident weights, see [Q8 inference](Q8_INFERENCE.md), including
 accuracy tradeoffs and bounded larger-model examples.
 [Experimental Q4 inference](Q4_INFERENCE.md) packs weights further with a shared
 pair-decoding table; output degradation can be substantial.
+[Mixed Q4/Q8 inference](QUALITY_INFERENCE.md) protects embeddings and the output
+head, with held-out drift measurements and a reproducible quality probe.
 
 ```sh
 go run . infer models
