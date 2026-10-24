@@ -21,6 +21,7 @@ are rejected.
 | SmolLM2-135M-Instruct | `12fd25f77366fa6b3b4b768ec3050bf629380bac` | 600 MiB | 512 |
 | SmolLM2-360M-Instruct | `a10cc1512eabd3dde888204e902eca88bddb4951` | 1600 MiB | 512 |
 | Qwen2.5-0.5B-Instruct | `7ae557604adf67be50417f59c2c2f167def9a775` | 2048 MiB | 512 |
+| Qwen2.5-1.5B-Instruct | `989aa7980e4cf806f80c7fef2b1adb7bc71aa306` | 6144 MiB | 512 |
 | openai-community/gpt2 | `607a30d783dfa663caf39e06633721c8d4cfcd7e` | 600 MiB | 512 |
 
 GPT-2 can be fetched and run directly:
@@ -40,10 +41,14 @@ ByteLevel BPE pipeline keeps numeric runs together and performs no NFC
 normalization. The original tokenizer format and modern `use_regex=true`
 serialization are recognized; unsupported options fail explicitly.
 
-HF inference accepts up to one billion parameters and 262,144 vocabulary IDs,
+HF inference accepts up to eight billion parameters and 262,144 vocabulary IDs,
 subject to the explicit weight budget and existing activation/KV guards. Native
 training/checkpoint limits remain 250 million parameters and 65,536 IDs.
 Bias and separate-head storage is included before any weights are allocated.
+This structural ceiling does not establish compatibility or quality for every
+model of that size. `-weight-format q8` reduces weight storage for the same
+supported profiles; [Q8 inference](Q8_INFERENCE.md) describes the format,
+larger-model checks and output differences. The default remains `f32`.
 
 For Qwen, download its pinned files, check compatibility, then start chatting:
 
@@ -75,7 +80,7 @@ go run . inspect-hf -hf-model runs/smollm2 -context 512 -weight-mib 600
 ```
 
 `inspect-hf` validates metadata and file extents without allocating model
-weights. It reports FP32 weight storage, RoPE tables, KV bytes per token, the
+weights. It reports selected-format and equivalent FP32 weight storage, RoPE tables, KV bytes per token, the
 full-context KV size for one session, source bytes, shard count and dtypes.
 `check-hf` additionally validates the tokenizer and recognized chat template
 before loading weights. Use `-chat` to require chat support and `-json` for a
@@ -88,7 +93,8 @@ HF commands default to `-context 0`, meaning `min(model maximum, 2048)`.
 An explicit `-context` selects a larger or smaller window up to the declared
 model maximum, subject to allocation guards. Prompt plus output must fit the
 selected window; overflow is rejected without truncation.
-`-weight-mib` defaults to 2048 and bounds FP32 weights only, **not process RSS**. Metadata (up to
+`-weight-mib` defaults to 2048 and bounds the selected resident weight payload
+(including Q8 scales and remaining FP32 weights), **not process RSS**. Metadata (up to
 4 MiB per Safetensors header), tokenizer storage, conversion buffers, Go runtime,
 inference scratch and session KV require additional memory. The existing
 parameter, activation and serving KV limits also apply.
@@ -102,7 +108,9 @@ Its Apache-2.0 model license is separate from this repository's license.
 
 - Single `model.safetensors` or `model.safetensors.index.json` with at most
   128 local, basename-only shard paths.
-- F32, F16 and BF16, converted into FP32 through a 64 KiB read buffer.
+- F32, F16 and BF16 sources, converted into the selected resident format through
+  a 64 KiB read buffer. Q8 adds at most one 64-value FP32 conversion block;
+  a complete FP32 tensor/model copy is not allocated in that path.
 - Exactly the selected profile's tensor set. Tied output weights must be omitted;
   untied profiles require `lm_head.weight`. Qwen2 requires all Q/K/V bias tensors.
 - GPT-2 accepts bare or `transformer.`-prefixed names, including sharded exports.

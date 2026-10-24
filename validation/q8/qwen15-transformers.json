@@ -1,0 +1,165 @@
+{
+  "format": "monolith-hf-model-reference-v1",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+  "files": {
+    "config.json": "98d2ff8cc47488d08a2b0b3acf4eb99ef210779b42bd48605f6b8e36acdbf670",
+    "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+    "tokenizer_config.json": "5b5d4f65d0acd3b2d56a35b56d374a36cbc1c8fa5cf3b3febbbfabf22f359583",
+    "model.safetensors": "dd924a11b4c220f385b51ffa522daea7c9f3d850e31b162bb5661df483c6d3ee"
+  },
+  "binary_sha256": "8c6e206426530ed35e0df193bd0116499ffe90866fd60ba307eb388464e56815",
+  "context": 512,
+  "weight_mib": 6144,
+  "torch": "2.8.0",
+  "transformers": "4.57.1",
+  "tolerance": 0.002,
+  "attention": "eager",
+  "dtype": "source BF16 -> CPU FP32",
+  "cases": [
+    {
+      "request": {
+        "prompt": "The capital of France is"
+      },
+      "prompt_ids": [
+        785,
+        6722,
+        315,
+        9625,
+        374
+      ],
+      "completion": {
+        "text": " Paris. The capital of France is also",
+        "token_ids": [
+          12095,
+          13,
+          576,
+          6722,
+          315,
+          9625,
+          374,
+          1083
+        ],
+        "prompt_tokens": 5,
+        "completion_tokens": 8,
+        "finish_reason": "length"
+      },
+      "numerical": [
+        {
+          "chunk": 1,
+          "max_abs_error": 7.152557373046875e-05,
+          "greedy_match": true
+        },
+        {
+          "chunk": 16,
+          "max_abs_error": 7.152557373046875e-05,
+          "greedy_match": true
+        }
+      ],
+      "cli_match": true,
+      "http_match": true,
+      "concurrent_sse_match": true
+    },
+    {
+      "request": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Write one short sentence about cats."
+          }
+        ]
+      },
+      "prompt_ids": [
+        151644,
+        8948,
+        198,
+        2610,
+        525,
+        1207,
+        16948,
+        11,
+        3465,
+        553,
+        54364,
+        14817,
+        13,
+        1446,
+        525,
+        264,
+        10950,
+        17847,
+        13,
+        151645,
+        198,
+        151644,
+        872,
+        198,
+        7985,
+        825,
+        2805,
+        11652,
+        911,
+        19423,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198
+      ],
+      "completion": {
+        "text": "Cats are known for their independent nature",
+        "token_ids": [
+          34,
+          1862,
+          525,
+          3881,
+          369,
+          862,
+          9489,
+          6993
+        ],
+        "prompt_tokens": 36,
+        "completion_tokens": 8,
+        "finish_reason": "length"
+      },
+      "numerical": [
+        {
+          "chunk": 1,
+          "max_abs_error": 0.0003787577152252197,
+          "greedy_match": true
+        },
+        {
+          "chunk": 16,
+          "max_abs_error": 0.0003787577152252197,
+          "greedy_match": true
+        }
+      ],
+      "cli_match": true,
+      "http_match": true,
+      "concurrent_sse_match": true
+    }
+  ],
+  "final_engine_stats": {
+    "submitted": 4,
+    "completed": 4,
+    "canceled": 0,
+    "failed": 0,
+    "rejected": 0,
+    "active": 0,
+    "queue": 0,
+    "kv_reserved_bytes": 0,
+    "kv_allocated_bytes": 3670016,
+    "input_tokens": 82,
+    "generated_tokens": 32,
+    "ticks": 38,
+    "slow_consumers": 0,
+    "peak_tick_tokens": 13,
+    "released": 4,
+    "computing": 0,
+    "admission_used": 0,
+    "kernel_workers": 2,
+    "workspace_float_bytes": 3040256
+  },
+  "clean_shutdown": true
+}

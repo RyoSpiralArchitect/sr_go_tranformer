@@ -23,10 +23,13 @@ import (
 	"time"
 )
 
-func fakeHFHub(t *testing.T, corrupt bool) (hfHub, hfSource, func() map[string]int) {
+func fakeHFHub(t *testing.T, corrupt bool, sourceDirs ...string) (hfHub, hfSource, func() map[string]int) {
 	t.Helper()
 	t.Setenv("HF_HUB_OFFLINE", "0")
 	dir := hfCLIFixture(t)
+	if len(sourceDirs) > 0 {
+		dir = sourceDirs[0]
+	}
 	files := map[string][]byte{}
 	var rows []hfHubFile
 	for _, name := range []string{"config.json", "tokenizer.json", "tokenizer_config.json", "model.safetensors"} {

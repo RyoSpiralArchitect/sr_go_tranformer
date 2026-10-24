@@ -72,11 +72,18 @@ to repositories your account can read. Tokens are not saved to the cache and
 are removed on cross-host download redirects. Model access and licenses remain
 the responsibility of the caller.
 
-The download budget is separate from `-weight-mib` (FP32 resident weights),
+The download budget is separate from `-weight-mib` (selected resident weight payload),
 `-context`, and serving `-kv-mib`. None is a process RSS limit. See
 [local HF compatibility](HF_INFERENCE.md) for supported profiles and validation.
 Available local actions: `check`, `inspect`, `tokens`, `ids`, `generate`, `chat`,
 and `serve`. Native checkpoints accept `inspect`, `generate` and `serve`.
+
+Local HF execution defaults to `-weight-format f32`. To reduce resident weights,
+put `-weight-format q8` before the action. This quantizes downloaded or existing
+F32/F16/BF16 files while loading, and can change generated text. The source
+cache still stores the original files; downloads and cache disk usage do not
+shrink. Offline verification works with either format. See
+[Q8 inference](Q8_INFERENCE.md) for memory planning and measurements.
 
 ## Remote execution without downloading weights
 
@@ -141,7 +148,7 @@ Interactive history commits a reply only after successful completion. Use
 | --- | --- | --- |
 | GPT-2 | Tied GPT-2, raw text, pinned base model tested | Dedicated text endpoint when absent from the router |
 | Llama / SmolLM2 | Restricted Llama profile; SmolLM2 135M/360M tested | Chat provider or dedicated endpoint |
-| Qwen2 / Qwen2.5 | Restricted Qwen2 profile; Qwen2.5 0.5B tested | Chat provider or dedicated endpoint |
+| Qwen2 / Qwen2.5 | Restricted Qwen2 profile; Qwen2.5 0.5B/1.5B tested, optional Q8 | Chat provider or dedicated endpoint |
 | gpt-oss | No native MoE kernel | Chat provider or dedicated endpoint |
 | Mistral | Not implemented locally | Chat provider or dedicated endpoint |
 | Gemma | Not implemented locally | Chat provider or dedicated endpoint |

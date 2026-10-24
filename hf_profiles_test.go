@@ -36,6 +36,7 @@ func TestHFProfileLimitsAndBudget(t *testing.T) {
 			bad.LayerTypes = []string{"sliding_attention"}
 		case "oversized":
 			bad.Layers = 100
+			bad.Dim, bad.Hidden, bad.Heads, bad.KVHeads = 4096, 11008, 32, 8
 		}
 		hfWriteJSON(t, filepath.Join(dir, "config.json"), bad)
 		if _, _, err := readHFConfig(dir, 32); err == nil {

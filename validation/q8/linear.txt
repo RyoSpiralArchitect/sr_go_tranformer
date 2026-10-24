@@ -1,0 +1,42 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkQ8Linear/3072x768/rows1/f32-4         	     548	    509913 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows1/f32-4         	     598	    511598 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows1/f32-4         	     594	    504893 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows1/q8-4          	    1516	    194140 ns/op	     115 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows1/q8-4          	    1558	    194959 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows1/q8-4          	    1628	    198097 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows4/f32-4         	     500	    597952 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows4/f32-4         	     480	    594686 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows4/f32-4         	     523	    615832 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows4/q8-4          	     454	    595004 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows4/q8-4          	     498	    585965 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows4/q8-4          	     513	    596941 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows16/f32-4        	     127	   2278889 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows16/f32-4        	     133	   2246596 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows16/f32-4        	     133	   2240694 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows16/q8-4         	     133	   2265660 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows16/q8-4         	     132	   2225878 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/3072x768/rows16/q8-4         	     134	   2229109 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows1/f32-4        	     100	   2980916 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows1/f32-4        	      94	   2973641 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows1/f32-4        	     100	   3138890 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows1/q8-4         	     276	   1086626 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows1/q8-4         	     278	   1059401 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows1/q8-4         	     280	   1061556 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows4/f32-4        	      84	   3403838 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows4/f32-4        	      88	   3408810 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows4/f32-4        	      91	   3362756 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows4/q8-4         	      86	   3253504 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows4/q8-4         	      94	   3264768 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows4/q8-4         	      98	   3273002 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows16/f32-4       	      22	  13321922 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows16/f32-4       	      22	  13306212 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows16/f32-4       	      22	  13272860 ns/op	      96 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows16/q8-4        	      24	  12876359 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows16/q8-4        	      22	  14159161 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Linear/8960x1536/rows16/q8-4        	      22	  13191776 ns/op	     112 B/op	       1 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	14.059s
