@@ -1,5 +1,8 @@
 # Hugging Face inference
 
+This guide describes the local Go importer. See [inference setup](INFERENCE.md)
+for automatic downloads and remote HF execution without local weights.
+
 The importer accepts restricted `LlamaForCausalLM` and `Qwen2ForCausalLM`
 profiles: SiLU, GQA, scalar BOS/EOS IDs, unscaled half-split RoPE and full
 causal attention. Llama projections must be bias-free; Qwen2 includes Q/K/V
@@ -30,13 +33,13 @@ go run . check-hf -hf-model runs/qwen25 -chat
 go run . chat -hf-model runs/qwen25
 ```
 
-The HF CLI is only needed for the separate download step. Inference runs
-locally in Go. Each model repository has its own license.
+The HF CLI is optional: `infer local -repo Qwen/Qwen2.5-0.5B-Instruct chat`
+fetches and caches supported files directly in Go. Each model repository has its own license.
 
 ## Inspect a local model
 
-Download model files separately, pinning their revision. The Go program never
-downloads files or executes model repository code.
+Use existing model files or the explicit `infer local -repo` download path.
+Model repository code is never executed.
 
 ```sh
 hf download HuggingFaceTB/SmolLM2-135M-Instruct \

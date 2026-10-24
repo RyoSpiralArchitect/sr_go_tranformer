@@ -22,6 +22,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Token-ID inference with Transformers reference tests for logits, KV caches and tokenization.
 - SmolLM2 and Qwen2.5 text generation over CLI/HTTP/SSE, with recognized chat templates.
 - Model preflight checks, prompts from files or stdin, and interactive chat with reusable workers.
+- Explicit local/remote inference, verified HF source caching, offline replay and bounded remote SSE.
 
 ## Requirements
 
@@ -30,31 +31,25 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 
 The project runs on the CPU using FP32 tensors. It does not require cgo, Python, or an external machine-learning library.
 
-See [Hugging Face inference](HF_INFERENCE.md) for supported model files, memory
-planning and compatibility boundaries.
+## Inference
 
-Supported text profiles include SmolLM2-135M-Instruct, SmolLM2-360M-Instruct and Qwen2.5-0.5B-Instruct. See [HF_INFERENCE.md](HF_INFERENCE.md) for pinned revisions and budgets.
-
-After downloading the documented pinned SmolLM2-135M-Instruct files:
+Choose an explicit backend. See [inference setup](INFERENCE.md) for model
+families, cache/offline operation, HF endpoints and compatibility limits.
 
 ```sh
-go run . check-hf -hf-model runs/smollm2 -chat
-go run . chat -hf-model runs/smollm2
-# Or generate one reply:
-go run . generate -hf-model runs/smollm2 \
-  -chat -prompt 'Write one short sentence about cats.' \
-  -max-tokens 32 -temperature 0 -repeat-penalty 1
+go run . infer models
+go run . infer local -repo HuggingFaceTB/SmolLM2-135M-Instruct chat
+go run . infer remote models -family gpt-oss
+# Set HF_TOKEN in your environment before remote generation:
+go run . infer remote generate -model openai/gpt-oss-20b \
+  -prompt 'Write one short sentence about cats.' -max-tokens 32 -stream
 ```
 
-Interactive chat accepts one message per line. Use `/reset` to clear history,
-`/exit` to quit, or Ctrl+C to cancel. Weights and compute workers are reused
-across turns. The default HF context is capped at 2,048 tokens and the FP32
-weight budget is 2,048 MiB; neither is a total process memory limit.
-
-Use `-prompt-file path/to/prompt.txt` instead of `-prompt`, or
-`-prompt-file -` to read stdin. JSON chat messages can be passed with
-`-messages path/to/messages.json` or `-messages -`. See the
-[HF guide](HF_INFERENCE.md#text-generation-and-chat) for examples and limits.
+`infer local` runs Go CPU inference and automatically downloads supported HF
+models, or reads existing files with `-dir`. `infer remote` calls an HF service
+without local weights. Neither backend silently falls back to the other.
+Remote generation may incur charges under your HF account. Interactive chat
+accepts `/reset`, `/exit` and Ctrl+C; prompts also accept files or stdin.
 
 ## Quick start
 
@@ -64,13 +59,13 @@ cd sr_go_tranformer
 
 go test ./...
 go build -o monolith .
-./monolith demo
+./monolith learn demo
 ```
 
 The demo trains a small model for 500 updates on a built-in synthetic corpus, generates a continuation, and saves `runs/demo.mglm`. No dataset or model download is needed.
 
 ```sh
-./monolith generate -model runs/demo.mglm \
+./monolith infer local -checkpoint runs/demo.mglm generate \
   -prompt 'the spiral' -max-tokens 60 -temperature 0 -repeat-penalty 1
 ```
 
@@ -79,7 +74,7 @@ The demo trains a small model for 500 updates on a built-in synthetic corpus, ge
 Train a model from a text file:
 
 ```sh
-./monolith train -data examples/tiny.txt -preset demo \
+./monolith learn train -data examples/tiny.txt -preset demo \
   -steps 500 -seq 96 -batch 2 -out runs/model.mglm
 ```
 
@@ -88,7 +83,7 @@ Available presets are `demo`, `tiny`, `small`, and `base`. JSON files in [`confi
 Inspect the memory plan without allocating model tensors or starting training:
 
 ```sh
-./monolith train -data examples/tiny.txt -preset small -memory-plan
+./monolith learn train -data examples/tiny.txt -preset small -memory-plan
 ```
 
 Add `-memory-mib 256` to enforce a budget for major arrays and input staging, including on resume. The default `0` disables this additional cap; existing allocation limits still apply. This is a working-set estimate, not a process RSS limit. See [training memory planning](TRAINING_MEMORY.md) for component accounting, dataset examples, and exclusions.
@@ -96,15 +91,15 @@ Add `-memory-mib 256` to enforce a budget for major arrays and input staging, in
 Training reserves the trailing 10% of the input bytes for validation before tokenization. Use separate, unused text for independent evaluation:
 
 ```sh
-./monolith eval -model runs/model.mglm -data path/to/held-out.txt -seq 96
+./monolith learn eval -model runs/model.mglm -data path/to/held-out.txt -seq 96
 ```
 
 To pause after a fixed number of updates and resume the original schedule:
 
 ```sh
-./monolith train -data examples/tiny.txt -preset demo \
+./monolith learn train -data examples/tiny.txt -preset demo \
   -steps 500 -seq 96 -stop-after 100 -out runs/resume.mglm
-./monolith train -data examples/tiny.txt \
+./monolith learn train -data examples/tiny.txt \
   -resume runs/resume.mglm -out runs/resume.mglm
 ```
 
@@ -113,18 +108,18 @@ Checkpoints preserve optimizer and random-number-generator state. Resume require
 For BPE, train a tokenizer on training-only text and pass its JSON file with `-tokenizer`:
 
 ```sh
-./monolith tokenizer -data path/to/training-only.txt \
+./monolith learn tokenizer -data path/to/training-only.txt \
   -vocab 512 -out runs/tokenizer.json
 ```
 
 For larger corpora, prepare token shards and train with bounded parallel prefetch:
 
 ```sh
-./monolith prepare -train path/to/train.txt -validation path/to/validation.txt \
+./monolith learn prepare -train path/to/train.txt -validation path/to/validation.txt \
   -tokenizer runs/tokenizer.json -out runs/dataset
-./monolith train -dataset runs/dataset/manifest.json -preset demo \
+./monolith learn train -dataset runs/dataset/manifest.json -preset demo \
   -seq 96 -steps 500 -data-workers 2 -prefetch 4 -out runs/stream.mglm
-./monolith train -dataset runs/dataset/manifest.json \
+./monolith learn train -dataset runs/dataset/manifest.json \
   -resume runs/stream.mglm -out runs/stream.mglm
 ```
 
@@ -133,7 +128,7 @@ The last command resumes an interrupted or `-stop-after` run with its saved sche
 Evaluate the same packed dataset independently and retain a reproducible JSON receipt:
 
 ```sh
-./monolith eval -model runs/stream.mglm -dataset runs/dataset/manifest.json \
+./monolith learn eval -model runs/stream.mglm -dataset runs/dataset/manifest.json \
   -seq 96 -batches 8 > runs/evaluation.json
 ```
 
@@ -145,7 +140,7 @@ Training reuses a fixed-size backward workspace owned by the training loop. See 
 
 The [held-out training validation](TRAINING_VALIDATION.md) provides a small authored fixture, complete evaluation receipts and matched CPU optimization measurements. The standard-library Go comparison tool can repeat the same checks against two local executables.
 
-Use `./monolith <command> -h` to see all options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, `inspect-hf`, `check-hf`, `infer-hf`, `tokenize-hf`, `chat`, and `serve`.
+Use `./monolith learn -h` or `./monolith infer -h` to choose a workflow. Existing direct commands remain available; use `./monolith <command> -h` for their options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, `inspect-hf`, `check-hf`, `infer-hf`, `tokenize-hf`, `chat`, and `serve`.
 
 ## HTTP inference
 
