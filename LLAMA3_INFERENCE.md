@@ -1,4 +1,4 @@
-# Llama 3 frequency scaling and a 3B token-ID trial
+# Llama 3 text inference and a 3B numerical trial
 
 `inspect-hf` and `infer-hf` accept the bounded Llama 3.1/3.2 RoPE scaling
 profile (`rope_type: llama3`) and an optional `head_dim` equal to
@@ -6,12 +6,31 @@ profile (`rope_type: llama3`) and an optional `head_dim` equal to
 Llama 3.2 3B BF16 export to run directly in Go, including Q8, Q4 and mixed Q4/Q8.
 The original model configuration and weight files are used unchanged.
 
-This is **token-ID inference support**. Llama 3's tokenizer uses different
-post-processing, merge and cleanup options from the existing Go text profiles.
-Its text generation, chat, HTTP serving and Hub acquisition through this
-application remain unsupported and fail explicitly. The numerical experiment
-uses the pinned Tokenizers library to prepare IDs, including the model's BOS;
-all model loading, matrix computation, KV storage and generation run in Go.
+The pinned Llama 3.2 **base** tokenizer also supports `tokenize-hf`, plain-text
+`generate`, HTTP completion/SSE and the `infer local` download path. Its exact
+Split/ByteLevel BPE profile uses 1–3 Unicode-number groups, no normalization,
+whole-pre-token vocabulary lookup (`ignore_merges`), and BOS post-processing.
+Plain text receives one BOS even when the supplied text already contains a
+literal BOS. `infer-hf` continues to take already framed IDs without adding BOS.
+
+Decoding skips registered special tokens and follows the tokenizer's configured
+Transformers whitespace cleanup. Streaming uses bounded pending prefixes, so
+concatenated text deltas equal the final completion, including punctuation,
+contractions, trailing spaces and split UTF-8. Unsupported pipelines still fail.
+The base model has no chat template; chat and Instruct profiles are not yet
+supported. This does not convert a base model into an instruction-following one.
+
+The original numerical experiment below prepared IDs with pinned Tokenizers;
+all model loading, matrix computation, KV storage and generation ran in Go.
+The new text path is independently checked against that same pinned tokenizer.
+The [real tokenizer oracle](validation/llama3/text-tokenizer.json) has 173
+encoding and nine decoding cases; all match, including bytewise streaming.
+The [text CLI receipt](validation/llama3/text-cli.json) reproduces the first
+eight-token continuation from the earlier token-ID trial.
+The Llama Split letter, number and whitespace classes are pinned to Tokenizers
+0.22.2 rather than the Go toolchain's Unicode release. Their ranges are generated
+over every Unicode scalar by `scripts/hf_llama3_unicode.py`; regression inputs
+cover characters whose classification changes across recent Unicode releases.
 
 ## Use existing model files
 
@@ -32,11 +51,15 @@ HF_HUB_OFFLINE=1 ./monolith infer-hf -hf-model PATH_TO_LLAMA32_3B \
   -context 128 -weight-format q4-mixed -weight-mib 2000 \
   -ids 128000,791,6864,315,9822,374 -max-tokens 8 \
   -prefill-chunk 16 -threads 4
+HF_HUB_OFFLINE=1 ./monolith generate -hf-model PATH_TO_LLAMA32_3B \
+  -context 128 -weight-format q4-mixed -weight-mib 2000 \
+  -prompt 'The capital of France is' -max-tokens 8 \
+  -temperature 0 -repeat-penalty 1 -json
 ```
 
 `infer-hf` neither tokenizes text nor adds BOS. It emits generated token IDs;
-use the matching tokenizer to decode them. The existing `check-hf` command also
-checks the Go tokenizer, so it correctly rejects this text profile.
+use the matching tokenizer to decode them. `check-hf` validates the Go text
+profile; `check-hf -chat` correctly rejects this base model.
 
 The model has 3,212,749,824 parameters. Mixed weights use 2,004,774,912 bytes,
 including scales and FP32 norms, versus 12,850,999,296 bytes for FP32. A context

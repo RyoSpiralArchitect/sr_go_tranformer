@@ -1,0 +1,3313 @@
+{
+  "version": "1.0",
+  "truncation": null,
+  "padding": null,
+  "added_tokens": [
+    {
+      "id": 385,
+      "content": "<|begin_of_text|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 386,
+      "content": "<|end_of_text|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 387,
+      "content": "<|reserved_special_token_0|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 388,
+      "content": "<|reserved_special_token_1|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 389,
+      "content": "<|finetune_right_pad_id|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 390,
+      "content": "<|reserved_special_token_2|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 391,
+      "content": "<|start_header_id|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 392,
+      "content": "<|end_header_id|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 393,
+      "content": "<|eom_id|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 394,
+      "content": "<|eot_id|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 395,
+      "content": "<|python_tag|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 396,
+      "content": "<|reserved_special_token_3|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 397,
+      "content": "<|reserved_special_token_4|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 398,
+      "content": "<|reserved_special_token_5|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 399,
+      "content": "<|reserved_special_token_6|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 400,
+      "content": "<|reserved_special_token_7|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 401,
+      "content": "<|reserved_special_token_8|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 402,
+      "content": "<|reserved_special_token_9|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 403,
+      "content": "<|reserved_special_token_10|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 404,
+      "content": "<|reserved_special_token_11|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 405,
+      "content": "<|reserved_special_token_12|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 406,
+      "content": "<|reserved_special_token_13|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 407,
+      "content": "<|reserved_special_token_14|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 408,
+      "content": "<|reserved_special_token_15|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 409,
+      "content": "<|reserved_special_token_16|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 410,
+      "content": "<|reserved_special_token_17|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 411,
+      "content": "<|reserved_special_token_18|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 412,
+      "content": "<|reserved_special_token_19|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 413,
+      "content": "<|reserved_special_token_20|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 414,
+      "content": "<|reserved_special_token_21|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 415,
+      "content": "<|reserved_special_token_22|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 416,
+      "content": "<|reserved_special_token_23|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 417,
+      "content": "<|reserved_special_token_24|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 418,
+      "content": "<|reserved_special_token_25|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 419,
+      "content": "<|reserved_special_token_26|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 420,
+      "content": "<|reserved_special_token_27|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 421,
+      "content": "<|reserved_special_token_28|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 422,
+      "content": "<|reserved_special_token_29|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 423,
+      "content": "<|reserved_special_token_30|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 424,
+      "content": "<|reserved_special_token_31|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 425,
+      "content": "<|reserved_special_token_32|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 426,
+      "content": "<|reserved_special_token_33|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 427,
+      "content": "<|reserved_special_token_34|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 428,
+      "content": "<|reserved_special_token_35|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 429,
+      "content": "<|reserved_special_token_36|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 430,
+      "content": "<|reserved_special_token_37|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 431,
+      "content": "<|reserved_special_token_38|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 432,
+      "content": "<|reserved_special_token_39|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 433,
+      "content": "<|reserved_special_token_40|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 434,
+      "content": "<|reserved_special_token_41|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 435,
+      "content": "<|reserved_special_token_42|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 436,
+      "content": "<|reserved_special_token_43|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 437,
+      "content": "<|reserved_special_token_44|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 438,
+      "content": "<|reserved_special_token_45|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 439,
+      "content": "<|reserved_special_token_46|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 440,
+      "content": "<|reserved_special_token_47|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 441,
+      "content": "<|reserved_special_token_48|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 442,
+      "content": "<|reserved_special_token_49|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 443,
+      "content": "<|reserved_special_token_50|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 444,
+      "content": "<|reserved_special_token_51|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 445,
+      "content": "<|reserved_special_token_52|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 446,
+      "content": "<|reserved_special_token_53|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 447,
+      "content": "<|reserved_special_token_54|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 448,
+      "content": "<|reserved_special_token_55|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 449,
+      "content": "<|reserved_special_token_56|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 450,
+      "content": "<|reserved_special_token_57|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 451,
+      "content": "<|reserved_special_token_58|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 452,
+      "content": "<|reserved_special_token_59|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 453,
+      "content": "<|reserved_special_token_60|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 454,
+      "content": "<|reserved_special_token_61|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 455,
+      "content": "<|reserved_special_token_62|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 456,
+      "content": "<|reserved_special_token_63|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 457,
+      "content": "<|reserved_special_token_64|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 458,
+      "content": "<|reserved_special_token_65|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 459,
+      "content": "<|reserved_special_token_66|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 460,
+      "content": "<|reserved_special_token_67|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 461,
+      "content": "<|reserved_special_token_68|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 462,
+      "content": "<|reserved_special_token_69|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 463,
+      "content": "<|reserved_special_token_70|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 464,
+      "content": "<|reserved_special_token_71|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 465,
+      "content": "<|reserved_special_token_72|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 466,
+      "content": "<|reserved_special_token_73|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 467,
+      "content": "<|reserved_special_token_74|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 468,
+      "content": "<|reserved_special_token_75|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 469,
+      "content": "<|reserved_special_token_76|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 470,
+      "content": "<|reserved_special_token_77|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 471,
+      "content": "<|reserved_special_token_78|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 472,
+      "content": "<|reserved_special_token_79|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 473,
+      "content": "<|reserved_special_token_80|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 474,
+      "content": "<|reserved_special_token_81|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 475,
+      "content": "<|reserved_special_token_82|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 476,
+      "content": "<|reserved_special_token_83|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 477,
+      "content": "<|reserved_special_token_84|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 478,
+      "content": "<|reserved_special_token_85|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 479,
+      "content": "<|reserved_special_token_86|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 480,
+      "content": "<|reserved_special_token_87|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 481,
+      "content": "<|reserved_special_token_88|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 482,
+      "content": "<|reserved_special_token_89|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 483,
+      "content": "<|reserved_special_token_90|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 484,
+      "content": "<|reserved_special_token_91|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 485,
+      "content": "<|reserved_special_token_92|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 486,
+      "content": "<|reserved_special_token_93|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 487,
+      "content": "<|reserved_special_token_94|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 488,
+      "content": "<|reserved_special_token_95|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 489,
+      "content": "<|reserved_special_token_96|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 490,
+      "content": "<|reserved_special_token_97|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 491,
+      "content": "<|reserved_special_token_98|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 492,
+      "content": "<|reserved_special_token_99|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 493,
+      "content": "<|reserved_special_token_100|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 494,
+      "content": "<|reserved_special_token_101|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 495,
+      "content": "<|reserved_special_token_102|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 496,
+      "content": "<|reserved_special_token_103|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 497,
+      "content": "<|reserved_special_token_104|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 498,
+      "content": "<|reserved_special_token_105|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 499,
+      "content": "<|reserved_special_token_106|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 500,
+      "content": "<|reserved_special_token_107|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 501,
+      "content": "<|reserved_special_token_108|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 502,
+      "content": "<|reserved_special_token_109|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 503,
+      "content": "<|reserved_special_token_110|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 504,
+      "content": "<|reserved_special_token_111|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 505,
+      "content": "<|reserved_special_token_112|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 506,
+      "content": "<|reserved_special_token_113|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 507,
+      "content": "<|reserved_special_token_114|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 508,
+      "content": "<|reserved_special_token_115|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 509,
+      "content": "<|reserved_special_token_116|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 510,
+      "content": "<|reserved_special_token_117|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 511,
+      "content": "<|reserved_special_token_118|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 512,
+      "content": "<|reserved_special_token_119|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 513,
+      "content": "<|reserved_special_token_120|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 514,
+      "content": "<|reserved_special_token_121|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 515,
+      "content": "<|reserved_special_token_122|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 516,
+      "content": "<|reserved_special_token_123|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 517,
+      "content": "<|reserved_special_token_124|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 518,
+      "content": "<|reserved_special_token_125|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 519,
+      "content": "<|reserved_special_token_126|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 520,
+      "content": "<|reserved_special_token_127|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 521,
+      "content": "<|reserved_special_token_128|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 522,
+      "content": "<|reserved_special_token_129|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 523,
+      "content": "<|reserved_special_token_130|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 524,
+      "content": "<|reserved_special_token_131|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 525,
+      "content": "<|reserved_special_token_132|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 526,
+      "content": "<|reserved_special_token_133|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 527,
+      "content": "<|reserved_special_token_134|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 528,
+      "content": "<|reserved_special_token_135|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 529,
+      "content": "<|reserved_special_token_136|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 530,
+      "content": "<|reserved_special_token_137|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 531,
+      "content": "<|reserved_special_token_138|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 532,
+      "content": "<|reserved_special_token_139|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 533,
+      "content": "<|reserved_special_token_140|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 534,
+      "content": "<|reserved_special_token_141|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 535,
+      "content": "<|reserved_special_token_142|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 536,
+      "content": "<|reserved_special_token_143|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 537,
+      "content": "<|reserved_special_token_144|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 538,
+      "content": "<|reserved_special_token_145|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 539,
+      "content": "<|reserved_special_token_146|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 540,
+      "content": "<|reserved_special_token_147|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 541,
+      "content": "<|reserved_special_token_148|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 542,
+      "content": "<|reserved_special_token_149|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 543,
+      "content": "<|reserved_special_token_150|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 544,
+      "content": "<|reserved_special_token_151|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 545,
+      "content": "<|reserved_special_token_152|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 546,
+      "content": "<|reserved_special_token_153|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 547,
+      "content": "<|reserved_special_token_154|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 548,
+      "content": "<|reserved_special_token_155|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 549,
+      "content": "<|reserved_special_token_156|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 550,
+      "content": "<|reserved_special_token_157|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 551,
+      "content": "<|reserved_special_token_158|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 552,
+      "content": "<|reserved_special_token_159|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 553,
+      "content": "<|reserved_special_token_160|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 554,
+      "content": "<|reserved_special_token_161|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 555,
+      "content": "<|reserved_special_token_162|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 556,
+      "content": "<|reserved_special_token_163|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 557,
+      "content": "<|reserved_special_token_164|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 558,
+      "content": "<|reserved_special_token_165|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 559,
+      "content": "<|reserved_special_token_166|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 560,
+      "content": "<|reserved_special_token_167|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 561,
+      "content": "<|reserved_special_token_168|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 562,
+      "content": "<|reserved_special_token_169|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 563,
+      "content": "<|reserved_special_token_170|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 564,
+      "content": "<|reserved_special_token_171|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 565,
+      "content": "<|reserved_special_token_172|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 566,
+      "content": "<|reserved_special_token_173|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 567,
+      "content": "<|reserved_special_token_174|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 568,
+      "content": "<|reserved_special_token_175|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 569,
+      "content": "<|reserved_special_token_176|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 570,
+      "content": "<|reserved_special_token_177|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 571,
+      "content": "<|reserved_special_token_178|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 572,
+      "content": "<|reserved_special_token_179|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 573,
+      "content": "<|reserved_special_token_180|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 574,
+      "content": "<|reserved_special_token_181|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 575,
+      "content": "<|reserved_special_token_182|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 576,
+      "content": "<|reserved_special_token_183|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 577,
+      "content": "<|reserved_special_token_184|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 578,
+      "content": "<|reserved_special_token_185|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 579,
+      "content": "<|reserved_special_token_186|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 580,
+      "content": "<|reserved_special_token_187|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 581,
+      "content": "<|reserved_special_token_188|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 582,
+      "content": "<|reserved_special_token_189|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 583,
+      "content": "<|reserved_special_token_190|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 584,
+      "content": "<|reserved_special_token_191|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 585,
+      "content": "<|reserved_special_token_192|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 586,
+      "content": "<|reserved_special_token_193|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 587,
+      "content": "<|reserved_special_token_194|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 588,
+      "content": "<|reserved_special_token_195|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 589,
+      "content": "<|reserved_special_token_196|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 590,
+      "content": "<|reserved_special_token_197|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 591,
+      "content": "<|reserved_special_token_198|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 592,
+      "content": "<|reserved_special_token_199|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 593,
+      "content": "<|reserved_special_token_200|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 594,
+      "content": "<|reserved_special_token_201|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 595,
+      "content": "<|reserved_special_token_202|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 596,
+      "content": "<|reserved_special_token_203|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 597,
+      "content": "<|reserved_special_token_204|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 598,
+      "content": "<|reserved_special_token_205|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 599,
+      "content": "<|reserved_special_token_206|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 600,
+      "content": "<|reserved_special_token_207|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 601,
+      "content": "<|reserved_special_token_208|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 602,
+      "content": "<|reserved_special_token_209|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 603,
+      "content": "<|reserved_special_token_210|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 604,
+      "content": "<|reserved_special_token_211|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 605,
+      "content": "<|reserved_special_token_212|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 606,
+      "content": "<|reserved_special_token_213|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 607,
+      "content": "<|reserved_special_token_214|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 608,
+      "content": "<|reserved_special_token_215|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 609,
+      "content": "<|reserved_special_token_216|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 610,
+      "content": "<|reserved_special_token_217|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 611,
+      "content": "<|reserved_special_token_218|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 612,
+      "content": "<|reserved_special_token_219|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 613,
+      "content": "<|reserved_special_token_220|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 614,
+      "content": "<|reserved_special_token_221|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 615,
+      "content": "<|reserved_special_token_222|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 616,
+      "content": "<|reserved_special_token_223|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 617,
+      "content": "<|reserved_special_token_224|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 618,
+      "content": "<|reserved_special_token_225|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 619,
+      "content": "<|reserved_special_token_226|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 620,
+      "content": "<|reserved_special_token_227|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 621,
+      "content": "<|reserved_special_token_228|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 622,
+      "content": "<|reserved_special_token_229|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 623,
+      "content": "<|reserved_special_token_230|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 624,
+      "content": "<|reserved_special_token_231|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 625,
+      "content": "<|reserved_special_token_232|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 626,
+      "content": "<|reserved_special_token_233|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 627,
+      "content": "<|reserved_special_token_234|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 628,
+      "content": "<|reserved_special_token_235|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 629,
+      "content": "<|reserved_special_token_236|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 630,
+      "content": "<|reserved_special_token_237|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 631,
+      "content": "<|reserved_special_token_238|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 632,
+      "content": "<|reserved_special_token_239|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 633,
+      "content": "<|reserved_special_token_240|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 634,
+      "content": "<|reserved_special_token_241|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 635,
+      "content": "<|reserved_special_token_242|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 636,
+      "content": "<|reserved_special_token_243|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 637,
+      "content": "<|reserved_special_token_244|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 638,
+      "content": "<|reserved_special_token_245|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 639,
+      "content": "<|reserved_special_token_246|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 640,
+      "content": "<|reserved_special_token_247|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    }
+  ],
+  "normalizer": null,
+  "pre_tokenizer": {
+    "type": "Sequence",
+    "pretokenizers": [
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "ByteLevel",
+        "add_prefix_space": false,
+        "trim_offsets": true,
+        "use_regex": false
+      }
+    ]
+  },
+  "post_processor": {
+    "type": "Sequence",
+    "processors": [
+      {
+        "type": "ByteLevel",
+        "add_prefix_space": true,
+        "trim_offsets": false,
+        "use_regex": true
+      },
+      {
+        "type": "TemplateProcessing",
+        "single": [
+          {
+            "SpecialToken": {
+              "id": "<|begin_of_text|>",
+              "type_id": 0
+            }
+          },
+          {
+            "Sequence": {
+              "id": "A",
+              "type_id": 0
+            }
+          }
+        ],
+        "pair": [
+          {
+            "SpecialToken": {
+              "id": "<|begin_of_text|>",
+              "type_id": 0
+            }
+          },
+          {
+            "Sequence": {
+              "id": "A",
+              "type_id": 0
+            }
+          },
+          {
+            "SpecialToken": {
+              "id": "<|begin_of_text|>",
+              "type_id": 1
+            }
+          },
+          {
+            "Sequence": {
+              "id": "B",
+              "type_id": 1
+            }
+          }
+        ],
+        "special_tokens": {
+          "<|begin_of_text|>": {
+            "id": "<|begin_of_text|>",
+            "ids": [
+              385
+            ],
+            "tokens": [
+              "<|begin_of_text|>"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "decoder": {
+    "type": "ByteLevel",
+    "add_prefix_space": true,
+    "trim_offsets": true,
+    "use_regex": true
+  },
+  "model": {
+    "type": "BPE",
+    "dropout": null,
+    "unk_token": null,
+    "continuing_subword_prefix": null,
+    "end_of_word_suffix": null,
+    "fuse_unk": false,
+    "byte_fallback": false,
+    "ignore_merges": true,
+    "vocab": {
+      "!": 0,
+      "\"": 1,
+      "#": 2,
+      "$": 3,
+      "%": 4,
+      "&": 5,
+      "'": 6,
+      "(": 7,
+      ")": 8,
+      "*": 9,
+      "+": 10,
+      ",": 11,
+      "-": 12,
+      ".": 13,
+      "/": 14,
+      "0": 15,
+      "1": 16,
+      "2": 17,
+      "3": 18,
+      "4": 19,
+      "5": 20,
+      "6": 21,
+      "7": 22,
+      "8": 23,
+      "9": 24,
+      ":": 25,
+      ";": 26,
+      "<": 27,
+      "=": 28,
+      ">": 29,
+      "?": 30,
+      "@": 31,
+      "A": 32,
+      "B": 33,
+      "C": 34,
+      "D": 35,
+      "E": 36,
+      "F": 37,
+      "G": 38,
+      "H": 39,
+      "I": 40,
+      "J": 41,
+      "K": 42,
+      "L": 43,
+      "M": 44,
+      "N": 45,
+      "O": 46,
+      "P": 47,
+      "Q": 48,
+      "R": 49,
+      "S": 50,
+      "T": 51,
+      "U": 52,
+      "V": 53,
+      "W": 54,
+      "X": 55,
+      "Y": 56,
+      "Z": 57,
+      "[": 58,
+      "\\": 59,
+      "]": 60,
+      "^": 61,
+      "_": 62,
+      "`": 63,
+      "a": 64,
+      "b": 65,
+      "c": 66,
+      "d": 67,
+      "e": 68,
+      "f": 69,
+      "g": 70,
+      "h": 71,
+      "i": 72,
+      "j": 73,
+      "k": 74,
+      "l": 75,
+      "m": 76,
+      "n": 77,
+      "o": 78,
+      "p": 79,
+      "q": 80,
+      "r": 81,
+      "s": 82,
+      "t": 83,
+      "u": 84,
+      "v": 85,
+      "w": 86,
+      "x": 87,
+      "y": 88,
+      "z": 89,
+      "{": 90,
+      "|": 91,
+      "}": 92,
+      "~": 93,
+      "¡": 94,
+      "¢": 95,
+      "£": 96,
+      "¤": 97,
+      "¥": 98,
+      "¦": 99,
+      "§": 100,
+      "¨": 101,
+      "©": 102,
+      "ª": 103,
+      "«": 104,
+      "¬": 105,
+      "®": 106,
+      "¯": 107,
+      "°": 108,
+      "±": 109,
+      "²": 110,
+      "³": 111,
+      "´": 112,
+      "µ": 113,
+      "¶": 114,
+      "·": 115,
+      "¸": 116,
+      "¹": 117,
+      "º": 118,
+      "»": 119,
+      "¼": 120,
+      "½": 121,
+      "¾": 122,
+      "¿": 123,
+      "À": 124,
+      "Á": 125,
+      "Â": 126,
+      "Ã": 127,
+      "Ä": 128,
+      "Å": 129,
+      "Æ": 130,
+      "Ç": 131,
+      "È": 132,
+      "É": 133,
+      "Ê": 134,
+      "Ë": 135,
+      "Ì": 136,
+      "Í": 137,
+      "Î": 138,
+      "Ï": 139,
+      "Ð": 140,
+      "Ñ": 141,
+      "Ò": 142,
+      "Ó": 143,
+      "Ô": 144,
+      "Õ": 145,
+      "Ö": 146,
+      "×": 147,
+      "Ø": 148,
+      "Ù": 149,
+      "Ú": 150,
+      "Û": 151,
+      "Ü": 152,
+      "Ý": 153,
+      "Þ": 154,
+      "ß": 155,
+      "à": 156,
+      "á": 157,
+      "â": 158,
+      "ã": 159,
+      "ä": 160,
+      "å": 161,
+      "æ": 162,
+      "ç": 163,
+      "è": 164,
+      "é": 165,
+      "ê": 166,
+      "ë": 167,
+      "ì": 168,
+      "í": 169,
+      "î": 170,
+      "ï": 171,
+      "ð": 172,
+      "ñ": 173,
+      "ò": 174,
+      "ó": 175,
+      "ô": 176,
+      "õ": 177,
+      "ö": 178,
+      "÷": 179,
+      "ø": 180,
+      "ù": 181,
+      "ú": 182,
+      "û": 183,
+      "ü": 184,
+      "ý": 185,
+      "þ": 186,
+      "ÿ": 187,
+      "Ā": 188,
+      "ā": 189,
+      "Ă": 190,
+      "ă": 191,
+      "Ą": 192,
+      "ą": 193,
+      "Ć": 194,
+      "ć": 195,
+      "Ĉ": 196,
+      "ĉ": 197,
+      "Ċ": 198,
+      "ċ": 199,
+      "Č": 200,
+      "č": 201,
+      "Ď": 202,
+      "ď": 203,
+      "Đ": 204,
+      "đ": 205,
+      "Ē": 206,
+      "ē": 207,
+      "Ĕ": 208,
+      "ĕ": 209,
+      "Ė": 210,
+      "ė": 211,
+      "Ę": 212,
+      "ę": 213,
+      "Ě": 214,
+      "ě": 215,
+      "Ĝ": 216,
+      "ĝ": 217,
+      "Ğ": 218,
+      "ğ": 219,
+      "Ġ": 220,
+      "ġ": 221,
+      "Ģ": 222,
+      "ģ": 223,
+      "Ĥ": 224,
+      "ĥ": 225,
+      "Ħ": 226,
+      "ħ": 227,
+      "Ĩ": 228,
+      "ĩ": 229,
+      "Ī": 230,
+      "ī": 231,
+      "Ĭ": 232,
+      "ĭ": 233,
+      "Į": 234,
+      "į": 235,
+      "İ": 236,
+      "ı": 237,
+      "Ĳ": 238,
+      "ĳ": 239,
+      "Ĵ": 240,
+      "ĵ": 241,
+      "Ķ": 242,
+      "ķ": 243,
+      "ĸ": 244,
+      "Ĺ": 245,
+      "ĺ": 246,
+      "Ļ": 247,
+      "ļ": 248,
+      "Ľ": 249,
+      "ľ": 250,
+      "Ŀ": 251,
+      "ŀ": 252,
+      "Ł": 253,
+      "ł": 254,
+      "Ń": 255,
+      "<|": 256,
+      "im": 257,
+      "|>": 258,
+      "aa": 259,
+      "st": 260,
+      "sta": 261,
+      "_sta": 262,
+      "rt": 263,
+      "_start": 264,
+      "ĢĢ": 265,
+      "_e": 266,
+      "nd": 267,
+      "_end": 268,
+      "aaaa": 269,
+      "Ìģ": 270,
+      "ðŁ": 271,
+      "Ġe": 272,
+      "ĮĢ": 273,
+      "ðŁĮĢ": 274,
+      "12": 275,
+      "|><|": 276,
+      "re": 277,
+      "Âł": 278,
+      "Â½": 279,
+      "123": 280,
+      "Ù¡": 281,
+      "Ù¢": 282,
+      "âħ": 283,
+      "ĢĢĢ": 284,
+      "âħ£": 285,
+      "ñĢĢĢ": 286,
+      "?!": 287,
+      "Ù¡Ù¢": 288,
+      "çĮ": 289,
+      "çĮ«": 290,
+      "ca": 291,
+      "fÃ": 292,
+      "cafÃ": 293,
+      "cafÃ©": 294,
+      "'s": 295,
+      "aaaaaaaa": 296,
+      "'re": 297,
+      "aaaaaaaaaaaaaaaa": 298,
+      "ÌģÌģ": 299,
+      "|>'": 300,
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": 301,
+      "ðŁĮĢ'": 302,
+      "ĠĠ": 303,
+      "ÌģÌģÌģÌģ": 304,
+      "ĊĊ": 305,
+      "|>Ċ": 306,
+      "|>ðŁĮĢ": 307,
+      "|>ñĢĢĢ": 308,
+      "Ìģ'": 309,
+      "wo": 310,
+      "Ġ'": 311,
+      "|>?!": 312,
+      "Ìģ<|": 313,
+      "Ìģ?!": 314,
+      "ðŁĮĢðŁĮĢ": 315,
+      "ñĢĢĢZ": 316,
+      "ñĢĢĢ<|": 317,
+      "ll": 318,
+      "Ą'": 319,
+      "ĄĊ": 320,
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": 321,
+      "wor": 322,
+      "23": 323,
+      "âĢ": 324,
+      "ï¼": 325,
+      "|>Ą": 326,
+      "ÌģĊ": 327,
+      "ĠeZ": 328,
+      "ĠecafÃ©": 329,
+      "âħ£âħ£": 330,
+      "ñĢĢĢñĢĢĢ": 331,
+      "?!<|": 332,
+      "he": 333,
+      "Ą<|": 334,
+      "ĉZ": 335,
+      "ĉĊ": 336,
+      "Ġ?!": 337,
+      "|>Ìģ": 338,
+      "ðŁĮĢ<|": 339,
+      "çĮ«Z": 340,
+      "çĮ«cafÃ©": 341,
+      "ÌģÌģÌģÌģÌģÌģÌģÌģ": 342,
+      "word": 343,
+      "ZZ": 344,
+      "ĄcafÃ©": 345,
+      "ĉa": 346,
+      "ĉçĮ«": 347,
+      "čĊ": 348,
+      "ĠĊ": 349,
+      "Ġ<|": 350,
+      "Ìģa": 351,
+      "Â½12": 352,
+      "Â½Â½": 353,
+      "Â½Ù¡Ù¢": 354,
+      "âħ£Ù¡Ù¢": 355,
+      "ñĢĢĢcafÃ©": 356,
+      "Ù¡Ù¢1": 357,
+      "Ù¡Ù¢Â½": 358,
+      "llo": 359,
+      "RE": 360,
+      "ZçĮ«": 361,
+      "aZ": 362,
+      "açĮ«": 363,
+      "sZ": 364,
+      "ĄĄ": 365,
+      "ĄçĮ«": 366,
+      "ĠI": 367,
+      "Ġa": 368,
+      "ĠĄ": 369,
+      "ĠÌģ": 370,
+      "ĠðŁĮĢ": 371,
+      "ÌģçĮ«": 372,
+      "ðŁĮĢÌģ": 373,
+      "ÂłçĮ«": 374,
+      "ñĢĢĢ'": 375,
+      "ñĢĢĢĊ": 376,
+      "?!'": 377,
+      "?!ðŁĮĢ": 378,
+      "?!?!": 379,
+      "Ù¡Ù¢Ù¡": 380,
+      "cafÃ©Z": 381,
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": 382,
+      "'M": 383,
+      "inference": 384
+    },
+    "merges": [
+      [
+        "<",
+        "|"
+      ],
+      [
+        "i",
+        "m"
+      ],
+      [
+        "|",
+        ">"
+      ],
+      [
+        "a",
+        "a"
+      ],
+      [
+        "s",
+        "t"
+      ],
+      [
+        "st",
+        "a"
+      ],
+      [
+        "_",
+        "sta"
+      ],
+      [
+        "r",
+        "t"
+      ],
+      [
+        "_sta",
+        "rt"
+      ],
+      [
+        "Ģ",
+        "Ģ"
+      ],
+      [
+        "_",
+        "e"
+      ],
+      [
+        "n",
+        "d"
+      ],
+      [
+        "_e",
+        "nd"
+      ],
+      [
+        "aa",
+        "aa"
+      ],
+      [
+        "Ì",
+        "ģ"
+      ],
+      [
+        "ð",
+        "Ł"
+      ],
+      [
+        "Ġ",
+        "e"
+      ],
+      [
+        "Į",
+        "Ģ"
+      ],
+      [
+        "ðŁ",
+        "ĮĢ"
+      ],
+      [
+        "1",
+        "2"
+      ],
+      [
+        "|>",
+        "<|"
+      ],
+      [
+        "r",
+        "e"
+      ],
+      [
+        "Â",
+        "ł"
+      ],
+      [
+        "Â",
+        "½"
+      ],
+      [
+        "12",
+        "3"
+      ],
+      [
+        "Ù",
+        "¡"
+      ],
+      [
+        "Ù",
+        "¢"
+      ],
+      [
+        "â",
+        "ħ"
+      ],
+      [
+        "ĢĢ",
+        "Ģ"
+      ],
+      [
+        "âħ",
+        "£"
+      ],
+      [
+        "ñ",
+        "ĢĢĢ"
+      ],
+      [
+        "?",
+        "!"
+      ],
+      [
+        "Ù¡",
+        "Ù¢"
+      ],
+      [
+        "ç",
+        "Į"
+      ],
+      [
+        "çĮ",
+        "«"
+      ],
+      [
+        "c",
+        "a"
+      ],
+      [
+        "f",
+        "Ã"
+      ],
+      [
+        "ca",
+        "fÃ"
+      ],
+      [
+        "cafÃ",
+        "©"
+      ],
+      [
+        "'",
+        "s"
+      ],
+      [
+        "aaaa",
+        "aaaa"
+      ],
+      [
+        "'",
+        "re"
+      ],
+      [
+        "aaaaaaaa",
+        "aaaaaaaa"
+      ],
+      [
+        "Ìģ",
+        "Ìģ"
+      ],
+      [
+        "|>",
+        "'"
+      ],
+      [
+        "aaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaa"
+      ],
+      [
+        "ðŁĮĢ",
+        "'"
+      ],
+      [
+        "Ġ",
+        "Ġ"
+      ],
+      [
+        "ÌģÌģ",
+        "ÌģÌģ"
+      ],
+      [
+        "Ċ",
+        "Ċ"
+      ],
+      [
+        "|>",
+        "Ċ"
+      ],
+      [
+        "|>",
+        "ðŁĮĢ"
+      ],
+      [
+        "|>",
+        "ñĢĢĢ"
+      ],
+      [
+        "Ìģ",
+        "'"
+      ],
+      [
+        "w",
+        "o"
+      ],
+      [
+        "Ġ",
+        "'"
+      ],
+      [
+        "|>",
+        "?!"
+      ],
+      [
+        "Ìģ",
+        "<|"
+      ],
+      [
+        "Ìģ",
+        "?!"
+      ],
+      [
+        "ðŁĮĢ",
+        "ðŁĮĢ"
+      ],
+      [
+        "ñĢĢĢ",
+        "Z"
+      ],
+      [
+        "ñĢĢĢ",
+        "<|"
+      ],
+      [
+        "l",
+        "l"
+      ],
+      [
+        "Ą",
+        "'"
+      ],
+      [
+        "Ą",
+        "Ċ"
+      ],
+      [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      [
+        "wo",
+        "r"
+      ],
+      [
+        "2",
+        "3"
+      ],
+      [
+        "â",
+        "Ģ"
+      ],
+      [
+        "ï",
+        "¼"
+      ],
+      [
+        "|>",
+        "Ą"
+      ],
+      [
+        "Ìģ",
+        "Ċ"
+      ],
+      [
+        "Ġe",
+        "Z"
+      ],
+      [
+        "Ġe",
+        "cafÃ©"
+      ],
+      [
+        "âħ£",
+        "âħ£"
+      ],
+      [
+        "ñĢĢĢ",
+        "ñĢĢĢ"
+      ],
+      [
+        "?!",
+        "<|"
+      ],
+      [
+        "h",
+        "e"
+      ],
+      [
+        "Ą",
+        "<|"
+      ],
+      [
+        "ĉ",
+        "Z"
+      ],
+      [
+        "ĉ",
+        "Ċ"
+      ],
+      [
+        "Ġ",
+        "?!"
+      ],
+      [
+        "|>",
+        "Ìģ"
+      ],
+      [
+        "ðŁĮĢ",
+        "<|"
+      ],
+      [
+        "çĮ«",
+        "Z"
+      ],
+      [
+        "çĮ«",
+        "cafÃ©"
+      ],
+      [
+        "ÌģÌģÌģÌģ",
+        "ÌģÌģÌģÌģ"
+      ],
+      [
+        "wor",
+        "d"
+      ],
+      [
+        "Z",
+        "Z"
+      ],
+      [
+        "Ą",
+        "cafÃ©"
+      ],
+      [
+        "ĉ",
+        "a"
+      ],
+      [
+        "ĉ",
+        "çĮ«"
+      ],
+      [
+        "č",
+        "Ċ"
+      ],
+      [
+        "Ġ",
+        "Ċ"
+      ],
+      [
+        "Ġ",
+        "<|"
+      ],
+      [
+        "Ìģ",
+        "a"
+      ],
+      [
+        "Â½",
+        "12"
+      ],
+      [
+        "Â½",
+        "Â½"
+      ],
+      [
+        "Â½",
+        "Ù¡Ù¢"
+      ],
+      [
+        "âħ£",
+        "Ù¡Ù¢"
+      ],
+      [
+        "ñĢĢĢ",
+        "cafÃ©"
+      ],
+      [
+        "Ù¡Ù¢",
+        "1"
+      ],
+      [
+        "Ù¡Ù¢",
+        "Â½"
+      ],
+      [
+        "ll",
+        "o"
+      ],
+      [
+        "R",
+        "E"
+      ],
+      [
+        "Z",
+        "çĮ«"
+      ],
+      [
+        "a",
+        "Z"
+      ],
+      [
+        "a",
+        "çĮ«"
+      ],
+      [
+        "s",
+        "Z"
+      ],
+      [
+        "Ą",
+        "Ą"
+      ],
+      [
+        "Ą",
+        "çĮ«"
+      ],
+      [
+        "Ġ",
+        "I"
+      ],
+      [
+        "Ġ",
+        "a"
+      ],
+      [
+        "Ġ",
+        "Ą"
+      ],
+      [
+        "Ġ",
+        "Ìģ"
+      ],
+      [
+        "Ġ",
+        "ðŁĮĢ"
+      ],
+      [
+        "Ìģ",
+        "çĮ«"
+      ],
+      [
+        "ðŁĮĢ",
+        "Ìģ"
+      ],
+      [
+        "Âł",
+        "çĮ«"
+      ],
+      [
+        "ñĢĢĢ",
+        "'"
+      ],
+      [
+        "ñĢĢĢ",
+        "Ċ"
+      ],
+      [
+        "?!",
+        "'"
+      ],
+      [
+        "?!",
+        "ðŁĮĢ"
+      ],
+      [
+        "?!",
+        "?!"
+      ],
+      [
+        "Ù¡Ù¢",
+        "Ù¡"
+      ],
+      [
+        "cafÃ©",
+        "Z"
+      ],
+      [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      [
+        "'",
+        "M"
+      ]
+    ]
+  }
+}

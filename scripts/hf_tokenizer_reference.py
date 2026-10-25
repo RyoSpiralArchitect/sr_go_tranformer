@@ -60,11 +60,11 @@ def fixture(folder):
     (folder / "tokenizer_config.json").write_text(json.dumps(cfg, indent=2) + "\n")
 
 
-def oracle(folder, output):
+def oracle(folder, output, add_special_tokens=False, extra_texts=()):
     tok = AutoTokenizer.from_pretrained(folder, local_files_only=True, trust_remote_code=False)
     cases = []
-    for text in texts():
-        ids = tok.encode(text, add_special_tokens=False)
+    for text in texts() + list(extra_texts):
+        ids = tok.encode(text, add_special_tokens=add_special_tokens)
         cases.append(dict(text=text, ids=ids, decoded=tok.decode(ids, skip_special_tokens=True)))
     chats = []
     for messages in [
@@ -81,11 +81,15 @@ def oracle(folder, output):
     decode_cases = []
     candidates = [["ð", "Ł"], ["â", "Ģ", "x"], ["Ģ", "Ģ"], ["í", "ł", "Ģ"],
                   ["ð", "Ł", "Ĳ", "Ī"], ["<|im_end|>"], ["<|endoftext|>"]]
+    if add_special_tokens:
+        candidates += [list(s.replace(" ", "Ġ")) for s in (
+            "Hello . I 'm here , are n't you ? I 've tried ! We 're ready .",
+            " '  '  ' ", "  .  ?  !  , ", "I 'm 's 've 're n't '")]
     for pieces in candidates:
         if all(s in v for s in pieces):
             ids = [v[s] for s in pieces]
             decode_cases.append(dict(ids=ids, decoded=tok.decode(ids, skip_special_tokens=True)))
-    report = dict(tokenizers=tokenizers.__version__, cases=cases, chats=chats,
+    report = dict(tokenizers=tokenizers.__version__, add_special_tokens=add_special_tokens, cases=cases, chats=chats,
                   decode_cases=decode_cases, files={
                       name: hashlib.sha256((folder/name).read_bytes()).hexdigest()
                       for name in ("tokenizer.json", "tokenizer_config.json")})
