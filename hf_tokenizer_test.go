@@ -11,11 +11,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 type hfTokenizerReference struct {
-	Files map[string]string `json:"files"`
-	Cases []struct {
+	ChatDate string            `json:"chat_date"`
+	Files    map[string]string `json:"files"`
+	Cases    []struct {
 		Text    string
 		IDs     []int
 		Decoded string
@@ -95,6 +97,13 @@ func testHFTokenizerReference(t *testing.T, dir, path string) {
 	}
 	for _, tc := range ref.Chats {
 		prompt, err := tok.formatChat(tc.Messages)
+		if ref.ChatDate != "" {
+			date, parseErr := time.Parse("02 Jan 2006", ref.ChatDate)
+			if parseErr != nil {
+				t.Fatal(parseErr)
+			}
+			prompt, err = tok.formatChatAt(tc.Messages, date)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -6,7 +6,7 @@ profile (`rope_type: llama3`) and an optional `head_dim` equal to
 Llama 3.2 3B BF16 export to run directly in Go, including Q8, Q4 and mixed Q4/Q8.
 The original model configuration and weight files are used unchanged.
 
-The pinned Llama 3.2 **base** tokenizer also supports `tokenize-hf`, plain-text
+The pinned Llama 3.2 base and Instruct tokenizers support `tokenize-hf`, plain-text
 `generate`, HTTP completion/SSE and the `infer local` download path. Its exact
 Split/ByteLevel BPE profile uses 1–3 Unicode-number groups, no normalization,
 whole-pre-token vocabulary lookup (`ignore_merges`), and BOS post-processing.
@@ -17,8 +17,10 @@ Decoding skips registered special tokens and follows the tokenizer's configured
 Transformers whitespace cleanup. Streaming uses bounded pending prefixes, so
 concatenated text deltas equal the final completion, including punctuation,
 contractions, trailing spaces and split UTF-8. Unsupported pipelines still fail.
-The base model has no chat template; chat and Instruct profiles are not yet
-supported. This does not convert a base model into an instruction-following one.
+The base model has no chat template and continues to reject chat. The recognized
+Instruct template supports text-only system/user/assistant messages through CLI,
+interactive chat, HTTP and SSE. This does not turn a base model into an
+instruction-following one.
 
 The original numerical experiment below prepared IDs with pinned Tokenizers;
 all model loading, matrix computation, KV storage and generation ran in Go.
@@ -67,6 +69,47 @@ of 128 requires 29,360,128 KV payload bytes per full session, before page roundi
 and metadata. `-weight-mib` limits weight payload only; runtime, allocator,
 metadata, workspace and KV are additional. Loading streams through bounded
 buffers without a second full FP32 weight copy.
+
+## Instruct chat
+
+The pinned 1B Instruct source is
+`mlx-community/Llama-3.2-1B-Instruct-bf16@863c846a9ac6fad4e49e1743d52984dff262e953`.
+Its original BF16 files use the same Llama computational profile; MLX is not
+required. The model license is Llama 3.2, separately from this project's license.
+
+```sh
+./monolith infer local -repo mlx-community/Llama-3.2-1B-Instruct-bf16 \
+  -revision 863c846a9ac6fad4e49e1743d52984dff262e953 \
+  -download-mib 2500 -weight-format q8 -weight-mib 1400 -context 512 \
+  chat -max-tokens 64
+
+HF_HUB_OFFLINE=1 ./monolith generate -hf-model PATH_TO_LLAMA32_INSTRUCT \
+  -weight-format q8 -weight-mib 1400 -context 512 \
+  -chat -prompt 'Reply with exactly OK.' -max-tokens 8 \
+  -temperature 0 -repeat-penalty 1 -json
+```
+
+`-messages FILE` / `-messages -` and HTTP `messages` use the same formatter.
+The exact template is identified by SHA-256; arbitrary Jinja, tools, tool calls,
+multimodal input and unknown roles are rejected. It adds the template's system
+header, knowledge date, current local calendar date, trimmed message content,
+end-of-turn markers and assistant header. The local clock is read for each chat
+prompt. Golden tests provide a fixed date; real receipts preserve the rendered
+prompt so that dynamic date text is visible.
+
+Chat supplies its own BOS and explicitly bypasses plain-text BOS processing.
+A literal BOS in ordinary text is still preserved separately.
+Llama config `eos_token_id` may be one integer or 1–8 distinct in-range integers.
+Every ID must be a registered special token for text inference. All configured
+stop IDs terminate token-ID, CLI, HTTP and SSE generation with `finish_reason`
+set to `eos`; the terminating ID is retained in accounting but hidden in text.
+Inspection exposes the stop set. No extra stop IDs are invented from names.
+
+The fixed-date tokenizer oracle covers seven chat arrangements, including
+system-only input, history, Unicode trimming and empty content. Synthetic
+generation tests force every configured termination ID and check one BOS,
+stream completion, HTTP equivalence and resource release. Base models and
+unrecognized templates retain only their supported plain-text paths.
 
 ## RoPE contract
 

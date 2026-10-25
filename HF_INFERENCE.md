@@ -4,9 +4,11 @@ This guide describes the local Go importer. See [inference setup](INFERENCE.md)
 for automatic downloads and remote HF execution without local weights.
 
 The importer accepts restricted `LlamaForCausalLM` and `Qwen2ForCausalLM`
-profiles: SiLU, GQA, scalar BOS/EOS IDs, half-split RoPE and full
+profiles: SiLU, GQA, scalar BOS IDs, half-split RoPE and full
 causal attention. Llama additionally accepts the fixed `llama3` frequency
-scaling profile and the [Llama 3.2 base text tokenizer](LLAMA3_INFERENCE.md). Llama projections must be bias-free; Qwen2 includes Q/K/V
+scaling profile, up to eight configured EOS IDs and the
+[Llama 3.2 text/chat tokenizer](LLAMA3_INFERENCE.md). Qwen2 and GPT-2 retain
+scalar EOS profiles. Llama projections must be bias-free; Qwen2 includes Q/K/V
 biases. Both tied and separate output embeddings are supported. Sliding-window
 attention, other RoPE scaling algorithms, MoE and unknown computational settings are rejected.
 This is not general Transformers compatibility.
@@ -203,12 +205,14 @@ go run . generate -hf-model runs/smollm2 -context 512 \
   -max-tokens 32 -temperature 0 -repeat-penalty 1 -json
 ```
 
-Llama 3.2 base text receives the exact BOS post-processor; its plain-text decoder
+Llama 3.2 plain text receives the exact BOS post-processor; its plain-text decoder
 also applies the configured whitespace cleanup, consistently across JSON/SSE.
 Other supported HF plain prompts receive no implicit BOS. Empty encoded prompts are rejected for
 generation. Chat formatting adds the exact supported model template,
 including its default system message when no system message is supplied, and
-the assistant generation prefix. Only the recognized SmolLM2 and Qwen2.5 templates are implemented;
+the assistant generation prefix. Llama Instruct's formatted chat supplies its
+own BOS and uses all configured end-of-turn IDs. Only recognized SmolLM2,
+Qwen2.5 and Llama 3.2 templates are implemented;
 Jinja is never executed. A different template remains usable for plain prompts
 but fails explicitly when chat formatting is requested.
 

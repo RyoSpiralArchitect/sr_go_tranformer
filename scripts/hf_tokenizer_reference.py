@@ -60,20 +60,21 @@ def fixture(folder):
     (folder / "tokenizer_config.json").write_text(json.dumps(cfg, indent=2) + "\n")
 
 
-def oracle(folder, output, add_special_tokens=False, extra_texts=()):
+def oracle(folder, output, add_special_tokens=False, extra_texts=(), chat_date=None, extra_chats=()):
     tok = AutoTokenizer.from_pretrained(folder, local_files_only=True, trust_remote_code=False)
     cases = []
     for text in texts() + list(extra_texts):
         ids = tok.encode(text, add_special_tokens=add_special_tokens)
         cases.append(dict(text=text, ids=ids, decoded=tok.decode(ids, skip_special_tokens=True)))
     chats = []
-    for messages in [
+    for messages in ([
         [dict(role="user", content="Hello! 🐈‍⬛")],
         [dict(role="system", content="Answer briefly."), dict(role="user", content="2+2?")],
         [dict(role="user", content="Hi"), dict(role="assistant", content="Hello."),
-         dict(role="user", content="Let's write Go.")]] if tok.chat_template else []:
-        text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        ids = tok.apply_chat_template(messages, tokenize=True, add_generation_prompt=True)
+         dict(role="user", content="Let's write Go.")]] + list(extra_chats)) if tok.chat_template else []:
+        options = dict(date_string=chat_date) if chat_date else {}
+        text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, **options)
+        ids = tok.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, **options)
         chats.append(dict(messages=messages, prompt=text, ids=ids))
     # Exercise lossy UTF-8 decoding independently of encoded text.
     raw = json.loads((folder / "tokenizer.json").read_text())
@@ -93,6 +94,8 @@ def oracle(folder, output, add_special_tokens=False, extra_texts=()):
                   decode_cases=decode_cases, files={
                       name: hashlib.sha256((folder/name).read_bytes()).hexdigest()
                       for name in ("tokenizer.json", "tokenizer_config.json")})
+    if chat_date:
+        report['chat_date'] = chat_date
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
 
 

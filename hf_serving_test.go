@@ -24,7 +24,7 @@ func hfServingModel(t *testing.T, tok *hfTokenizer, winner int) *Model {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m.hf = &hfConfig{BOS: tok.bos, EOS: tok.eos}
+	m.hf = &hfConfig{BOS: tok.bos, EOS: tok.eos, ExtraEOS: append([]int(nil), tok.extraEOS...)}
 	if winner < 0 {
 		return m
 	}

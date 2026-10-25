@@ -629,7 +629,7 @@ func TestHTTPStreamClearsDeadlineWhileWaiting(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				e.serveStream(w, r, ctx, "pending", defaultSampling())
+				e.serveStream(w, r, ctx, "pending", defaultSampling(), false)
 			}()
 			var request *engineRequest
 			select {

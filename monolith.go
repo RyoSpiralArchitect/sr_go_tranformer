@@ -144,8 +144,21 @@ type hfConfig struct {
 	TP            int           `json:"pretraining_tp"`
 	BOS           int           `json:"bos_token_id"`
 	EOS           int           `json:"eos_token_id"`
+	ExtraEOS      []int         `json:"-"` // Additional bounded Llama termination IDs.
 	Sliding       bool          `json:"use_sliding_window,omitempty"`
 	LayerTypes    []string      `json:"layer_types,omitempty"`
+}
+
+func (h hfConfig) isEOS(id int) bool {
+	if id == h.EOS {
+		return true
+	}
+	for _, stop := range h.ExtraEOS {
+		if id == stop {
+			return true
+		}
+	}
+	return false
 }
 
 // encoding/json otherwise accepts duplicate keys and invalid UTF-8. Reject
@@ -258,9 +271,34 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 			return h, Config{}, fmt.Errorf("unsupported HF config field %q", k)
 		}
 	}
+	var extraEOS []int
+	if eos := bytes.TrimSpace(raw["eos_token_id"]); len(eos) > 0 && eos[0] == '[' {
+		var ids []json.RawMessage
+		if string(raw["model_type"]) != `"llama"` || json.Unmarshal(eos, &ids) != nil || len(ids) < 1 || len(ids) > 8 {
+			return h, Config{}, errors.New("Llama eos_token_id requires 1..8 integer IDs")
+		}
+		seen := map[int]bool{}
+		for i, value := range ids {
+			var id int
+			if string(value) == "null" || json.Unmarshal(value, &id) != nil || id < 0 || seen[id] {
+				return h, Config{}, errors.New("Llama eos_token_id contains an invalid or duplicate ID")
+			}
+			seen[id] = true
+			if i > 0 {
+				extraEOS = append(extraEOS, id)
+			}
+		}
+		raw["eos_token_id"] = ids[0]
+	}
 	b, _ := json.Marshal(raw)
 	if err := json.Unmarshal(b, &h); err != nil {
 		return h, Config{}, err
+	}
+	h.ExtraEOS = extraEOS
+	for _, id := range extraEOS {
+		if id >= h.Vocab {
+			return h, Config{}, errors.New("Llama EOS ID outside vocabulary")
+		}
 	}
 	if raw["head_dim"] != nil && (string(raw["head_dim"]) == "null" || h.Heads < 1 || h.Dim%h.Heads != 0 || h.HeadDim != h.Dim/h.Heads) {
 		return h, Config{}, errors.New("HF head_dim must equal hidden_size / num_attention_heads")
@@ -482,6 +520,7 @@ type HFPlan struct {
 	ModelType               string         `json:"model_type"`
 	TiedEmbeddings          bool           `json:"tied_embeddings"`
 	RoPEScaling             *hfLlama3RoPE  `json:"rope_scaling,omitempty"`
+	EOSIDs                  []int          `json:"eos_token_ids,omitempty"`
 	Config                  Config         `json:"config"`
 	Parameters              int64          `json:"parameters"`
 	WeightBytes             int64          `json:"weight_bytes"`
@@ -605,6 +644,7 @@ func openHFArchiveFormat(dir string, contextLimit int, weightBudget int64, forma
 		}
 	}()
 	a.Plan = HFPlan{Format: "monolith-hf-plan-v1", ModelType: h.ModelType, TiedEmbeddings: h.Tied, Config: c, Parameters: parameters, WeightBytes: parameters * 4, RopeBytes: int64(c.Context) * (int64(c.Dim) / int64(c.Heads)) * 4, KVBytesPerToken: int64(c.Layers*c.KVDim()) * 8, ConversionBufferBytes: 64 << 10, DTypes: map[string]int{}}
+	a.Plan.EOSIDs = append([]int{h.EOS}, h.ExtraEOS...)
 	a.Plan.WeightBytes, a.Plan.WeightFormat, a.Plan.FP32WeightBytes = storage, format, parameters*4
 	a.Plan.RoPEScaling = h.RoPE
 	a.Plan.QuantizedParameters, a.Plan.ScaleBytes = quantized, scales
@@ -1140,7 +1180,7 @@ func inferHFIDs(ctx context.Context, m *Model, ids []int, count, chunk int, logi
 			out.Logits = append(out.Logits, next)
 		}
 		out.TokenIDs = append(out.TokenIDs, best)
-		if best == m.hf.EOS {
+		if m.hf.isEOS(best) {
 			out.FinishReason = "eos"
 			break
 		}
@@ -1304,7 +1344,7 @@ func runTokenizeHF(ctx context.Context, args []string, validateOnly bool) error 
 	if err != nil {
 		return err
 	}
-	ids, err := t.encodePrompt(ctx, text, c.Context)
+	ids, err := t.encodeText(ctx, text, c.Context, !*chat && *messages == "")
 	if err != nil {
 		return err
 	}
@@ -1359,12 +1399,12 @@ type inferenceTokenizer interface {
 	Pieces() [][]byte
 	Decode([]int) string
 	encodePrompt(context.Context, string, int) ([]int, error)
-	eosID() int
+	isEOS(int) bool
 	blockedID() int
 }
 
-func (t Tokenizer) eosID() int     { return EOS }
-func (t Tokenizer) blockedID() int { return BOS }
+func (t Tokenizer) isEOS(id int) bool { return id == EOS }
+func (t Tokenizer) blockedID() int    { return BOS }
 func (t Tokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]int, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -1398,6 +1438,7 @@ type hfTokenizer struct {
 	llama3   bool
 	cleanup  bool
 	whole    map[string]int // Llama BPE ignore_merges: exact pre-token vocabulary lookup.
+	extraEOS []int
 }
 
 func (t *hfTokenizer) Vocab() int { return len(t.pieces) }
@@ -1408,8 +1449,10 @@ func (t *hfTokenizer) Validate() error {
 	return nil // All tables are validated once, before this immutable object escapes.
 }
 func (t *hfTokenizer) Pieces() [][]byte { return t.pieces }
-func (t *hfTokenizer) eosID() int       { return t.eos }
-func (t *hfTokenizer) blockedID() int   { return -1 }
+func (t *hfTokenizer) isEOS(id int) bool {
+	return (hfConfig{EOS: t.eos, ExtraEOS: t.extraEOS}).isEOS(id)
+}
+func (t *hfTokenizer) blockedID() int { return -1 }
 func (t *hfTokenizer) Decode(ids []int) string {
 	var b []byte
 	for _, id := range ids {
@@ -1431,16 +1474,24 @@ type ChatMessage struct {
 // Exact Qwen2.5 template identity. Only its system/user/assistant, no-tools
 // path is implemented; arbitrary Jinja and tool-call input are never executed.
 const qwenChatTemplateSHA = "cd8e9439f0570856fd70470bf8889ebd8b5d1107207f67a5efb46e342330527f"
+const llama3ChatTemplateSHA = "5816fce10444e03c2e9ee1ef8a4a1ea61ae7e69e438613f3b17b69d0426223a4"
 const qwenSplitPattern = "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
 
 var llama3SplitPattern = strings.Replace(qwenSplitPattern, "|\\p{N}|", "|\\p{N}{1,3}|", 1)
 
 func (t *hfTokenizer) formatChat(messages []ChatMessage) (string, error) {
+	return t.formatChatAt(messages, time.Now())
+}
+
+func (t *hfTokenizer) formatChatAt(messages []ChatMessage, now time.Time) (string, error) {
 	if !t.chat {
 		return "", errors.New("unsupported chat template")
 	}
 	if len(messages) == 0 || len(messages) > 128 {
 		return "", errors.New("chat requires 1..128 messages")
+	}
+	if t.llama3 {
+		return t.formatLlamaChat(messages, now)
 	}
 	var b strings.Builder
 	if messages[0].Role != "system" {
@@ -1464,6 +1515,38 @@ func (t *hfTokenizer) formatChat(messages []ChatMessage) (string, error) {
 		b.WriteString("<|im_end|>\n")
 	}
 	b.WriteString("<|im_start|>assistant\n")
+	return b.String(), nil
+}
+
+func (t *hfTokenizer) formatLlamaChat(messages []ChatMessage, now time.Time) (string, error) {
+	total := 256
+	for _, m := range messages {
+		if m.Role != "system" && m.Role != "user" && m.Role != "assistant" {
+			return "", errors.New("chat role must be system, user or assistant")
+		}
+		total += len(m.Content) + len(m.Role) + 64
+		if !utf8.ValidString(m.Content) || total > 1<<20 {
+			return "", errors.New("chat exceeds UTF-8/1 MiB limit")
+		}
+	}
+	// Jinja's trim follows Python str.strip, which additionally treats the
+	// four ASCII information separators as whitespace.
+	trim := func(s string) string {
+		return strings.TrimFunc(s, func(r rune) bool { return inHFRanges(r, llama3SpaceRanges) || r >= 0x1c && r <= 0x1f })
+	}
+	system := ""
+	if messages[0].Role == "system" {
+		system = trim(messages[0].Content)
+		messages = messages[1:]
+	}
+	var b strings.Builder
+	b.WriteString("<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nCutting Knowledge Date: December 2023\nToday Date: ")
+	b.WriteString(now.Format("02 Jan 2006"))
+	b.WriteString("\n\n" + system + "<|eot_id|>")
+	for _, m := range messages {
+		b.WriteString("<|start_header_id|>" + m.Role + "<|end_header_id|>\n\n" + trim(m.Content) + "<|eot_id|>")
+	}
+	b.WriteString("<|start_header_id|>assistant<|end_header_id|>\n\n")
 	return b.String(), nil
 }
 func hfByteAlphabet() ([256]rune, map[rune]byte) {
@@ -1627,7 +1710,7 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 	}
 	if cfg.AddPrefix || cfg.Cleanup && !llama3 || cfg.AddBOS || cfg.Split || (cfg.Errors != "" && cfg.Errors != "replace") || len(cfg.Extra) != 0 ||
 		(!llama3 && len(cfg.Inputs) != 0) ||
-		(llama3 && (cfg.Class != "PreTrainedTokenizerFast" || cfg.MaxLength < h.Context || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.BOS != "<|begin_of_text|>" || cfg.EOS != "<|end_of_text|>" || len(cfg.Inputs) != 2 || cfg.Inputs[0] != "input_ids" || cfg.Inputs[1] != "attention_mask")) ||
+		(llama3 && (cfg.Class != "PreTrainedTokenizerFast" || cfg.MaxLength < h.Context || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.BOS != "<|begin_of_text|>" || cfg.EOS != "<|end_of_text|>" && cfg.EOS != "<|eot_id|>" || len(cfg.Inputs) != 2 || cfg.Inputs[0] != "input_ids" || cfg.Inputs[1] != "attention_mask")) ||
 		(smol && (cfg.Class != "GPT2Tokenizer" || cfg.Vocab != h.Vocab || cfg.MaxLength != h.Context)) ||
 		(qwen && (cfg.Class != "Qwen2Tokenizer" || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.MaxLength < h.Context)) ||
 		(gpt2 && (cfg.Class != "GPT2Tokenizer" || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.MaxLength < h.Context || cfg.Chat != "")) ||
@@ -1636,6 +1719,7 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		return nil, errors.New("HF tokenizer config/model mismatch or unsupported options")
 	}
 	t := &hfTokenizer{pieces: make([][]byte, h.Vocab), merges: map[Pair]hfMerge{}, bos: h.BOS, eos: h.EOS, qwen: qwen, gpt2: gpt2, llama3: llama3, cleanup: cfg.Cleanup}
+	t.extraEOS = append([]int(nil), h.ExtraEOS...)
 	if llama3 {
 		t.whole = make(map[string]int, len(raw.Model.Vocab))
 	}
@@ -1668,8 +1752,13 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 			return nil, errors.New("HF special token not registered")
 		}
 	}
-	if (cfg.BOS != "" && raw.Model.Vocab[cfg.BOS] != h.BOS) || raw.Model.Vocab[cfg.EOS] != h.EOS {
+	if (cfg.BOS != "" && raw.Model.Vocab[cfg.BOS] != h.BOS) || !h.isEOS(raw.Model.Vocab[cfg.EOS]) {
 		return nil, errors.New("HF BOS/EOS mismatch")
+	}
+	for _, id := range append([]int{h.EOS}, h.ExtraEOS...) {
+		if !special[id] {
+			return nil, errors.New("HF EOS ID must be a registered special token")
+		}
 	}
 	sort.Slice(t.specials, func(i, j int) bool {
 		if len(t.specials[i].Content) == len(t.specials[j].Content) {
@@ -1759,6 +1848,11 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		sum := sha256.Sum256([]byte(cfg.Chat))
 		t.chat = hex.EncodeToString(sum[:]) == qwenChatTemplateSHA &&
 			specialNames["<|im_start|>"] && cfg.EOS == "<|im_end|>"
+	}
+	if llama3 {
+		sum := sha256.Sum256([]byte(cfg.Chat))
+		t.chat = hex.EncodeToString(sum[:]) == llama3ChatTemplateSHA && cfg.EOS == "<|eot_id|>" &&
+			specialNames["<|start_header_id|>"] && specialNames["<|end_header_id|>"] && specialNames["<|eot_id|>"]
 	}
 	return t, t.Validate()
 }
@@ -6068,12 +6162,26 @@ func validateInferenceTokenizer(m *Model, tok inferenceTokenizer) error {
 	if (m.hf != nil) != ok || ok && (h.bos != m.hf.BOS || h.eos != m.hf.EOS) {
 		return errors.New("incompatible model/tokenizer inference profiles")
 	}
+	if ok {
+		if len(h.extraEOS) != len(m.hf.ExtraEOS) {
+			return errors.New("incompatible model/tokenizer EOS set")
+		}
+		for i, id := range h.extraEOS {
+			if id != m.hf.ExtraEOS[i] {
+				return errors.New("incompatible model/tokenizer EOS set")
+			}
+		}
+	}
 	if tok.Vocab() != m.Config.Vocab {
 		return errors.New("tokenizer/model mismatch")
 	}
 	return nil
 }
 func preparePrompt(ctx context.Context, m *Model, tok inferenceTokenizer, prompt string, s Sampling) ([]int, error) {
+	return prepareInput(ctx, m, tok, prompt, s, false)
+}
+
+func prepareInput(ctx context.Context, m *Model, tok inferenceTokenizer, prompt string, s Sampling, framed bool) ([]int, error) {
 	if err := validateInferenceTokenizer(m, tok); err != nil {
 		return nil, err
 	}
@@ -6083,7 +6191,17 @@ func preparePrompt(ctx context.Context, m *Model, tok inferenceTokenizer, prompt
 	if len(prompt) > 1024*1024 {
 		return nil, errors.New("prompt exceeds 1 MiB")
 	}
-	ids, err := tok.encodePrompt(ctx, prompt, m.Config.Context-s.MaxTokens)
+	var ids []int
+	var err error
+	if framed {
+		h, ok := tok.(*hfTokenizer)
+		if !ok || !h.chat {
+			return nil, errors.New("formatted chat requires a supported HF template")
+		}
+		ids, err = h.encodeText(ctx, prompt, m.Config.Context-s.MaxTokens, false)
+	} else {
+		ids, err = tok.encodePrompt(ctx, prompt, m.Config.Context-s.MaxTokens)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -6099,7 +6217,23 @@ func completion(tok inferenceTokenizer, output []int, prompt int, reason string)
 	return Completion{strings.ToValidUTF8(tok.Decode(output), "\ufffd"), output, prompt, len(output), reason}
 }
 func Generate(ctx context.Context, m *Model, tok inferenceTokenizer, prompt string, s Sampling) (Completion, error) {
-	ids, err := preparePrompt(ctx, m, tok, prompt, s)
+	return generateInput(ctx, m, tok, prompt, s, false)
+}
+
+func GenerateChat(ctx context.Context, m *Model, tok inferenceTokenizer, messages []ChatMessage, s Sampling) (Completion, error) {
+	h, ok := tok.(*hfTokenizer)
+	if !ok || h == nil {
+		return Completion{}, errors.New("chat requires a supported HF tokenizer")
+	}
+	prompt, err := h.formatChat(messages)
+	if err != nil {
+		return Completion{}, err
+	}
+	return generateInput(ctx, m, tok, prompt, s, true)
+}
+
+func generateInput(ctx context.Context, m *Model, tok inferenceTokenizer, prompt string, s Sampling, framed bool) (Completion, error) {
+	ids, err := prepareInput(ctx, m, tok, prompt, s, framed)
 	if err != nil {
 		return Completion{}, err
 	}
@@ -6129,7 +6263,7 @@ func Generate(ctx context.Context, m *Model, tok inferenceTokenizer, prompt stri
 		}
 		out = append(out, id)
 		history = append(history, id)
-		if id == tok.eosID() {
+		if tok.isEOS(id) {
 			reason = "eos"
 			break
 		}
@@ -6535,7 +6669,7 @@ func (e *Engine) Stats() EngineStats {
 	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load(), Released: s.Released.Load(), Computing: s.Computing.Load(), AdmissionUsed: len(e.admission), KernelWorkers: s.KernelWorkers.Load(), WorkspaceFloatBytes: s.WorkspaceFloatBytes.Load()}
 }
 func (e *Engine) Close() { e.cancel(); <-e.done }
-func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streaming bool) (*engineRequest, error) {
+func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streaming, framed bool) (*engineRequest, error) {
 	started := time.Now()
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -6557,7 +6691,7 @@ func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streami
 			<-e.admission
 		}
 	}()
-	ids, err := preparePrompt(ctx, e.Model, e.Tokenizer, prompt, s)
+	ids, err := prepareInput(ctx, e.Model, e.Tokenizer, prompt, s, framed)
 	if err != nil {
 		return nil, err
 	}
@@ -6620,14 +6754,20 @@ func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streami
 	}
 }
 func (e *Engine) Stream(ctx context.Context, prompt string, s Sampling) (*CompletionStream, error) {
-	r, err := e.enqueue(ctx, prompt, s, true)
+	return e.streamInput(ctx, prompt, s, false)
+}
+func (e *Engine) streamInput(ctx context.Context, prompt string, s Sampling, framed bool) (*CompletionStream, error) {
+	r, err := e.enqueue(ctx, prompt, s, true, framed)
 	if err != nil {
 		return nil, err
 	}
 	return &CompletionStream{Events: r.Events, request: r}, nil
 }
 func (e *Engine) Generate(ctx context.Context, prompt string, s Sampling) (Completion, error) {
-	r, err := e.enqueue(ctx, prompt, s, false)
+	return e.generateInput(ctx, prompt, s, false)
+}
+func (e *Engine) generateInput(ctx context.Context, prompt string, s Sampling, framed bool) (Completion, error) {
+	r, err := e.enqueue(ctx, prompt, s, false, framed)
 	if err != nil {
 		return Completion{}, err
 	}
@@ -6884,7 +7024,7 @@ func (e *Engine) run() {
 			s.Output = append(s.Output, id)
 			s.History = append(s.History, id)
 			reason := ""
-			if id == e.Tokenizer.eosID() {
+			if e.Tokenizer.isEOS(id) {
 				reason = "eos"
 			} else if len(s.Output) == s.Request.Sampling.MaxTokens {
 				reason = "length"
@@ -6937,12 +7077,12 @@ func writeInferenceError(w http.ResponseWriter, err error) {
 	}
 	writeJSON(w, status, map[string]string{"error": err.Error(), "code": code})
 }
-func (e *Engine) serveStream(w http.ResponseWriter, r *http.Request, ctx context.Context, prompt string, sampling Sampling) {
+func (e *Engine) serveStream(w http.ResponseWriter, r *http.Request, ctx context.Context, prompt string, sampling Sampling, framed bool) {
 	if _, ok := w.(http.Flusher); !ok {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "response writer does not support streaming"})
 		return
 	}
-	stream, err := e.Stream(ctx, prompt, sampling)
+	stream, err := e.streamInput(ctx, prompt, sampling, framed)
 	if err != nil {
 		writeInferenceError(w, err)
 		return
@@ -7092,10 +7232,10 @@ func (e *Engine) Handler() http.Handler {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 		defer cancel()
 		if req.Stream {
-			e.serveStream(w, r, ctx, prompt, req.Sampling)
+			e.serveStream(w, r, ctx, prompt, req.Sampling, req.Messages != nil)
 			return
 		}
-		out, err := e.Generate(ctx, prompt, req.Sampling)
+		out, err := e.generateInput(ctx, prompt, req.Sampling, req.Messages != nil)
 		if err != nil {
 			writeInferenceError(w, err)
 			return
@@ -8014,7 +8154,7 @@ func runGenerate(ctx context.Context, args []string, validateOnly bool) error {
 	if err != nil {
 		return err
 	}
-	out, err := Generate(ctx, m, tok, formatted, s)
+	out, err := generateInput(ctx, m, tok, formatted, s, *chat || *messages != "")
 	if err != nil {
 		return err
 	}
@@ -8083,7 +8223,7 @@ func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s
 			}
 			continue
 		}
-		stream, err := e.Stream(ctx, prompt, s)
+		stream, err := e.streamInput(ctx, prompt, s, true)
 		if err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
