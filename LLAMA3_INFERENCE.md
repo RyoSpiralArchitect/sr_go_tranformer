@@ -108,7 +108,14 @@ Inspection exposes the stop set. No extra stop IDs are invented from names.
 The fixed-date tokenizer oracle covers seven chat arrangements, including
 system-only input, history, Unicode trimming and empty content. Synthetic
 generation tests force every configured termination ID and check one BOS,
-stream completion, HTTP equivalence and resource release. Base models and
+stream completion, HTTP equivalence and resource release. CLI subprocess tests
+also compare direct flags, stdin text, stdin message JSON and interactive reset.
+The pinned 3B Instruct metadata at revision
+`6d88ba43024fef71b10e52e101c7cd4598322601` has identical tokenizer and template
+files to the 1B profile. Its 159 encoding, seven chat and nine decoding cases
+match the same oracle; this metadata check does not execute the 3B Instruct
+weights. [Tokenizer verification](validation/llama3/chat-tokenizer-validation.json)
+records both sources. Base models and
 unrecognized templates retain only their supported plain-text paths.
 
 ## RoPE contract

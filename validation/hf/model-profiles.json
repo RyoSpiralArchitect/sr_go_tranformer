@@ -74,7 +74,7 @@
       },
       "weight_file_bytes": 6425528971,
       "id": "llama32-3b",
-      "scope": "Token-ID inference with Llama 3 RoPE; Go text/chat tokenizer unsupported."
+      "scope": "Token-ID and plain-text inference with Llama 3 RoPE. This base model has no chat template."
     },
     {
       "id": "llama32-1b-instruct",

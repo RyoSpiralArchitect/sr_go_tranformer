@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -212,5 +213,110 @@ func TestLlama3HTTPChatFraming(t *testing.T) {
 		if !reflect.DeepEqual(got, want) {
 			t.Fatal("HTTP framing/stop", got, want)
 		}
+	}
+}
+
+// Exercise the actual flag dispatch, stdin framing and interactive reset. The
+// tiny zero-weight fixture intentionally predicts the same token at each step.
+func TestLlama3CLIChatFraming(t *testing.T) {
+	if args := os.Getenv("MONOLITH_TEST_LLAMA_CHAT_ARGS"); args != "" {
+		var cli []string
+		if err := json.Unmarshal([]byte(args), &cli); err != nil {
+			t.Fatal(err)
+		}
+		os.Args = append([]string{"monolith"}, cli...)
+		main()
+		os.Exit(0)
+	}
+	dir := t.TempDir()
+	for _, name := range []string{"config.json", "tokenizer.json", "tokenizer_config.json"} {
+		b, err := os.ReadFile(filepath.Join("testdata/hf-llama3-chat", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), b, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, c, err := readHFConfig(dir, 512)
+	if err != nil {
+		t.Fatal(err)
+	}
+	header := map[string]any{}
+	var payload []byte
+	for _, spec := range hfTensorSpecs(c) {
+		n := 1
+		for _, d := range spec.Shape {
+			n *= d
+		}
+		start := len(payload)
+		payload = append(payload, make([]byte, n*4)...)
+		header[spec.Name] = map[string]any{"dtype": "F32", "shape": spec.Shape, "data_offsets": []int{start, len(payload)}}
+	}
+	hfWriteShard(t, filepath.Join(dir, "model.safetensors"), header, payload)
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runCLI := func(input string, args ...string) []byte {
+		t.Helper()
+		args = append(args, "-hf-model", dir, "-context", "512")
+		b, err := json.Marshal(args)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, exe, "-test.run=^TestLlama3CLIChatFraming$")
+		cmd.Env = append(os.Environ(), "MONOLITH_TEST_LLAMA_CHAT_ARGS="+string(b))
+		cmd.Stdin = strings.NewReader(input)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("CLI %v: %v: %s", args, err, stderr.String())
+		}
+		return out
+	}
+	var encoded struct {
+		Prompt string `json:"prompt"`
+		IDs    []int  `json:"token_ids"`
+	}
+	if err := json.Unmarshal(runCLI("", "tokenize-hf", "-chat", "-prompt", "Hi"), &encoded); err != nil {
+		t.Fatal(err)
+	}
+	var want Completion
+	for i, source := range []struct {
+		args  []string
+		input string
+	}{
+		{[]string{"-chat", "-prompt", "Hi"}, ""},
+		{[]string{"-chat", "-prompt-file", "-"}, "Hi"},
+		{[]string{"-messages", "-"}, `[{"role":"user","content":"Hi"}]`},
+	} {
+		args := append([]string{"generate", "-max-tokens", "3", "-temperature", "0", "-repeat-penalty", "1", "-json"}, source.args...)
+		var got Completion
+		if err := json.Unmarshal(runCLI(source.input, args...), &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.PromptTokens != len(encoded.IDs) || got.CompletionTokens != 3 {
+			t.Fatal("CLI chat framing", got, encoded.IDs)
+		}
+		if i == 0 {
+			want = got
+		} else if !reflect.DeepEqual(got, want) {
+			t.Fatal("stdin chat mismatch", got, want)
+		}
+	}
+	var plain Completion
+	if err := json.Unmarshal(runCLI(encoded.Prompt, "generate", "-prompt-file", "-", "-max-tokens", "3", "-temperature", "0", "-repeat-penalty", "1", "-json"), &plain); err != nil {
+		t.Fatal(err)
+	}
+	if plain.PromptTokens != want.PromptTokens+1 {
+		t.Fatal("plain input lost automatic BOS", plain, want)
+	}
+	interactive := runCLI("Hi\n/reset\nHi\n/exit\n", "chat", "-max-tokens", "3", "-temperature", "0", "-repeat-penalty", "1", "-kernel-workers", "2")
+	if string(interactive) != strings.Repeat(want.Text+"\n", 2) {
+		t.Fatalf("interactive reset mismatch: %q", interactive)
 	}
 }
