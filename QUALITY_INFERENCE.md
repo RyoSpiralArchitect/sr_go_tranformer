@@ -132,13 +132,123 @@ workers 4, at most six documents and 32 steps. The 96-token probes use six
 batched sessions; continuation samples run separately.
 
 `score_seconds` includes metric computation and reference I/O, so it is not an
-inference throughput benchmark. RSS is one observation after scoring/generation,
-not peak memory. Ordinary CI skips pretrained probes and runs the tiny synthetic
+inference throughput benchmark. `post_probe_rss_bytes` is one observation after
+scoring/generation, not peak memory. New runner results also include
+`process_resources.peak_rss_bytes`: the OS-reported lifetime peak for that one
+child, including startup, model loading, scoring and continuations. The runner
+uses `wait4` for the individual PID instead of cumulative `RUSAGE_CHILDREN`;
+an earlier larger format cannot set the next format's reported peak. Darwin
+bytes and Linux KiB are normalized to bytes. This measurement requires macOS or
+Linux and is specific to the host/workload, not a memory admission limit.
+Historical receipts above retain their original single-observation measurements.
+See [Python's wait4 interface](https://docs.python.org/3/library/os.html#os.wait4)
+and [Linux resource accounting](https://man7.org/linux/man-pages/man2/getrusage.2.html).
+
+Ordinary CI skips pretrained probes and runs the tiny synthetic
 mixed-format loader, budget, numerical, worker, source/offline and engine tests,
-plus analytical metric tests. No pretrained weights or reference vectors are
-checked in.
+plus analytical metric tests. Small subprocess tests verify separate RSS peaks,
+nonzero exit handling and timeout kill/reaping on Linux and macOS. No pretrained
+weights or reference vectors are checked in.
 
 For the larger model with externally prepared token IDs, see
 [the Llama 3.2 3B trial](LLAMA3_INFERENCE.md). That original numerical trial
 used external IDs; the linked guide also covers the subsequently verified Go
 text tokenizer and Instruct chat path.
+
+## 7B comparison protocol
+
+The pinned source is `Qwen/Qwen2.5-7B-Instruct` at revision
+`a09a35458c702b33eeacc393d103063234e8bc28`. Use the original four BF16 shards
+whose identities are recorded in the model catalog. The runtime converts them
+to the selected Go weight layout through bounded buffers; it does not create
+an expanded FP32 model or another quantized weight file on disk.
+
+```sh
+HF_HUB_OFFLINE=1 python3 -S scripts/quant_quality.py \
+  --model PATH_TO_QWEN_7B --id qwen25-7b \
+  --reference q8 --formats q8 q4 q4-mixed --weight-mib 8192 \
+  --output-dir runs/qwen7b-quality
+HF_HUB_OFFLINE=1 python3 -S scripts/hf_large_model_smoke.py \
+  --model PATH_TO_QWEN_7B --id qwen25-7b --format q4-mixed \
+  --output-dir runs/qwen7b-serving
+```
+
+The quality run uses the same six passages and 96 positions as above, with one
+resident format at a time, context 128 and four Go workers. On a 24 GiB host,
+the approximately 28.4 GiB FP32 weight payload alone exceeds physical RAM, so
+Q8 is the reference. KL and top-1 agreement in this trial are **Q8-relative**;
+they cannot establish accuracy relative to the original FP32 model. NLL uses
+the same teacher-forced target tokens for every format. Weight payload, peak
+RSS and the post-probe observation are reported separately.
+The independent FP32 `hf_model_reference.py` runner also preflights its weight
+budget before constructing a Torch model. This catalog's 8 GiB 7B budget rejects
+that FP32 path early; use the Q8-relative command above on this host.
+
+The optional serving trial compares CLI, HTTP and two concurrent SSE requests
+for one resident format, then completes one request and cancels another. It
+requires observed server cancellation, drained reservations and clean shutdown.
+It is a bounded functional/lifecycle check, not a throughput benchmark. Its
+single post-smoke RSS observation is distinct from the quality runner's peak.
+
+## Measured 7B results
+
+On Apple M4 / 24 GiB / Go 1.27.1, the pinned model has 7,615,616,512 parameters
+and four original BF16 files totaling 15,231,271,888 bytes. The complete files
+were SHA-256 verified before the offline run. The fixed mixed policy and the
+original six passages were used unchanged: 96 positions, context 128, four
+workers, and one process per format in Q8, Q4, mixed order.
+
+| Format | Weight payload, GiB | Peak RSS, GiB | Mean NLL | KL from Q8 | Top-1 matches / 96 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| q8 | 7.537 | 7.099 | 3.5210 | 0 | 96 |
+| q4 | 3.991 | 4.200 | 3.8407 | 0.365748 | 65 |
+| q4-mixed | 4.498 | 4.172 | 3.7174 | 0.225669 | 72 |
+
+Mixed storage uses 40.3% less weight payload than Q8 and 12.7% more than Q4.
+Its mean distribution drift from Q8 is 38.3% lower than Q4 on these positions,
+and its top-1 agreement rises from 65 to 72. It still differs from Q8 on 24 of
+96 top-1 predictions. FP32 weights would occupy 30,462,466,048 bytes (28.370 GiB)
+and were not loaded on this host. These results are Q8-relative and do not
+measure error against FP32 or general instruction-following quality.
+
+RSS measures OS residency, separately from allocated weight payload. In this
+macOS run the Q8 and mixed peak RSS values are below their allocated payloads,
+and mixed's observed peak is slightly below Q4 despite its larger allocation.
+These are single-run observations, not evidence that mixed allocates less than
+Q4 or a minimum-RAM specification. Use the payload plan plus runtime, tokenizer,
+workspace and KV allowances for budgeting. The raw report also retains the
+post-probe RSS observation and Go heap allocation; no timings are presented as
+a throughput comparison.
+
+For `The capital of France is`, Q8 continues
+` Paris. Which of the following statements is`, while both Q4 and mixed continue
+` Paris. It is located in the northern`. All three produce
+` named Whiskers lived in a cozy` for `Once upon a time, a small cat`.
+Both are eight-token, ordinary-text continuations, not chat evaluations.
+
+The [complete 7B quality receipt](validation/quality/qwen25-7b.json) includes
+every scored position, all generated IDs, exact weight bytes, per-child peak
+RSS, original file hashes and the source/build/probe identities.
+
+The [7B mixed serving receipt](validation/quality/qwen25-7b-serving.json) records
+matching CLI/HTTP/concurrent-SSE output for ordinary text and a chat prompt,
+then one completed and one canceled load-test request. All six server requests
+were released, with zero active/queued/computing requests, admission reservations
+and reserved KV bytes at drain. Retained KV pool capacity is recorded separately.
+The server shut down cleanly. The chat sample emits
+`Cats are independent and fascinating creatures with` and stops at the eight-token
+limit; this checks the serving path, not sentence-completion quality.
+
+The serving configuration is context 128, two active sessions, four kernel
+workers, a 32 MiB KV pool and a 4,607 MiB weight budget. Its one post-smoke RSS
+sample is separate from the quality run's peak. A local model can be checked
+and used with a slightly larger weight-payload allowance:
+
+```sh
+HF_HUB_OFFLINE=1 ./monolith check-hf -hf-model PATH_TO_QWEN_7B \
+  -weight-format q4-mixed -weight-mib 4800 -context 128 -chat -json
+HF_HUB_OFFLINE=1 ./monolith generate -hf-model PATH_TO_QWEN_7B \
+  -weight-format q4-mixed -weight-mib 4800 -context 128 \
+  -chat -prompt 'Write one short sentence about cats.' \
+  -max-tokens 8 -temperature 0 -repeat-penalty 1 -json
+```

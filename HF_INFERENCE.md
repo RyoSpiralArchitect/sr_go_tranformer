@@ -27,6 +27,11 @@ are rejected.
 | Qwen2.5-1.5B-Instruct | `989aa7980e4cf806f80c7fef2b1adb7bc71aa306` | 6144 MiB | 512 |
 | openai-community/gpt2 | `607a30d783dfa663caf39e06633721c8d4cfcd7e` | 600 MiB | 512 |
 
+For Llama 3.2 base text and Instruct chat, see [the Llama guide](LLAMA3_INFERENCE.md).
+The [Qwen2.5-7B trial](QUALITY_INFERENCE.md#measured-7b-results) uses Q8/Q4/mixed
+storage with context 128 on a 24 GiB host; its quality comparison is Q8-relative
+because its FP32 payload alone is 28.370 GiB.
+
 GPT-2 can be fetched and run directly:
 
 ```sh
