@@ -21,7 +21,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Bounded inspection and F32/F16/BF16 decoding of restricted Hugging Face Llama, Qwen2 and GPT-2 Safetensors profiles.
 - GPT-2 absolute positions, affine LayerNorm and GELU, with streamed Conv1D conversion.
 - Token-ID inference with Transformers reference tests for logits, KV caches and tokenization.
-- SmolLM2 and Qwen2.5 text generation over CLI/HTTP/SSE, with recognized chat templates.
+- SmolLM2, Qwen2.5 and Llama 3.2 text generation over CLI/HTTP/SSE, with recognized Instruct chat templates.
 - Model preflight checks, prompts from files or stdin, and interactive chat with reusable workers.
 - Explicit local/remote inference, verified HF source caching, offline replay and bounded remote SSE.
 
@@ -46,6 +46,8 @@ accuracy tradeoffs and bounded larger-model examples.
 pair-decoding table; output degradation can be substantial.
 [Mixed Q4/Q8 inference](QUALITY_INFERENCE.md) protects embeddings and the output
 head, with held-out drift measurements and a reproducible quality probe.
+The [7B comparison](QUALITY_INFERENCE.md#measured-7b-results) records Q8-relative
+quality and per-process peak RSS on a 24 GiB CPU host.
 [Llama 3.2](LLAMA3_INFERENCE.md) supports text, recognized Instruct chat templates,
 and token-ID inference, with offline numerical and larger-model trials.
 

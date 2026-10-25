@@ -35,13 +35,17 @@ def main():
     for name, expected in source["files"].items():
         if serving.sha(a.model / name) != expected:
             raise RuntimeError("Pinned model identity mismatch: " + name)
+    binary = str(a.binary.resolve())
+    budget = source.get("weight_mib", 3072)
+    model_flags = ["-hf-model", str(a.model), "-context", "512", "-weight-mib", str(budget)]
+    # Enforce the FP32 budget before constructing the independent Torch model.
+    # Large profiles intended for Q8-relative trials must not allocate FP32 first.
+    subprocess.check_output([binary, "inspect-hf"] + model_flags, text=True, timeout=30)
+    flags = model_flags + ["-threads", "4"]
     torch.set_num_threads(1)
     tok = AutoTokenizer.from_pretrained(a.model, local_files_only=True, trust_remote_code=False)
     model = AutoModelForCausalLM.from_pretrained(a.model, dtype=torch.float32,
                 attn_implementation="eager", local_files_only=True, trust_remote_code=False).eval()
-    binary = str(a.binary.resolve())
-    budget = source.get("weight_mib", 3072)
-    flags = ["-hf-model", str(a.model), "-context", "512", "-weight-mib", str(budget), "-threads", "4"]
     requests = source.get("requests", [dict(prompt="The capital of France is"),
                 dict(messages=[dict(role="user", content="Write one short sentence about cats.")])])
     expected = []
