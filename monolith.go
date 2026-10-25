@@ -9709,8 +9709,8 @@ func runInfer(ctx context.Context, args []string) error {
 			Local  string `json:"local"`
 			Remote string `json:"remote"`
 		}{
-			{"SmolLM2 / Llama", "restricted Llama profile; tested SmolLM2 135M and 360M", "HF chat API; provider or dedicated endpoint required"},
-			{"Qwen2 / Qwen2.5", "restricted Qwen2 profile; tested Qwen2.5 0.5B and 1.5B; optional Q8 weights", "HF chat API; provider or dedicated endpoint required"},
+			{"SmolLM2 / Llama", "restricted Llama profile; tested SmolLM2 135M/360M, Llama 3.2 3B base text and 1B Instruct chat", "HF chat API; provider or dedicated endpoint required"},
+			{"Qwen2 / Qwen2.5", "restricted Qwen2 profile; tested Qwen2.5 0.5B/1.5B and 7B (Q8/Q4/mixed weights)", "HF chat API; provider or dedicated endpoint required"},
 			{"GPT-2", "tied GPT2LMHeadModel, absolute positions and gelu_new; raw text", "dedicated HF text-generation endpoint"},
 			{"gpt-oss", "not supported (MoE)", "HF chat API; provider or dedicated endpoint required"},
 			{"Mistral", "not supported", "HF chat API; provider or dedicated endpoint required"},
