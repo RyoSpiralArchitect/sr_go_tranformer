@@ -118,6 +118,36 @@ weights. [Tokenizer verification](validation/llama3/chat-tokenizer-validation.js
 records both sources. Base models and
 unrecognized templates retain only their supported plain-text paths.
 
+The [1B Instruct real-model receipt](validation/llama3/chat-model-reference.json)
+compares Go FP32 with Transformers 4.57.1 / Torch 2.8.0 CPU eager attention.
+For two bounded requests, generated IDs and final text match at prefill chunks
+1 and 16; maximum absolute logit error is `0.000129313` (tolerance `0.002`).
+`Reply with exactly OK.` produces `[4012, 128009]`, text `OK`, and an EOS finish.
+The ordinary-text request continues ` Paris. The Eiffel Tower is` for eight
+tokens. CLI, HTTP and concurrent SSE agree, all four serving requests release
+their reservations, and shutdown is clean. This validates these entry paths and
+numerical cases, not general instruction-following quality. The 3B Instruct
+profile above is checked at the tokenizer level only.
+The [CLI smoke receipt](validation/llama3/chat-cli-smoke.json) separately checks
+stdin text/message input, interactive reset and an idle-stdin SIGINT exit using
+the same real weights and expected completion.
+
+```sh
+# Matching pinned 1B Instruct weights and the isolated reference environment.
+HF_HUB_OFFLINE=1 python scripts/hf_model_reference.py \
+  --model PATH_TO_LLAMA32_1B_INSTRUCT --id llama32-1b-instruct \
+  --binary ./monolith --output runs/llama1b-reference.json
+# The same published tokenizer oracle also checks pinned 3B Instruct metadata.
+MONOLITH_HF_MODEL=PATH_TO_LLAMA32_3B_INSTRUCT \
+  MONOLITH_HF_TOKENIZER_REFERENCE=validation/llama3/chat-tokenizer.json \
+  go test -run '^TestHFLocalTokenizerReference$' -count=1 .
+```
+
+The FP32 reference run uses a 5,100 MiB weight budget and releases the Torch
+model before loading Go weights; allow extra RAM for tokenizer, runtime and KV.
+The Q8 command above has a smaller weight budget and does not promise FP32
+numerical equality.
+
 ## RoPE contract
 
 The fixed Llama 3 algorithm preserves high frequencies, divides low frequencies

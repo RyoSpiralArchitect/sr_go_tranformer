@@ -139,5 +139,6 @@ plus analytical metric tests. No pretrained weights or reference vectors are
 checked in.
 
 For the larger model with externally prepared token IDs, see
-[the Llama 3.2 3B trial](LLAMA3_INFERENCE.md). External IDs do not enable a
-production Go text tokenizer for that profile.
+[the Llama 3.2 3B trial](LLAMA3_INFERENCE.md). That original numerical trial
+used external IDs; the linked guide also covers the subsequently verified Go
+text tokenizer and Instruct chat path.

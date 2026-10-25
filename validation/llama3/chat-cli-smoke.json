@@ -1,0 +1,68 @@
+{
+  "format": "monolith-hf-cli-smoke-v1",
+  "model": "mlx-community/Llama-3.2-1B-Instruct-bf16",
+  "revision": "863c846a9ac6fad4e49e1743d52984dff262e953",
+  "files": {
+    "config.json": "8d40f9098d80a1510565233591a58ccf4dadba6a94934c1a514bf95201621efa",
+    "model.safetensors": "f5dc593b89368a9a44a8fc3b2dacd7a3d65e43acb4ffbd98a1a40fac9c2bd6da",
+    "model.safetensors.index.json": "21d0047096a570c0602ab22be6dad6838e291c5e8494de3fe973bfbe4cce36d9",
+    "tokenizer.json": "79e3e522635f3171300913bb421464a87de6222182a0570b9b2ccba2a964b2b4",
+    "tokenizer_config.json": "9823dcfdc1121869029da45192238e85cf44f0b232a6d9dc20e4fe6f4242a14e"
+  },
+  "binary_sha256": "4de7feb2902f2ae37285fd020febfd10b7d4a5211b9a4684d478b4ab5776c957",
+  "reference_sha256": "7d94153ca933ef956e2eb44734bbf3faa1769ffec2f7f4fc7c32753992dac00c",
+  "preflight": {
+    "format": "monolith-hf-check-v1",
+    "weights": {
+      "format": "monolith-hf-plan-v1",
+      "model_type": "llama",
+      "tied_embeddings": true,
+      "rope_scaling": {
+        "rope_type": "llama3",
+        "factor": 32,
+        "low_freq_factor": 1,
+        "high_freq_factor": 4,
+        "original_max_position_embeddings": 8192
+      },
+      "eos_token_ids": [
+        128001,
+        128008,
+        128009
+      ],
+      "config": {
+        "vocab": 128256,
+        "dim": 2048,
+        "hidden": 8192,
+        "layers": 16,
+        "heads": 32,
+        "kv_heads": 8,
+        "context": 2048,
+        "rope_theta": 500000,
+        "norm_eps": 1e-05
+      },
+      "parameters": 1235814400,
+      "weight_bytes": 4943257600,
+      "weight_format": "f32",
+      "fp32_weight_bytes": 4943257600,
+      "rope_bytes": 524288,
+      "kv_bytes_per_token": 65536,
+      "full_context_kv_bytes": 134217728,
+      "conversion_buffer_bytes": 65536,
+      "source_bytes": 2471645521,
+      "shards": 1,
+      "tensor_dtypes": {
+        "BF16": 146
+      }
+    },
+    "tokenizer_profile": "smollm-bytelevel",
+    "chat_supported": true,
+    "model_context": 131072,
+    "weight_budget_bytes": 5347737600,
+    "kv_page_aligned_bytes_per_session": 134217728,
+    "weight_values_checked": false
+  },
+  "prompt_stdin_match": true,
+  "messages_stdin_match": true,
+  "interactive_reset_match": true,
+  "idle_stdin_sigint_exit": true
+}
