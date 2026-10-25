@@ -101,7 +101,7 @@ func testHFTokenizerReference(t *testing.T, dir, path string) {
 		if prompt != tc.Prompt {
 			t.Fatalf("chat text %q != %q", prompt, tc.Prompt)
 		}
-		ids, err := tok.encodePrompt(context.Background(), prompt, 8192)
+		ids, err := tok.encodeText(context.Background(), prompt, 8192, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -113,7 +113,7 @@ func testHFTokenizerReference(t *testing.T, dir, path string) {
 		if got := tok.Decode(tc.IDs); got != tc.Decoded {
 			t.Fatalf("decode IDs %v got %q want %q", tc.IDs, got, tc.Decoded)
 		}
-		d := incrementalText{hf: true}
+		d := newTextDecoder(tok)
 		var out string
 		for i, id := range tc.IDs {
 			out += d.Push(tok.pieces[id], i == len(tc.IDs)-1)

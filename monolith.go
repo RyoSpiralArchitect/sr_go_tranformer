@@ -1395,6 +1395,9 @@ type hfTokenizer struct {
 	chat     bool
 	qwen     bool
 	gpt2     bool
+	llama3   bool
+	cleanup  bool
+	whole    map[string]int // Llama BPE ignore_merges: exact pre-token vocabulary lookup.
 }
 
 func (t *hfTokenizer) Vocab() int { return len(t.pieces) }
@@ -1414,7 +1417,7 @@ func (t *hfTokenizer) Decode(ids []int) string {
 			b = append(b, t.pieces[id]...)
 		}
 	}
-	d := incrementalText{hf: true}
+	d := newTextDecoder(t)
 	return d.Push(b, true) // Special pieces are empty: generation skips special tokens.
 }
 
@@ -1429,6 +1432,8 @@ type ChatMessage struct {
 // path is implemented; arbitrary Jinja and tool-call input are never executed.
 const qwenChatTemplateSHA = "cd8e9439f0570856fd70470bf8889ebd8b5d1107207f67a5efb46e342330527f"
 const qwenSplitPattern = "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+
+var llama3SplitPattern = strings.Replace(qwenSplitPattern, "|\\p{N}|", "|\\p{N}{1,3}|", 1)
 
 func (t *hfTokenizer) formatChat(messages []ChatMessage) (string, error) {
 	if !t.chat {
@@ -1517,7 +1522,7 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 	if h.ModelType == "gpt2" && raw.Model.Type == "" {
 		raw.Model.Type = "BPE"
 	}
-	if raw.Version != "1.0" || !null(raw.Truncation) || !null(raw.Padding) || raw.Model.Type != "BPE" || raw.Model.Dropout != nil || raw.Model.Unk != nil || !empty(raw.Model.Prefix) || !empty(raw.Model.Suffix) || raw.Model.Fuse || raw.Model.Fallback || raw.Model.Ignore {
+	if raw.Version != "1.0" || !null(raw.Truncation) || !null(raw.Padding) || raw.Model.Type != "BPE" || raw.Model.Dropout != nil || raw.Model.Unk != nil || !empty(raw.Model.Prefix) || !empty(raw.Model.Suffix) || raw.Model.Fuse || raw.Model.Fallback {
 		return nil, errors.New("unsupported HF tokenizer normalization/BPE options")
 	}
 	// Exact supported pipelines; object key order is immaterial.
@@ -1564,25 +1569,35 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 	}
 	gpt2 := h.ModelType == "gpt2" && null(raw.Normalizer) &&
 		byteLevel(raw.PreTokenizer, false, true) && byteLevel(raw.PostProcessor, true, false) && byteLevel(raw.Decoder, true, true)
-	if !qwen && !smol && !gpt2 {
+	llamaPre, _ := json.Marshal(map[string]any{"type": "Sequence", "pretokenizers": []any{
+		map[string]any{"type": "Split", "pattern": map[string]string{"Regex": llama3SplitPattern}, "behavior": "Isolated", "invert": false},
+		json.RawMessage(`{"type":"ByteLevel","add_prefix_space":false,"trim_offsets":true,"use_regex":false}`),
+	}})
+	llamaPost := fmt.Sprintf(`{"type":"Sequence","processors":[{"type":"ByteLevel","add_prefix_space":true,"trim_offsets":false,"use_regex":true},{"type":"TemplateProcessing","single":[{"SpecialToken":{"id":"<|begin_of_text|>","type_id":0}},{"Sequence":{"id":"A","type_id":0}}],"pair":[{"SpecialToken":{"id":"<|begin_of_text|>","type_id":0}},{"Sequence":{"id":"A","type_id":0}},{"SpecialToken":{"id":"<|begin_of_text|>","type_id":1}},{"Sequence":{"id":"B","type_id":1}}],"special_tokens":{"<|begin_of_text|>":{"id":"<|begin_of_text|>","ids":[%d],"tokens":["<|begin_of_text|>"]}}}]}`, h.BOS)
+	llama3 := h.ModelType == "llama" && raw.Model.Ignore && null(raw.Normalizer) &&
+		canonical(raw.PreTokenizer) == canonical(llamaPre) && canonical(raw.PostProcessor) == canonical([]byte(llamaPost)) &&
+		canonical(raw.Decoder) == canonical([]byte(dec))
+	if !qwen && !smol && !gpt2 && !llama3 || raw.Model.Ignore && !llama3 {
 		return nil, errors.New("unsupported HF tokenizer pipeline")
 	}
 	var cfg struct {
-		AddPrefix  bool                    `json:"add_prefix_space"`
-		Added      map[string]hfAddedToken `json:"added_tokens_decoder"`
-		Additional []string                `json:"additional_special_tokens"`
-		BOS        string                  `json:"bos_token"`
-		EOS        string                  `json:"eos_token"`
-		Pad        string                  `json:"pad_token"`
-		Unk        string                  `json:"unk_token"`
-		Chat       string                  `json:"chat_template"`
-		Cleanup    bool                    `json:"clean_up_tokenization_spaces"`
-		MaxLength  int                     `json:"model_max_length"`
-		Class      string                  `json:"tokenizer_class"`
-		Vocab      int                     `json:"vocab_size"`
-		AddBOS     bool                    `json:"add_bos_token"`
-		Split      bool                    `json:"split_special_tokens"`
-		Errors     string                  `json:"errors"`
+		AddPrefix  bool                       `json:"add_prefix_space"`
+		Added      map[string]hfAddedToken    `json:"added_tokens_decoder"`
+		Additional []string                   `json:"additional_special_tokens"`
+		BOS        string                     `json:"bos_token"`
+		EOS        string                     `json:"eos_token"`
+		Pad        string                     `json:"pad_token"`
+		Unk        string                     `json:"unk_token"`
+		Chat       string                     `json:"chat_template"`
+		Cleanup    bool                       `json:"clean_up_tokenization_spaces"`
+		MaxLength  int                        `json:"model_max_length"`
+		Class      string                     `json:"tokenizer_class"`
+		Vocab      int                        `json:"vocab_size"`
+		AddBOS     bool                       `json:"add_bos_token"`
+		Split      bool                       `json:"split_special_tokens"`
+		Errors     string                     `json:"errors"`
+		Inputs     []string                   `json:"model_input_names"`
+		Extra      map[string]json.RawMessage `json:"extra_special_tokens"`
 	}
 	if err := readStrictBoundedJSON(filepath.Join(dir, "tokenizer_config.json"), 1<<20, &cfg); err != nil {
 		return nil, err
@@ -1606,15 +1621,24 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 			cfg.Added = map[string]hfAddedToken{strconv.Itoa(raw.Added[0].ID): raw.Added[0]}
 		}
 	}
-	if cfg.AddPrefix || cfg.Cleanup || cfg.AddBOS || cfg.Split || (cfg.Errors != "" && cfg.Errors != "replace") ||
+	mergeLimit := maxHFVocab
+	if llama3 {
+		mergeLimit = 2 * maxHFVocab // The pinned 128K vocabulary has 280,147 merge pairs.
+	}
+	if cfg.AddPrefix || cfg.Cleanup && !llama3 || cfg.AddBOS || cfg.Split || (cfg.Errors != "" && cfg.Errors != "replace") || len(cfg.Extra) != 0 ||
+		(!llama3 && len(cfg.Inputs) != 0) ||
+		(llama3 && (cfg.Class != "PreTrainedTokenizerFast" || cfg.MaxLength < h.Context || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.BOS != "<|begin_of_text|>" || cfg.EOS != "<|end_of_text|>" || len(cfg.Inputs) != 2 || cfg.Inputs[0] != "input_ids" || cfg.Inputs[1] != "attention_mask")) ||
 		(smol && (cfg.Class != "GPT2Tokenizer" || cfg.Vocab != h.Vocab || cfg.MaxLength != h.Context)) ||
 		(qwen && (cfg.Class != "Qwen2Tokenizer" || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.MaxLength < h.Context)) ||
 		(gpt2 && (cfg.Class != "GPT2Tokenizer" || cfg.Vocab != 0 && cfg.Vocab != h.Vocab || cfg.MaxLength < h.Context || cfg.Chat != "")) ||
 		h.Vocab > maxHFVocab || h.Vocab < 258 || h.BOS < 0 || h.BOS >= h.Vocab || h.EOS < 0 || h.EOS >= h.Vocab ||
-		len(raw.Model.Vocab) > h.Vocab || len(raw.Added) > 256 || len(raw.Model.Merges) > maxHFVocab {
+		len(raw.Model.Vocab) > h.Vocab || len(raw.Added) > 256 || len(raw.Model.Merges) > mergeLimit {
 		return nil, errors.New("HF tokenizer config/model mismatch or unsupported options")
 	}
-	t := &hfTokenizer{pieces: make([][]byte, h.Vocab), merges: map[Pair]hfMerge{}, bos: h.BOS, eos: h.EOS, qwen: qwen, gpt2: gpt2}
+	t := &hfTokenizer{pieces: make([][]byte, h.Vocab), merges: map[Pair]hfMerge{}, bos: h.BOS, eos: h.EOS, qwen: qwen, gpt2: gpt2, llama3: llama3, cleanup: cfg.Cleanup}
+	if llama3 {
+		t.whole = make(map[string]int, len(raw.Model.Vocab))
+	}
 	seen := make([]bool, h.Vocab)
 	special := map[int]bool{}
 	specialNames := map[string]bool{}
@@ -1637,7 +1661,7 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		t.specials = append(t.specials, s)
 	}
 	for _, s := range append(append([]string{}, cfg.Additional...), cfg.BOS, cfg.EOS, cfg.Pad, cfg.Unk) {
-		if (qwen || gpt2) && s == "" {
+		if (qwen || gpt2 || llama3) && s == "" {
 			continue
 		}
 		if !specialNames[s] {
@@ -1674,6 +1698,9 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 			t.pieces[id] = append(t.pieces[id], b)
 		}
 		total += len(t.pieces[id])
+		if llama3 {
+			t.whole[string(t.pieces[id])] = id
+		}
 		if total > 16<<20 {
 			return nil, errors.New("HF vocabulary expansion limit")
 		}
@@ -1727,7 +1754,7 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 		}
 		t.merges[key] = hfMerge{rank, id}
 	}
-	t.chat = cfg.Chat == smolChatTemplate && cfg.BOS == "<|im_start|>" && cfg.EOS == "<|im_end|>"
+	t.chat = smol && cfg.Chat == smolChatTemplate && cfg.BOS == "<|im_start|>" && cfg.EOS == "<|im_end|>"
 	if qwen {
 		sum := sha256.Sum256([]byte(cfg.Chat))
 		t.chat = hex.EncodeToString(sum[:]) == qwenChatTemplateSHA &&
@@ -1759,6 +1786,9 @@ func (t *hfTokenizer) bpe(ctx context.Context, s string) ([]int, error) {
 	}
 	if len(s) == 0 {
 		return nil, nil
+	}
+	if id, ok := t.whole[s]; ok {
+		return []int{id}, ctx.Err()
 	}
 	nodes := make([]hfBPENode, 0, len(s))
 	for i := 0; i < len(s); i++ {
@@ -1865,7 +1895,7 @@ func hfWordEnd(s string, start int) int {
 // Qwen's Split regex includes lookahead and case folding outside Go's RE2.
 // Preserve its ordered alternatives, including punctuation prefixes on words
 // and whitespace ending at the final newline.
-func qwenWordEnd(s string, start int) int {
+func hfSplitWordEnd(s string, start, digits int) int {
 	if s[start] == '\'' {
 		for _, suffix := range []string{"'s", "'t", "'re", "'ve", "'m", "'ll", "'d"} {
 			end := start
@@ -1901,7 +1931,15 @@ func qwenWordEnd(s string, start int) int {
 	}
 	r, n = utf8.DecodeRuneInString(s[start:])
 	if unicode.IsNumber(r) {
-		return start + n
+		end := start + n
+		for count := 1; count < digits && end < len(s); count++ {
+			r, n := utf8.DecodeRuneInString(s[end:])
+			if !unicode.IsNumber(r) {
+				break
+			}
+			end += n
+		}
+		return end
 	}
 	punct := func(r rune) bool { return !unicode.IsSpace(r) && !unicode.IsLetter(r) && !unicode.IsNumber(r) }
 	at = start
@@ -1960,6 +1998,12 @@ func qwenNormalize(s string) (string, error) {
 }
 
 func (t *hfTokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]int, error) {
+	return t.encodeText(ctx, s, limit, true)
+}
+
+// Chat templates carry their own framing. Callers must explicitly disable the
+// post-processor for formatted chat; literal BOS text is never deduplicated.
+func (t *hfTokenizer) encodeText(ctx context.Context, s string, limit int, special bool) ([]int, error) {
 	if !utf8.ValidString(s) || len(s) > 1<<20 {
 		return nil, errors.New("HF prompt must be valid UTF-8 and at most 1 MiB")
 	}
@@ -1970,6 +2014,11 @@ func (t *hfTokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]
 		}
 		out = append(out, ids...)
 		return nil
+	}
+	if t.llama3 && special {
+		if err := appendIDs([]int{t.bos}); err != nil {
+			return nil, err
+		}
 	}
 	// Longest matching special token wins at the earliest byte position.
 	for pos := 0; pos < len(s); {
@@ -2010,7 +2059,7 @@ func (t *hfTokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]
 		for lo := 0; lo < len(plain); {
 			r, n := utf8.DecodeRuneInString(plain[lo:])
 			hi := lo + n
-			if t.qwen || t.gpt2 {
+			if t.qwen || t.gpt2 || t.llama3 {
 				hi = len(plain)
 			} else if !unicode.IsNumber(r) {
 				for hi < len(plain) {
@@ -2027,8 +2076,12 @@ func (t *hfTokenizer) encodePrompt(ctx context.Context, s string, limit int) ([]
 					return nil, err
 				}
 				b := hfWordEnd(segment, a)
-				if t.qwen {
-					b = qwenWordEnd(segment, a)
+				if t.qwen || t.llama3 {
+					digits := 1
+					if t.llama3 {
+						digits = 3
+					}
+					b = hfSplitWordEnd(segment, a, digits)
 				}
 				ids, err := t.bpe(ctx, segment[a:b])
 				if err != nil {
@@ -5885,11 +5938,59 @@ type incrementalText struct {
 	pending []byte
 	invalid bool
 	hf      bool
+	cleanup bool
+	held    [10]string
+}
+
+func newTextDecoder(tok inferenceTokenizer) incrementalText {
+	h, ok := tok.(*hfTokenizer)
+	return incrementalText{hf: ok, cleanup: ok && h.cleanup}
+}
+
+// Transformers' ordered cleanup replacements, implemented as a bounded
+// streaming cascade. Each stage holds only a possible prefix of its pattern;
+// concatenated SSE deltas therefore equal Decode even at token boundaries.
+var hfCleanup = [10][2]string{
+	{" .", "."}, {" ?", "?"}, {" !", "!"}, {" ,", ","}, {" ' ", "'"},
+	{" n't", "n't"}, {" 'm", "'m"}, {" 's", "'s"}, {" 've", "'ve"}, {" 're", "'re"},
+}
+
+func (d *incrementalText) clean(text string, final bool) string {
+	for i, rule := range hfCleanup {
+		text = d.held[i] + text
+		d.held[i] = ""
+		var out strings.Builder
+		for {
+			at := strings.Index(text, rule[0])
+			if at < 0 {
+				break
+			}
+			out.WriteString(text[:at])
+			out.WriteString(rule[1])
+			text = text[at+len(rule[0]):]
+		}
+		keep := 0
+		if !final {
+			for n := 1; n < len(rule[0]) && n <= len(text); n++ {
+				if strings.HasSuffix(text, rule[0][:n]) {
+					keep = n
+				}
+			}
+		}
+		out.WriteString(text[:len(text)-keep])
+		d.held[i] = strings.Clone(text[len(text)-keep:])
+		text = out.String()
+	}
+	return text
 }
 
 func (d *incrementalText) Push(piece []byte, final bool) string {
 	if d.hf {
-		return d.pushHF(piece, final)
+		text := d.pushHF(piece, final)
+		if d.cleanup {
+			text = d.clean(text, final)
+		}
+		return text
 	}
 	data := append(d.pending, piece...)
 	d.pending = nil
@@ -6463,7 +6564,7 @@ func (e *Engine) run() {
 			cache := e.Model.NewCache()
 			cache.pool, cache.reserved = &e.pool, pages
 			e.pool.Reserved += pages
-			sessions = append(sessions, &engineSession{Request: r, Cache: cache, History: append([]int(nil), r.IDs...), RNG: RNG{r.Sampling.Seed}, Text: incrementalText{hf: e.Model.hf != nil}})
+			sessions = append(sessions, &engineSession{Request: r, Cache: cache, History: append([]int(nil), r.IDs...), RNG: RNG{r.Sampling.Seed}, Text: newTextDecoder(e.Tokenizer)})
 			e.stats.Active.Add(1)
 			r.log("admitted")
 			e.queueLatency.observe(time.Since(r.Enqueued))

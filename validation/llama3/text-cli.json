@@ -1,0 +1,34 @@
+{
+  "format": "monolith-llama3-text-cli-v1",
+  "source": "mlx-community/Llama-3.2-3B-bf16@60a99aaf43164077157d64bf909b7b61143c6a6d",
+  "base_commit": "a2ad17cdefc7b0e4a2e150f9b8a5aa807320d4ab",
+  "source_sha256": "98c76fed31db45f2662d1a3d5d7aa69200c5cf7aac33d724bc4d42ff00e74e68",
+  "binary_sha256": "5f07c53d244e4c022b419b9736fb5e71038806bbad4010ed667871c70fb34a72",
+  "tokenizer_reference_sha256": "b814b1869e3398780afa58be3cf793efd9c6c7132247a4f853521e311037a12b",
+  "prompt": "The capital of France is",
+  "weight_format": "q4-mixed",
+  "weight_mib": 2000,
+  "context": 128,
+  "threads": 4,
+  "temperature": 0,
+  "repeat_penalty": 1,
+  "max_tokens": 8,
+  "hf_hub_offline": true,
+  "result": {
+    "text": " Paris. It is the largest city in",
+    "token_ids": [
+      12366,
+      13,
+      1102,
+      374,
+      279,
+      7928,
+      3363,
+      304
+    ],
+    "prompt_tokens": 6,
+    "completion_tokens": 8,
+    "finish_reason": "length"
+  },
+  "matched_prior_token_id_trial": true
+}
