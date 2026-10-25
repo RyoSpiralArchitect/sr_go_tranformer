@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 import subprocess
 import platform
+import signal
+import time
 
 
 def sha(path):
@@ -21,6 +23,50 @@ def sha(path):
         for block in iter(lambda: source.read(4 << 20), b''):
             digest.update(block)
     return digest.hexdigest()
+
+
+def run_measured(command, *, timeout, **kwargs):
+    """Run one direct child, returning its lifetime peak RSS and CPU usage.
+
+    wait4 owns reaping: calling Popen.poll/wait first would lose this child's
+    rusage. RUSAGE_CHILDREN is unsuitable because its peak spans prior children.
+    The caller must redirect output to files, not undrained PIPE descriptors.
+    """
+    system = platform.system()
+    if not hasattr(os, 'wait4') or system not in ('Darwin', 'Linux'):
+        raise RuntimeError('Per-process peak RSS requires Linux or macOS wait4')
+    if any(kwargs.get(key) == subprocess.PIPE for key in ('stdin', 'stdout', 'stderr')):
+        raise ValueError('Measured child streams must use files or inherited descriptors')
+    if timeout <= 0:
+        raise ValueError('Measured child timeout must be positive')
+    started = time.monotonic()
+    proc = subprocess.Popen(command, **kwargs)
+    try:
+        while True:
+            pid, status, usage = os.wait4(proc.pid, os.WNOHANG)
+            if pid:
+                proc.returncode = os.waitstatus_to_exitcode(status)
+                break
+            remaining = timeout - (time.monotonic() - started)
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout)
+            time.sleep(min(.05, remaining))
+    finally:
+        if proc.returncode is None:
+            # Popen.kill calls poll on POSIX and can reap a just-exited child.
+            # Send directly so this helper retains exclusive wait4 ownership.
+            try:
+                os.kill(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            _, status, _ = os.wait4(proc.pid, 0)
+            proc.returncode = os.waitstatus_to_exitcode(status)
+    if proc.returncode:
+        raise subprocess.CalledProcessError(proc.returncode, command)
+    return dict(peak_rss_bytes=int(usage.ru_maxrss) * (1024 if system == 'Linux' else 1),
+                measurement='wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing',
+                elapsed_seconds=time.monotonic() - started,
+                user_cpu_seconds=usage.ru_utime, system_cpu_seconds=usage.ru_stime)
 
 
 def main():
@@ -86,11 +132,13 @@ def main():
         env.update(MONOLITH_QUALITY_FORMAT=fmt, MONOLITH_QUALITY_OUTPUT=str(result),
                    MONOLITH_QUALITY_WRITE_REFERENCE='1' if index == 0 else '0')
         with (output / (fmt + '.log')).open('w') as log:
-            subprocess.run([str(probe), '-test.run=^TestHFQualityProbe$', '-test.v', '-test.timeout=22m'],
-                           cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=1350, check=True)
+            resources = run_measured([str(probe), '-test.run=^TestHFQualityProbe$', '-test.v', '-test.timeout=22m'],
+                                     cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=1350)
         r = json.loads(result.read_text())
         if r['source_sha256'] != source_sha or r['reference']['corpus_sha256'] != corpus_sha:
             raise RuntimeError('Source or corpus changed during probe')
+        r['process_resources'] = resources
+        result.write_text(json.dumps(r, indent=2, ensure_ascii=False, allow_nan=False)+'\n')
         reports[fmt] = r
         print(a.id, fmt, 'NLL', r['mean_nll'], 'KL', r['mean_kl'], 'top1', r['top1_matches'], '/', r['scored_tokens'], flush=True)
     if a.token_inputs and sha(a.token_inputs) != token_input_sha:
