@@ -37,6 +37,8 @@ def main():
              '1234567 １２３４５６７ ١٢٣٤٥٦٧ Ⅳ½²Ⅵ', 'inference',
              "Hello . I 'm here , are n't you ?", 'e\u0301 café',
              "'S 'T 'RE 'VE 'M 'LL 'D 'ſ 'K"]
+    extra += ['inference'+chr(r)+'inference' for r in
+              (0x105c0, 0x11380, 0x11f02, 0x1e4d0, 0x1e6c0, 0x2ebf0, 0x1e5f1)]
     if a.real:
         reference.oracle(a.source, a.output, add_special_tokens=True, extra_texts=extra)
         return

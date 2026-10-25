@@ -5738,6 +5738,111 @@
         103
       ],
       "decoded": "'S 'T 'RE 'VE 'M 'LL 'D 'ſ 'K"
+    },
+    {
+      "text": "inference𐗀inference",
+      "ids": [
+        128000,
+        258,
+        2251,
+        172,
+        238,
+        245,
+        222,
+        258,
+        2251
+      ],
+      "decoded": "inference𐗀inference"
+    },
+    {
+      "text": "inference𑎀inference",
+      "ids": [
+        128000,
+        258,
+        2251,
+        172,
+        239,
+        236,
+        222,
+        258,
+        2251
+      ],
+      "decoded": "inference𑎀inference"
+    },
+    {
+      "text": "inference𑼂inference",
+      "ids": [
+        128000,
+        258,
+        2251,
+        172,
+        239,
+        120,
+        224,
+        258,
+        2251
+      ],
+      "decoded": "inference𑼂inference"
+    },
+    {
+      "text": "inference𞓐inference",
+      "ids": [
+        128000,
+        258,
+        2251,
+        172,
+        252,
+        241,
+        238,
+        258,
+        2251
+      ],
+      "decoded": "inference𞓐inference"
+    },
+    {
+      "text": "inference𞛀inference",
+      "ids": [
+        128000,
+        258,
+        2251,
+        172,
+        252,
+        249,
+        222,
+        258,
+        2251
+      ],
+      "decoded": "inference𞛀inference"
+    },
+    {
+      "text": "inference𮯰inference",
+      "ids": [
+        128000,
+        258,
+        2251,
+        172,
+        106,
+        107,
+        108,
+        258,
+        2251
+      ],
+      "decoded": "inference𮯰inference"
+    },
+    {
+      "text": "inference𞗱inference",
+      "ids": [
+        128000,
+        258,
+        2251,
+        172,
+        252,
+        245,
+        109,
+        258,
+        2251
+      ],
+      "decoded": "inference𞗱inference"
     }
   ],
   "chats": [],

@@ -16,3 +16,9 @@ whitespace, contractions, special tokens, automatic BOS and UTF-8 replacement.
 Cleanup outputs are checked across every split point and bytewise streaming.
 Long tokenizer-only inputs may exceed the fixture model's context; runtime
 generation applies its separate prompt-plus-generation context bound.
+
+`unicode.json` records the pinned Split letter/number/whitespace ranges over all
+Unicode scalars. Generate it and the declarations embedded in `monolith.go` with
+`scripts/hf_llama3_unicode.py --output testdata/hf-llama3-tokenizer/unicode.json
+--go-output runs/unicode-declarations.txt`. Go toolchain upgrades must not change
+this tokenizer profile's token IDs.

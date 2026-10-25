@@ -51,6 +51,32 @@ func TestLlama3TextFramingAndBounds(t *testing.T) {
 	}
 }
 
+func TestLlama3PinnedUnicodeClasses(t *testing.T) {
+	var oracle struct {
+		Tokenizers string
+		Classes    map[string][][2]rune
+	}
+	if err := readBoundedJSON("testdata/hf-llama3-tokenizer/unicode.json", 1<<20, &oracle); err != nil {
+		t.Fatal(err)
+	}
+	if oracle.Tokenizers != "0.22.2" {
+		t.Fatal("unexpected Unicode oracle")
+	}
+	for name, table := range map[string][][2]rune{"Letter": llama3LetterRanges, "Number": llama3NumberRanges, "Space": llama3SpaceRanges} {
+		want := oracle.Classes[name]
+		i := 0
+		for r := rune(0); r <= 0x10ffff; r++ {
+			for i < len(want) && r > want[i][1] {
+				i++
+			}
+			inside := i < len(want) && r >= want[i][0]
+			if inHFRanges(r, table) != inside {
+				t.Fatalf("%s U+%04X", name, r)
+			}
+		}
+	}
+}
+
 func TestLlama3TokenizerRejectsPipelineDrift(t *testing.T) {
 	for _, change := range []string{"bos-template", "digits", "normalizer", "ignore-merges", "input-names", "extra", "class"} {
 		t.Run(change, func(t *testing.T) {

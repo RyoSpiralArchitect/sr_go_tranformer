@@ -23,10 +23,14 @@ supported. This does not convert a base model into an instruction-following one.
 The original numerical experiment below prepared IDs with pinned Tokenizers;
 all model loading, matrix computation, KV storage and generation ran in Go.
 The new text path is independently checked against that same pinned tokenizer.
-The [real tokenizer oracle](validation/llama3/text-tokenizer.json) has 166
+The [real tokenizer oracle](validation/llama3/text-tokenizer.json) has 173
 encoding and nine decoding cases; all match, including bytewise streaming.
 The [text CLI receipt](validation/llama3/text-cli.json) reproduces the first
 eight-token continuation from the earlier token-ID trial.
+The Llama Split letter, number and whitespace classes are pinned to Tokenizers
+0.22.2 rather than the Go toolchain's Unicode release. Their ranges are generated
+over every Unicode scalar by `scripts/hf_llama3_unicode.py`; regression inputs
+cover characters whose classification changes across recent Unicode releases.
 
 ## Use existing model files
 
