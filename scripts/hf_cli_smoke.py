@@ -30,7 +30,7 @@ def main():
         if digest(a.model / name) != sha:
             raise RuntimeError('Model identity mismatch: ' + name)
     binary = str(a.binary.resolve())
-    base = ['-hf-model', str(a.model)]
+    base = ['-hf-model', str(a.model), '-weight-mib', str(ref.get('weight_mib', 2048))]
     checked = json.loads(subprocess.check_output([binary, 'check-hf'] + base + ['-chat', '-json'], text=True, timeout=30))
     if checked['weights']['config']['context'] != 2048 or checked['weight_values_checked']:
         raise RuntimeError('Incorrect default context or payload assurance')
@@ -72,7 +72,7 @@ def main():
         revision=ref['revision'], files=ref['files'], binary_sha256=digest(a.binary),
         reference_sha256=digest(a.reference), preflight=checked, prompt_stdin_match=True,
         messages_stdin_match=True, interactive_reset_match=True, idle_stdin_sigint_exit=True), indent=2)+'\n')
-    print('PASS: preflight, default budgets, stdin text/JSON, interactive reset, idle SIGINT')
+    print('PASS: preflight, reference weight budget, stdin text/JSON, interactive reset, idle SIGINT')
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import importlib.util
+import gc
 import json
 from pathlib import Path
 import signal
@@ -43,12 +44,14 @@ def main():
     flags = ["-hf-model", str(a.model), "-context", "512", "-weight-mib", str(budget), "-threads", "4"]
     requests = source.get("requests", [dict(prompt="The capital of France is"),
                 dict(messages=[dict(role="user", content="Write one short sentence about cats.")])])
-    cases = []
+    expected = []
+    eos = model.config.eos_token_id
+    stops = eos if isinstance(eos, list) else [eos]
     for body in requests:
         text = body.get("prompt")
         if text is None:
             text = tok.apply_chat_template(body["messages"], tokenize=False, add_generation_prompt=True)
-        ids = tok.encode(text, add_special_tokens=False)
+        ids = tok.encode(text, add_special_tokens='prompt' in body)
         expected_ids, logits, past = [], [], None
         inputs = torch.tensor([ids])
         with torch.inference_mode():
@@ -58,12 +61,18 @@ def main():
                 token = int(row.argmax())
                 logits.append(row.numpy())
                 expected_ids.append(token)
-                if token == model.config.eos_token_id:
+                if token in stops:
                     break
                 past, inputs = r.past_key_values, torch.tensor([[token]])
         want = dict(text=tok.decode(expected_ids, skip_special_tokens=True), token_ids=expected_ids,
                     prompt_tokens=len(ids), completion_tokens=len(expected_ids),
-                    finish_reason="eos" if expected_ids[-1] == model.config.eos_token_id else "length")
+                    finish_reason="eos" if expected_ids[-1] in stops else "length")
+        expected.append((body, text, ids, expected_ids, logits, want))
+    # Finish the independent reference before loading any Go model weights.
+    del model, r, past, inputs
+    gc.collect()
+    cases = []
+    for body, text, ids, expected_ids, logits, want in expected:
         numerical = []
         for chunk in (1, 16):
             cmd = [binary, "infer-hf"] + flags + ["-ids", ",".join(map(str, ids)), "-max-tokens", "8",
@@ -74,11 +83,12 @@ def main():
                 raise RuntimeError(f"Numerical mismatch chunk={chunk} max_abs_error={error.max()}")
             numerical.append(dict(chunk=chunk, max_abs_error=float(error.max()), greedy_match=True))
         cmd = [binary, "generate"] + flags + ["-max-tokens", "8", "-temperature", "0", "-repeat-penalty", "1", "-json"]
-        cmd += ["-prompt", body["prompt"]] if "prompt" in body else ["-chat", "-prompt", body["messages"][0]["content"]]
-        actual = json.loads(subprocess.check_output(cmd, text=True, timeout=240))
+        cmd += ["-prompt", body["prompt"]] if "prompt" in body else ["-messages", "-"]
+        data = None if 'prompt' in body else json.dumps(body['messages'])
+        actual = json.loads(subprocess.check_output(cmd, input=data, text=True, timeout=240))
         if actual != want:
             raise RuntimeError(f"CLI mismatch: {actual} != {want}")
-        cases.append(dict(request=body, prompt_ids=ids, completion=actual, numerical=numerical, cli_match=True))
+        cases.append(dict(request=body, formatted_prompt=text, prompt_ids=ids, completion=actual, numerical=numerical, cli_match=True))
         print(a.id, "numerical and CLI case passed", len(cases), flush=True)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -116,7 +126,7 @@ def main():
             deadline = time.monotonic() + 5
             while True:
                 stats = serving.request(base + "/healthz")["stats"]
-                if stats["released"] == 4 and stats["admission_used"] == 0 and stats["kv_reserved_bytes"] == 0:
+                if stats["released"] == len(cases)*2 and stats["admission_used"] == 0 and stats["kv_reserved_bytes"] == 0:
                     break
                 if time.monotonic() >= deadline:
                     raise RuntimeError("Serving resources not released")

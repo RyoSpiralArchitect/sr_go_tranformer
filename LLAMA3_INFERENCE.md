@@ -6,7 +6,7 @@ profile (`rope_type: llama3`) and an optional `head_dim` equal to
 Llama 3.2 3B BF16 export to run directly in Go, including Q8, Q4 and mixed Q4/Q8.
 The original model configuration and weight files are used unchanged.
 
-The pinned Llama 3.2 **base** tokenizer also supports `tokenize-hf`, plain-text
+The pinned Llama 3.2 base and Instruct tokenizers support `tokenize-hf`, plain-text
 `generate`, HTTP completion/SSE and the `infer local` download path. Its exact
 Split/ByteLevel BPE profile uses 1–3 Unicode-number groups, no normalization,
 whole-pre-token vocabulary lookup (`ignore_merges`), and BOS post-processing.
@@ -17,8 +17,10 @@ Decoding skips registered special tokens and follows the tokenizer's configured
 Transformers whitespace cleanup. Streaming uses bounded pending prefixes, so
 concatenated text deltas equal the final completion, including punctuation,
 contractions, trailing spaces and split UTF-8. Unsupported pipelines still fail.
-The base model has no chat template; chat and Instruct profiles are not yet
-supported. This does not convert a base model into an instruction-following one.
+The base model has no chat template and continues to reject chat. The recognized
+Instruct template supports text-only system/user/assistant messages through CLI,
+interactive chat, HTTP and SSE. This does not turn a base model into an
+instruction-following one.
 
 The original numerical experiment below prepared IDs with pinned Tokenizers;
 all model loading, matrix computation, KV storage and generation ran in Go.
@@ -67,6 +69,84 @@ of 128 requires 29,360,128 KV payload bytes per full session, before page roundi
 and metadata. `-weight-mib` limits weight payload only; runtime, allocator,
 metadata, workspace and KV are additional. Loading streams through bounded
 buffers without a second full FP32 weight copy.
+
+## Instruct chat
+
+The pinned 1B Instruct source is
+`mlx-community/Llama-3.2-1B-Instruct-bf16@863c846a9ac6fad4e49e1743d52984dff262e953`.
+Its original BF16 files use the same Llama computational profile; MLX is not
+required. The model license is Llama 3.2, separately from this project's license.
+
+```sh
+./monolith infer local -repo mlx-community/Llama-3.2-1B-Instruct-bf16 \
+  -revision 863c846a9ac6fad4e49e1743d52984dff262e953 \
+  -download-mib 2500 -weight-format q8 -weight-mib 1400 -context 512 \
+  chat -max-tokens 64
+
+HF_HUB_OFFLINE=1 ./monolith generate -hf-model PATH_TO_LLAMA32_INSTRUCT \
+  -weight-format q8 -weight-mib 1400 -context 512 \
+  -chat -prompt 'Reply with exactly OK.' -max-tokens 8 \
+  -temperature 0 -repeat-penalty 1 -json
+```
+
+`-messages FILE` / `-messages -` and HTTP `messages` use the same formatter.
+The exact template is identified by SHA-256; arbitrary Jinja, tools, tool calls,
+multimodal input and unknown roles are rejected. It adds the template's system
+header, knowledge date, current local calendar date, trimmed message content,
+end-of-turn markers and assistant header. The local clock is read for each chat
+prompt. Golden tests provide a fixed date; real receipts preserve the rendered
+prompt so that dynamic date text is visible.
+
+Chat supplies its own BOS and explicitly bypasses plain-text BOS processing.
+A literal BOS in ordinary text is still preserved separately.
+Llama config `eos_token_id` may be one integer or 1–8 distinct in-range integers.
+Every ID must be a registered special token for text inference. All configured
+stop IDs terminate token-ID, CLI, HTTP and SSE generation with `finish_reason`
+set to `eos`; the terminating ID is retained in accounting but hidden in text.
+Inspection exposes the stop set. No extra stop IDs are invented from names.
+
+The fixed-date tokenizer oracle covers seven chat arrangements, including
+system-only input, history, Unicode trimming and empty content. Synthetic
+generation tests force every configured termination ID and check one BOS,
+stream completion, HTTP equivalence and resource release. CLI subprocess tests
+also compare direct flags, stdin text, stdin message JSON and interactive reset.
+The pinned 3B Instruct metadata at revision
+`6d88ba43024fef71b10e52e101c7cd4598322601` has identical tokenizer and template
+files to the 1B profile. Its 159 encoding, seven chat and nine decoding cases
+match the same oracle; this metadata check does not execute the 3B Instruct
+weights. [Tokenizer verification](validation/llama3/chat-tokenizer-validation.json)
+records both sources. Base models and
+unrecognized templates retain only their supported plain-text paths.
+
+The [1B Instruct real-model receipt](validation/llama3/chat-model-reference.json)
+compares Go FP32 with Transformers 4.57.1 / Torch 2.8.0 CPU eager attention.
+For two bounded requests, generated IDs and final text match at prefill chunks
+1 and 16; maximum absolute logit error is `0.000129313` (tolerance `0.002`).
+`Reply with exactly OK.` produces `[4012, 128009]`, text `OK`, and an EOS finish.
+The ordinary-text request continues ` Paris. The Eiffel Tower is` for eight
+tokens. CLI, HTTP and concurrent SSE agree, all four serving requests release
+their reservations, and shutdown is clean. This validates these entry paths and
+numerical cases, not general instruction-following quality. The 3B Instruct
+profile above is checked at the tokenizer level only.
+The [CLI smoke receipt](validation/llama3/chat-cli-smoke.json) separately checks
+stdin text/message input, interactive reset and an idle-stdin SIGINT exit using
+the same real weights and expected completion.
+
+```sh
+# Matching pinned 1B Instruct weights and the isolated reference environment.
+HF_HUB_OFFLINE=1 python scripts/hf_model_reference.py \
+  --model PATH_TO_LLAMA32_1B_INSTRUCT --id llama32-1b-instruct \
+  --binary ./monolith --output runs/llama1b-reference.json
+# The same published tokenizer oracle also checks pinned 3B Instruct metadata.
+MONOLITH_HF_MODEL=PATH_TO_LLAMA32_3B_INSTRUCT \
+  MONOLITH_HF_TOKENIZER_REFERENCE=validation/llama3/chat-tokenizer.json \
+  go test -run '^TestHFLocalTokenizerReference$' -count=1 .
+```
+
+The FP32 reference run uses a 5,100 MiB weight budget and releases the Torch
+model before loading Go weights; allow extra RAM for tokenizer, runtime and KV.
+The Q8 command above has a smaller weight budget and does not promise FP32
+numerical equality.
 
 ## RoPE contract
 
