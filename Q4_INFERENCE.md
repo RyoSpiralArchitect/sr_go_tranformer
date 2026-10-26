@@ -47,7 +47,11 @@ immutable while loading.
 
 The kernel shares a read-only `[256][2]float32` decode table across engines.
 It consumes two packed bytes at a time and reuses four decoded values across
-up to four prompt/session rows. Independent output tiles go to the existing
+up to four prompt/session rows. Two/three-row remainders also share each decode
+across a pair; only an odd final row runs alone. The
+[short-batch comparison](INFERENCE_PERFORMANCE.md#sharing-q4-weights-across-short-batches)
+records exact-output checks and a bounded 7B timing comparison.
+Independent output tiles go to the existing
 fixed Go workers, which join before the next layer reuses the workspace.
 The table is allocated once; no per-request lookup table, decompressed matrix,
 cgo, unsafe pointers, assembly or architecture-specific backend is required.

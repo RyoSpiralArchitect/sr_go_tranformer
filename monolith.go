@@ -3736,7 +3736,8 @@ func linearQ8WideInto(e *kernelExecutor, y, x []float32, w *Param, n int) {
 }
 
 // Packed pairs are decoded once per four input columns and reused by up to
-// four rows. Both paths use the same reduction order across batching/workers.
+// four rows, including a shared pair for a two/three-row remainder. Every path
+// uses the same reduction order across batching/workers.
 func linearQ4Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 	in, out := w.Cols, w.Rows
 	if q8NeedsWideSum(x[:n*in]) {
@@ -3793,7 +3794,38 @@ func linearQ4Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 					y[r*out+o], y[(r+1)*out+o] = s0, s1
 					y[(r+2)*out+o], y[(r+3)*out+o] = s2, s3
 				} else {
-					for row := r; row < min(r+4, n); row++ {
+					row := r
+					if row+2 <= n {
+						x0, x1 := x[row*in:(row+1)*in], x[(row+1)*in:(row+2)*in]
+						var s0, s1 float32
+						for g, scale := range scales {
+							var a0, b0, c0, d0, a1, b1, c1, d1 float32
+							j, end := g*q8Block, min((g+1)*q8Block, in)
+							for ; j+4 <= end; j += 4 {
+								v0, v1 := q4Pairs[wr[j/2]][0], q4Pairs[wr[j/2]][1]
+								v2, v3 := q4Pairs[wr[j/2+1]][0], q4Pairs[wr[j/2+1]][1]
+								a0 += x0[j] * v0
+								b0 += x0[j+1] * v1
+								c0 += x0[j+2] * v2
+								d0 += x0[j+3] * v3
+								a1 += x1[j] * v0
+								b1 += x1[j+1] * v1
+								c1 += x1[j+2] * v2
+								d1 += x1[j+3] * v3
+							}
+							p0, p1 := (a0+b0)+(c0+d0), (a1+b1)+(c1+d1)
+							for ; j < end; j++ {
+								v := q4Pairs[wr[j/2]][j%2]
+								p0 += x0[j] * v
+								p1 += x1[j] * v
+							}
+							s0 += p0 * scale
+							s1 += p1 * scale
+						}
+						y[row*out+o], y[(row+1)*out+o] = s0, s1
+						row += 2
+					}
+					for ; row < min(r+4, n); row++ {
 						xr := x[row*in : (row+1)*in]
 						var sum float32
 						for g, scale := range scales {
