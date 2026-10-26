@@ -260,3 +260,11 @@ measured. The [isolation verification receipt](validation/performance/q4-pair-bu
 records those builds, effective settings and a successful SmolLM2-360M pilot.
 The original 7B receipt keeps its actual runner hash rather than replacing it
 with the later script's identity.
+
+The final [7B serving check](validation/performance/qwen7b-q4-pair-serving-20261026.json)
+matched CLI, HTTP and concurrent SSE output for plain text and chat, including
+the previous 7B trial's exact eight-token completions. One load-test request
+completed and one was canceled; the server observed that cancellation. All six
+requests were released, admission/KV reservations drained and shutdown completed
+cleanly. Retained KV capacity is reported separately. This functional check is
+not included in the core-forward timing comparison above.
