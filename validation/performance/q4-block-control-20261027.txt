@@ -1,0 +1,30 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkQ4BlockControl/8960x1536/reversefalse/before-4         	     202	   2953015 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversefalse/before-4         	     207	   2985432 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversefalse/before-4         	     180	   3086804 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversefalse/after-4          	     172	   3525672 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversefalse/after-4          	     189	   2948940 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversefalse/after-4          	     200	   3266715 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversetrue/after-4           	     100	   5782765 ns/op	     113 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversetrue/after-4           	     195	   2950134 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversetrue/after-4           	     195	   3065935 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversetrue/before-4          	     181	   3235704 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversetrue/before-4          	     188	   3316620 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/8960x1536/reversetrue/before-4          	     194	   2868862 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversefalse/before-4        	      45	  12815604 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversefalse/before-4        	      48	  12666013 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversefalse/before-4        	      43	  13152027 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversefalse/after-4         	      45	  13425559 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversefalse/after-4         	      43	  12888112 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversefalse/after-4         	      49	  14570677 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversetrue/after-4          	      48	  13097576 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversetrue/after-4          	      42	  12759028 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversetrue/after-4          	      42	  12841287 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversetrue/before-4         	      45	  13001787 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversetrue/before-4         	      46	  13178509 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ4BlockControl/18944x3584/reversetrue/before-4         	      46	  12878747 ns/op	     112 B/op	       1 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	19.654s

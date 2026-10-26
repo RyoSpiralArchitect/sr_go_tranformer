@@ -268,3 +268,126 @@ completed and one was canceled; the server observed that cancellation. All six
 requests were released, admission/KV reservations drained and shutdown completed
 cleanly. Retained KV capacity is reported separately. This functional check is
 not included in the core-forward timing comparison above.
+
+## Complete Q4 blocks for single rows
+
+An odd final row now handles each complete 64-weight block with fixed offsets.
+This covers single-session decode and the odd row of a larger batch. The
+two-row/four-row kernels, partial blocks and per-row FP64 fallback retain their
+previous arithmetic. Four accumulators, their reduction order and each block's
+scale application are preserved.
+
+Go's [slice-to-array-pointer conversion](https://go.dev/ref/spec#Conversions_from_slice_to_array_or_array_pointer)
+provides checked views of the existing activation and packed-weight storage.
+The helper uses constant offsets to remove the inner loop and repeated index
+work. There is no new expanded matrix, activation buffer or workspace; the
+weight layout, precision, worker partition and joined lifetime are unchanged.
+It remains ordinary Go compatible with the project's Go 1.22 minimum.
+
+Measured on 2026-10-27, Apple M4 / 24 GiB / Go 1.27.1, four Go threads/workers,
+three 500 ms samples in each run order (six per variant/case):
+
+| Projection | Input rows | Before, ms | Fixed block, ms | Time reduction |
+| --- | ---: | ---: | ---: | ---: |
+| 8,960 × 1,536 | 1 | 1.055 | 0.751 | 28.8% |
+| 18,944 × 3,584 | 1 | 5.850 | 4.208 | 28.1% |
+| 8,960 × 1,536 | 4 | 2.341 | 2.265 | control |
+| 18,944 × 3,584 | 4 | 13.610 | 13.280 | control |
+
+These are kernel medians, not end-to-end inference. The four-row path is
+unchanged and its ranges overlap; no four-row speedup is attributed to this
+change. Desktop and thermal activity were uncontrolled. Both variants retain
+112 B and one callback allocation per call.
+
+The existing `BenchmarkQ4Pair` harness supplies the same-binary comparison.
+Its retained reference is from `167adfb4`, whose one/four-row paths are also
+unchanged in this optimization's parent `6b94640`. Only those row counts are
+used here; the historical `pair` label runs the current production kernel.
+[Raw samples](validation/performance/q4-block-kernels-20261027.txt) and the
+[build manifest and aggregates](validation/performance/q4-block-kernels-20261027.json)
+retain all 48 trials and their full ranges.
+
+```sh
+GOENV=off GOTOOLCHAIN=local GOFLAGS= GOEXPERIMENT= GOMAXPROCS=4 \
+  ./scripts/go.sh test -run '^$' \
+  -bench '^BenchmarkQ4Pair$/^(8960x1536|18944x3584)$/^rows(1|4)$' \
+  -benchmem -benchtime=500ms -count=3 -cpu=4
+```
+
+New regression tests isolate each of 64 columns under every packed-byte code,
+including negative nibbles, and compare all widths 1–193 with mixed-magnitude
+inputs against the retained kernel. The existing exact-bit shape, worker,
+extreme-input and shared-engine tests continue to apply.
+
+### Real-model protocol and pilot
+
+The same isolated offline driver described above compares parent `6b94640`
+against the new runtime. Both builds use the unchanged forward probe: eight
+prompt tokens per session, seven decode calls, one warmup and three measured
+trials per case/process, with before/after/after/before process order. Complete
+logit/KV digests, generated IDs, model plans and retained workspace sizes must
+match. This checks numerical preservation on the bounded inputs; it is not a
+new language-quality evaluation or an HTTP throughput measurement.
+
+The pinned SmolLM2-360M pilot completed all four processes. Single-session
+decode medians were 0.244 → 0.183 s (25.1% less time); the two-session control
+was 0.348 → 0.338 s with overlapping ranges. The
+[full pilot receipt](validation/performance/smol360-q4-block-20261027.json)
+contains every sample, numerical signature, build hash and per-process RSS.
+
+### Qwen2.5-7B single-session result
+
+The pinned `Qwen/Qwen2.5-7B-Instruct` revision
+`a09a35458c702b33eeacc393d103063234e8bc28` completed the same offline protocol
+in `q4-mixed` format. Original source files were SHA-256 checked before and
+after. All four processes matched every compared logit and used-KV digest,
+generated ID, model plan and retained workspace capacity.
+
+| Sessions | Before: seven decode calls, s | Fixed blocks: seven decode calls, s |
+| ---: | ---: | ---: |
+| 1 | 5.074 (4.658–7.079) | 3.420 (3.348–4.000) |
+| 2 | 7.118 (6.803–7.887) | 7.621 (6.857–10.466) |
+
+Values are medians and full ranges of six measured trials per variant/case.
+Single-session decode took **32.6% less time**. The unchanged two-session
+control's median was **7.1% slower**, with overlapping ranges. This run does
+not establish a two-session improvement or unchanged end-to-end performance;
+the regression is retained in the report. Prefill medians were 2.870 → 2.815 s
+for one session and 5.722 → 6.385 s for two; no prefill improvement is claimed.
+Desktop/thermal conditions were not controlled, and core-forward intervals
+exclude loading, sampling and HTTP/SSE delivery.
+
+A follow-up same-binary two-row control retains the complete ordinary kernel
+from `6b94640`. At 18,944 × 3,584 its median was 12.940 → 12.993 ms; at
+8,960 × 1,536 it was 3.036 → 3.166 ms, both with overlapping ranges. These
+separate measurements do not establish the cause of the 7B slowdown or erase
+it. [Raw control trials](validation/performance/q4-block-control-20261027.txt)
+and the [control build manifest](validation/performance/q4-block-control-20261027.json)
+can be reproduced with `BenchmarkQ4BlockControl` using the same environment,
+500 ms duration and three samples as the kernel command above.
+
+Both variants retain 4,829,927,424 weight bytes (4.498 GiB), 3,033,344 workspace
+bytes for one session and 6,066,688 for two. Median measurement-loop allocation
+bytes were 3,918,944 → 3,918,960 for one session and 7,589,120 → 7,589,184 for
+two, including KV pages, hashing and token bookkeeping. Per-child lifetime
+peak RSS was 4.133/4.113 GiB before and 4.141/4.105 GiB after. These values do
+not establish an RSS reduction or a minimum-RAM requirement.
+
+The [complete 7B comparison receipt](validation/performance/qwen7b-q4-block-20261027.json)
+contains all samples and source/build/model identities. The earlier microkernel
+manifest records the original `8efe156` test source; the following test-only
+formatting fix did not change runtime or forward-probe source.
+
+```sh
+python3 -S scripts/compare_inference.py --model PATH_TO_QWEN_7B \
+  --id qwen25-7b --baseline-ref 6b94640 \
+  --output-dir runs/qwen7b-block-comparison
+```
+
+The final [7B serving receipt](validation/performance/qwen7b-q4-block-serving-20261027.json)
+confirms identical CLI, HTTP and concurrent SSE completions for plain text and
+chat, also matching the previous PR's exact completions. The load test completed
+one request and canceled one; the server observed that cancellation. All six
+server requests released reservations, active/queued/computing work drained to
+zero, and shutdown was clean. Retained KV capacity was 7,340,032 bytes. This is
+a functional/lifecycle check, separate from the core-forward speed comparison.

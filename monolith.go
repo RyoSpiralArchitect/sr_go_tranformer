@@ -3830,6 +3830,11 @@ func linearQ4Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 						var sum float32
 						for g, scale := range scales {
 							j, end := g*q8Block, min((g+1)*q8Block, in)
+							if end-j == 64 {
+								// Safe array views check the complete block once, without copying.
+								sum += dotQ4Block64((*[64]float32)(xr[j:end]), (*[32]byte)(wr[j/2:end/2])) * scale
+								continue
+							}
 							var a, b, c, d float32
 							for ; j+4 <= end; j += 4 {
 								v0, v1 := q4Pairs[wr[j/2]][0], q4Pairs[wr[j/2]][1]
@@ -3851,6 +3856,94 @@ func linearQ4Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 			}
 		}
 	})
+}
+
+// dotQ4Block64 keeps the single-row kernel's four accumulators and reduction
+// order. Constant offsets remove the full block's loop/index work; array views
+// retain Go bounds safety without unsafe, assembly, copying or extra scratch.
+func dotQ4Block64(x *[64]float32, w *[32]byte) float32 {
+	var a, b, c, d float32
+	p0, q0 := q4Pairs[w[0]], q4Pairs[w[1]]
+	a += x[0] * p0[0]
+	b += x[1] * p0[1]
+	c += x[2] * q0[0]
+	d += x[3] * q0[1]
+	p4, q4 := q4Pairs[w[2]], q4Pairs[w[3]]
+	a += x[4] * p4[0]
+	b += x[5] * p4[1]
+	c += x[6] * q4[0]
+	d += x[7] * q4[1]
+	p8, q8 := q4Pairs[w[4]], q4Pairs[w[5]]
+	a += x[8] * p8[0]
+	b += x[9] * p8[1]
+	c += x[10] * q8[0]
+	d += x[11] * q8[1]
+	p12, q12 := q4Pairs[w[6]], q4Pairs[w[7]]
+	a += x[12] * p12[0]
+	b += x[13] * p12[1]
+	c += x[14] * q12[0]
+	d += x[15] * q12[1]
+	p16, q16 := q4Pairs[w[8]], q4Pairs[w[9]]
+	a += x[16] * p16[0]
+	b += x[17] * p16[1]
+	c += x[18] * q16[0]
+	d += x[19] * q16[1]
+	p20, q20 := q4Pairs[w[10]], q4Pairs[w[11]]
+	a += x[20] * p20[0]
+	b += x[21] * p20[1]
+	c += x[22] * q20[0]
+	d += x[23] * q20[1]
+	p24, q24 := q4Pairs[w[12]], q4Pairs[w[13]]
+	a += x[24] * p24[0]
+	b += x[25] * p24[1]
+	c += x[26] * q24[0]
+	d += x[27] * q24[1]
+	p28, q28 := q4Pairs[w[14]], q4Pairs[w[15]]
+	a += x[28] * p28[0]
+	b += x[29] * p28[1]
+	c += x[30] * q28[0]
+	d += x[31] * q28[1]
+	p32, q32 := q4Pairs[w[16]], q4Pairs[w[17]]
+	a += x[32] * p32[0]
+	b += x[33] * p32[1]
+	c += x[34] * q32[0]
+	d += x[35] * q32[1]
+	p36, q36 := q4Pairs[w[18]], q4Pairs[w[19]]
+	a += x[36] * p36[0]
+	b += x[37] * p36[1]
+	c += x[38] * q36[0]
+	d += x[39] * q36[1]
+	p40, q40 := q4Pairs[w[20]], q4Pairs[w[21]]
+	a += x[40] * p40[0]
+	b += x[41] * p40[1]
+	c += x[42] * q40[0]
+	d += x[43] * q40[1]
+	p44, q44 := q4Pairs[w[22]], q4Pairs[w[23]]
+	a += x[44] * p44[0]
+	b += x[45] * p44[1]
+	c += x[46] * q44[0]
+	d += x[47] * q44[1]
+	p48, q48 := q4Pairs[w[24]], q4Pairs[w[25]]
+	a += x[48] * p48[0]
+	b += x[49] * p48[1]
+	c += x[50] * q48[0]
+	d += x[51] * q48[1]
+	p52, q52 := q4Pairs[w[26]], q4Pairs[w[27]]
+	a += x[52] * p52[0]
+	b += x[53] * p52[1]
+	c += x[54] * q52[0]
+	d += x[55] * q52[1]
+	p56, q56 := q4Pairs[w[28]], q4Pairs[w[29]]
+	a += x[56] * p56[0]
+	b += x[57] * p56[1]
+	c += x[58] * q56[0]
+	d += x[59] * q56[1]
+	p60, q60 := q4Pairs[w[30]], q4Pairs[w[31]]
+	a += x[60] * p60[0]
+	b += x[61] * p60[1]
+	c += x[62] * q60[0]
+	d += x[63] * q60[1]
+	return (a + b) + (c + d)
 }
 
 func linearQ4WideInto(e *kernelExecutor, y, x []float32, w *Param, n int) {
