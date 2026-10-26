@@ -2,7 +2,8 @@
 
 Measure token selection separately from model projection, attention, source
 loading and HTTP delivery. A faster sampler does not imply the same speedup
-for end-to-end generation. The measurements below use FP32 weights. Separate
+for end-to-end generation. The sampler/workspace measurements use FP32 weights;
+the last section covers exact-output Q4 kernel optimization. Separate
 [Q8 measurements](Q8_INFERENCE.md) cover opt-in quantization and larger models.
 
 ## Greedy token selection
@@ -142,3 +143,120 @@ Use `serve` with the settings above and run the following client once with
   -short-prompt 'The capital of France is' \
   -long-prompt 'Once upon a time, a small cat walked through the garden. Once upon a time, a small cat walked through the garden. Once upon a time, a small cat walked through the garden. Once upon a time, a small cat walked through the garden. '
 ```
+
+## Sharing Q4 weights across short batches
+
+When a Q4 tile has two or three rows left, the first two now share each packed
+weight read and pair-table lookup. A final odd row still uses the single-row
+path; full four-row tiles retain their existing path. This applies to Q4
+projections inside `q4-mixed` as well as all-Q4 models. Q8 and FP32 arithmetic
+are unchanged.
+
+Each row keeps exactly the same four accumulators, reduction order and block
+scale multiplication as before. The per-row wide fallback, disjoint worker
+output ranges and joined workspace ownership are unchanged. There is no new
+activation quantization, expanded weight matrix, workspace or model allocation.
+This reduces repeated decoding of weights; it does not reduce resident weight
+payload or the precision of weights/activations/KV.
+
+The benchmark retains the old kernels from `167adfb4` in test code and runs both
+implementations in the same binary. On Apple M4 / 24 GiB / Go 1.27.1, four Go
+threads/workers, three 300 ms samples in each run order, the 18,944 × 3,584
+projection used by Qwen2.5-7B produced these medians:
+
+| Input rows | Before, ms | Shared pair, ms | Time reduction |
+| ---: | ---: | ---: | ---: |
+| 1 | 6.577 | 6.711 | -2.0% |
+| 2 | 13.274 | 8.890 | 33.0% |
+| 3 | 19.709 | 15.614 | 20.8% |
+| 4 | 13.411 | 13.416 | 0.0% |
+| 6 | 28.161 | 26.801 | 4.8% |
+
+The 8,960 × 1,536 case reduced two-row time by 30.1% and three-row time by
+19.8%. One/four-row controls remain close; no speedup is claimed for them.
+The kernel retains 112 B and one callback allocation per call. Desktop/thermal
+activity was uncontrolled, so these samples are workload/host-specific.
+[Raw samples](validation/performance/q4-pair-kernels-20261026.txt) and the
+[aggregate/build manifest](validation/performance/q4-pair-kernels-20261026.json)
+retain every trial, including regressions.
+
+```sh
+GOMAXPROCS=4 ./scripts/go.sh test -run '^$' -bench '^BenchmarkQ4Pair$' \
+  -benchmem -benchtime=300ms -count=3 -cpu=4
+```
+
+Exact-bit regression tests cover zero/odd/even row counts, 32-output tile
+boundaries, odd matrix widths, partial 64-weight blocks, subnormal/signed-zero
+inputs, very large activations and nil/one/four-worker execution. Existing HF
+profile, workspace, cancellation and shared-model lifecycle tests also apply.
+
+### Bounded real-model comparison
+
+The offline driver builds the selected Git baseline and current `monolith.go`
+in separate directories using the identical `inference_perf_test.go` harness.
+It requires pinned original model files from the catalog and an already
+installed Go toolchain/dependency cache. It creates no model download or
+expanded FP32 weights. The driver disables the user Go environment file,
+ambient build flags/workspaces, automatic toolchain downloads and module
+downloads, and records the effective build settings.
+
+```sh
+python3 -S scripts/compare_inference.py --model PATH_TO_QWEN_7B \
+  --id qwen25-7b --baseline-ref 167adfb4 \
+  --output-dir runs/qwen7b-pair-comparison
+```
+
+Only one mixed-format model is resident at a time. The process order is
+before/after/after/before. Each process measures one- and two-session cases,
+with one warmup and three measured trials per case. Each session starts with
+eight tokens from the fixed authored corpus, then performs seven decode calls
+with its own greedy IDs. This fixed-step probe continues even if an EOS ID
+appears; request termination is covered by the serving tests.
+
+Timers surround only the model's forward calls. Loading, tokenizer work,
+hashing, token selection and HTTP/SSE are excluded, so these are core-forward
+latencies, not end-to-end request throughput. Allocation totals include the
+measurement loop. SHA-256 digests of every produced logit and all used KV
+values, exact generated IDs, prompt IDs and workspace capacities must agree
+between variants. Per-child peak RSS includes the entire process lifetime and
+is separate from both allocated weight payload and retained workspace bytes.
+
+### Qwen2.5-7B result
+
+The pinned `Qwen/Qwen2.5-7B-Instruct` revision
+`a09a35458c702b33eeacc393d103063234e8bc28` was tested offline on the same
+Apple M4 / 24 GiB / Go 1.27.1 host. Source files were SHA-256 checked before
+and after the run. All four processes completed; both versions produced
+identical full-logit and used-KV digests, generated IDs and workspace capacities.
+
+| Sessions | Before: seven decode calls, s | Shared pair: seven decode calls, s |
+| ---: | ---: | ---: |
+| 1 | 4.930 (4.518–6.717) | 5.415 (4.471–7.020) |
+| 2 | 10.174 (9.271–14.046) | 6.675 (6.636–7.791) |
+
+Values are medians and full ranges of six measured trials per version/case.
+Two-session decode time fell 34.4%. The single-session median was 9.8% slower
+and its ranges overlap; this run does not establish a single-session speedup.
+Prefill controls also varied, and no prefill improvement is attributed to the
+two-row change. The two-session decode intervals contain fourteen token
+positions across seven calls; these are not eight-token request durations or
+HTTP throughput measurements.
+
+Both versions keep 4,829,927,424 weight bytes (4.498 GiB), 3,033,344 workspace
+bytes for one session and 6,066,688 bytes for two. The two-session measurement
+loop's median allocated bytes stayed 7,589,120, with 1,830 allocations; this
+includes KV pages, probe hashing and token bookkeeping, not just kernels.
+Per-process peak RSS was 4.114/4.086 GiB before and 4.036/4.095 GiB after.
+No RSS reduction or minimum-RAM claim is made; OS residency and allocated
+weight payload are different quantities, as in the
+[earlier 7B quality comparison](QUALITY_INFERENCE.md#measured-7b-results).
+
+The [complete comparison receipt](validation/performance/qwen7b-q4-pair-20261026.json)
+retains all times, numerical signatures, resource counts and build/model hashes.
+It was produced before the runner's Go-environment isolation fix. The host's
+effective GOFLAGS/GOEXPERIMENT were empty; rebuilding both binaries under the
+final isolated settings produced **identical binary and input hashes** to those
+measured. The [isolation verification receipt](validation/performance/q4-pair-build-isolation-20261026.json)
+records those builds, effective settings and a successful SmolLM2-360M pilot.
+The original 7B receipt keeps its actual runner hash rather than replacing it
+with the later script's identity.

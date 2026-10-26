@@ -17,6 +17,17 @@ import subprocess
 from quant_quality import run_measured, sha
 
 
+def isolated_go_environment():
+    # An empty GOFLAGS still falls back to the user go.env file. Disable that
+    # file as well as process flags, workspaces and automatic downloads.
+    env = dict(os.environ, HF_HUB_OFFLINE='1', GOMAXPROCS='4', CGO_ENABLED='0',
+               GOENV='off', GOWORK='off', GOFLAGS='', GOEXPERIMENT='',
+               GOTOOLCHAIN='local', GOPROXY='off', GOSUMDB='off')
+    for key in ('HF_TOKEN', 'GOGC', 'GOMEMLIMIT', 'GODEBUG'):
+        env.pop(key, None)
+    return env
+
+
 def numerical_signature(report):
     """Keep the input contract, all logit/KV bits and generated IDs, not timing."""
     return dict(plan=report['plan'], threads=report['threads'],
@@ -49,19 +60,20 @@ def main():
               root/'validation/quality/corpus.json', catalog_path,
               Path(__file__), root/'scripts/quant_quality.py', root/'scripts/go.sh']
     source_hashes = {str(p.relative_to(root)): sha(p) for p in inputs}
-    env = dict(os.environ, HF_HUB_OFFLINE='1', GOMAXPROCS='4', CGO_ENABLED='0',
-               MONOLITH_PERF_MODEL=str(model), MONOLITH_PERF_CORPUS=str(root/'validation/quality/corpus.json'))
-    env.pop('HF_TOKEN', None)
-    # Avoid ambient flags/workspaces changing either build, or a hidden runtime
-    # tuning setting making the checked-in protocol hard to reproduce.
-    env.update(GOWORK='off', GOFLAGS='')
-    for key in ('GOGC', 'GOMEMLIMIT', 'GODEBUG'):
-        env.pop(key, None)
+    env = isolated_go_environment()
+    env.update(MONOLITH_PERF_MODEL=str(model), MONOLITH_PERF_CORPUS=str(root/'validation/quality/corpus.json'))
     # scripts/go.sh intentionally changes to the repository root. Resolve its
     # toolchain once, then invoke Go directly in each isolated build directory.
     goroot = subprocess.check_output([str(root/'scripts/go.sh'), 'env', 'GOROOT'],
                                      cwd=root, env=env, text=True).strip()
     go = str(Path(goroot)/'bin/go')
+    effective = json.loads(subprocess.check_output([go, 'env', '-json', 'GOENV', 'GOFLAGS',
+        'GOWORK', 'GOTOOLCHAIN', 'GOEXPERIMENT', 'GOPROXY', 'GOSUMDB', 'GOOS', 'GOARCH'],
+        cwd=root, env=env, text=True))
+    # `go env GOENV` prints an empty path when GOENV=off disables the file.
+    expected = dict(env, GOENV='')
+    if any(effective[key] != expected[key] for key in effective if key not in ('GOOS', 'GOARCH')):
+        raise RuntimeError('Effective Go build configuration differs from the protocol')
     builds = {}
     for variant in ('before', 'after'):
         build = output/variant
@@ -112,9 +124,9 @@ def main():
                    host=platform.system()+'/'+platform.machine(),
                    go_version=subprocess.check_output([go, 'version'], cwd=root, env=env, text=True).strip(),
                    hf_hub_offline=True, builds=builds, source_inputs_sha256=source_hashes,
-                   numerical_identity=True, reports=reports,
-                   environment=dict(GOMAXPROCS='4', CGO_ENABLED='0', GOWORK='off', GOFLAGS='',
-                                    GOGC=None, GOMEMLIMIT=None, GODEBUG=None),
+                   numerical_identity=True, reports=reports, effective_go_env=effective,
+                   environment={k: env.get(k) for k in ('GOMAXPROCS', 'CGO_ENABLED', 'GOENV', 'GOWORK',
+                       'GOFLAGS', 'GOEXPERIMENT', 'GOTOOLCHAIN', 'GOPROXY', 'GOSUMDB', 'GOGC', 'GOMEMLIMIT', 'GODEBUG')},
                    note='One resident mixed model; fixed 8-token prefixes, 7 decode calls, 1/2 sessions. Core forward timing only; peak RSS spans each full process. Not HTTP throughput or a language-quality benchmark.')
     (output/'receipt.json').write_text(json.dumps(receipt, indent=2, ensure_ascii=False, allow_nan=False)+'\n')
 
