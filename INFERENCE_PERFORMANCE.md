@@ -383,3 +383,11 @@ python3 -S scripts/compare_inference.py --model PATH_TO_QWEN_7B \
   --id qwen25-7b --baseline-ref 6b94640 \
   --output-dir runs/qwen7b-block-comparison
 ```
+
+The final [7B serving receipt](validation/performance/qwen7b-q4-block-serving-20261027.json)
+confirms identical CLI, HTTP and concurrent SSE completions for plain text and
+chat, also matching the previous PR's exact completions. The load test completed
+one request and canceled one; the server observed that cancellation. All six
+server requests released reservations, active/queued/computing work drained to
+zero, and shutdown was clean. Retained KV capacity was 7,340,032 bytes. This is
+a functional/lifecycle check, separate from the core-forward speed comparison.
