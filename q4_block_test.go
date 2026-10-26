@@ -24,7 +24,7 @@ func TestQ4FullBlockEveryCodeAndColumn(t *testing.T) {
 			got[0], got[1], got[2] = -123, -123, -123
 			linearQ4Into(nil, got[1:2], x[:], w, 1)
 			packed := w.Q4.Values[col/2]
-			value := int8(packed << 4) >> 4
+			value := int8(packed<<4) >> 4
 			if col%2 != 0 {
 				value = int8(packed) >> 4
 			}
