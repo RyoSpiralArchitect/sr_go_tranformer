@@ -400,3 +400,125 @@ single-row comparison with both case orders and separates profiling from
 speed measurements. It preserves the single-session improvement, finds a much
 smaller and inconsistent two-session difference, and identifies the paired Q4
 loop as an optimization target without assigning a unique regression cause.
+
+
+## Complete blocks for paired rows
+
+Following the [concurrency diagnosis](INFERENCE_DIAGNOSTICS.md), complete
+64-column blocks in a two-row Q4 remainder now use safe array views and fixed
+offsets. Each decoded pair serves both activation rows. Each row retains four
+separate accumulators, the same reduction order and the same block-scale step.
+Single-row blocks, four-row tiles, partial blocks and the wide-input fallback
+retain their arithmetic. Worker ownership, weight payload and workspace sizes
+are unchanged; no expanded weight copy, activation quantization, unsafe or
+assembly is introduced.
+
+This targets measured Q4 work without asserting that it caused the earlier
+7.1% two-session result. Exhaustive paired basis tests cover all 256 packed
+codes and all 64 positions independently in both rows. Frozen-reference tests
+also cover every width 1–193, mixed magnitudes, odd/even batches, output-tile
+boundaries, extreme inputs and nil/one/four-worker execution.
+
+### Same-binary kernel comparison
+
+The complete ordinary callback from PR33 main (`9a8db57`, runtime unchanged
+from PR32) is retained in test code. Both variants use the unchanged single-row
+helper. Apple M4 / 24 GiB / Go 1.27.1, four threads/workers, isolated Go settings,
+three 300 ms samples in each order produced these medians:
+
+| Input rows | 8,960 × 1,536 before → after, ms | 18,944 × 3,584 before → after, ms |
+| ---: | ---: | ---: |
+| 1 | 0.889 → 0.866 | 4.475 → 4.432 |
+| 2 | 1.691 → 1.050 | 9.977 → 6.160 |
+| 3 | 2.695 → 1.998 | 15.217 → 13.459 |
+| 4 | 2.740 → 2.699 | 14.588 → 14.352 |
+| 6 | 5.010 → 4.788 | 27.538 → 26.097 |
+
+Two-row time is 37.9% / 38.3% shorter in the respective shapes. One/four-row
+controls are close; small differences are not claimed as independent gains.
+Each case has a median of 112 B/op; individual samples span 112–120 B/op,
+with one allocation per call in every sample. These are synthetic projection
+timings, not model throughput or a new memory saving. The shared
+callback can compile differently even for unchanged paths, so the real-model
+single-session control remains necessary. Host activity and thermal state
+were uncontrolled. [Raw samples](validation/performance/q4-pair-block-kernels-20261027.txt)
+and the [manifest](validation/performance/q4-pair-block-kernels-20261027.json)
+retain full ranges, inputs, binary identity and effective Go settings.
+
+```sh
+GOENV=off GOTOOLCHAIN=local GOFLAGS= GOEXPERIMENT= GOWORK=off \
+  GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=4 \
+  ./scripts/go.sh test -run '^$' -bench '^BenchmarkQ4PairBlock$' \
+  -benchmem -benchtime=300ms -count=3 -cpu=4
+```
+
+### Balanced real-model comparison
+
+Both runtime builds use the PR33 balanced protocol: process order
+before/after/after/before, case order 1→2/1→2/2→1/2→1, one warmup and three
+measured trials per case/process, eight prefix tokens and seven decode calls.
+The [pre-recorded experiment plan](validation/performance/q4-pair-block-protocol-20261027.json)
+sets practical 7B adoption thresholds: identical numerical signatures and
+workspace, at most +5% single-session median time, and at least 10% less
+two-session time. These are bounded engineering criteria, not significance
+tests or guarantees for other hosts/workloads.
+
+The pinned [360M pilot](validation/performance/smol360-q4-pair-block-20261027.json)
+matched every logit/KV digest, generated ID, plan and workspace capacity.
+Two-session decode medians were 0.333→0.235 s (29.5% shorter); the one-session
+control was 0.186→0.193 s (+3.9%), with overlapping ranges of 0.181–0.198 and
+0.174–0.202 s. This small-model control does not establish a single-session
+speedup, and its negative median difference is retained.
+
+
+The pinned Qwen2.5-7B-Instruct revision
+`a09a35458c702b33eeacc393d103063234e8bc28` completed all four offline `q4-mixed`
+processes. The baseline is `9a8db57`; the candidate runtime is `5c5a0e3`.
+Model files, build inputs and executables were hashed before and after the run.
+All compared logit and used-KV digests, generated IDs, prompts, plans and
+workspace capacities match exactly.
+
+| Sessions | Before: seven decode calls, median / range, s | Paired blocks: median / range, s |
+| ---: | --- | --- |
+| 1 | 3.970 / 3.374–4.768 | 3.550 / 3.353–3.742 |
+| 2 | 7.138 / 7.066–8.557 | 4.768 / 4.711–4.810 |
+
+Each cell has six measured trial sums from two processes. The two-session
+median is **33.2% shorter**, with nonoverlapping trial ranges. Single-session
+performance meets the no-more-than-5%-regression criterion; its observed
+median is 10.6% lower, but the baseline varies substantially between processes,
+so this is not claimed as a separate single-session gain. The small-model
+control and the host/thermal limitations above remain relevant. This is a
+bounded core-forward comparison, not HTTP throughput or a language-quality
+benchmark; it does not establish the cause of the older 7.1% observation.
+Prefill medians were 3.013→2.907 s / 5.784→5.608 s for one/two sessions with
+overlapping ranges, so no prefill improvement is claimed.
+
+Weight storage remains 4,829,927,424 bytes; retained workspace remains
+3,033,344 / 6,066,688 bytes for one/two sessions. Measured-loop allocations
+include KV pages, hashing and bookkeeping; median bytes remain approximately
+3,919,000 / 7,589,000. Process peak RSS was 4.120/4.114 GiB before and
+4.108/4.115 GiB after. This is not a resident-memory reduction or a minimum-RAM
+claim. [Full 7B trials](validation/performance/qwen7b-q4-pair-block-20261027.json)
+and the [acceptance calculation](validation/performance/q4-pair-block-acceptance-20261027.json)
+retain all measurements and the pre-recorded thresholds.
+
+```sh
+python3 -S scripts/compare_inference.py --model PATH_TO_QWEN_7B \
+  --id qwen25-7b --baseline-ref 9a8db57 --case-order balanced \
+  --output-dir runs/qwen7b-pair-block-comparison
+```
+
+
+The [7B serving check](validation/performance/qwen7b-q4-pair-block-serving-20261027.json)
+matched plain-text and chat completions across CLI, HTTP and concurrent SSE,
+and matched the previous single-row PR's saved completions and model plan.
+The cancellation workload completed one request and canceled one; the server
+observed the cancellation. All six server requests released resources,
+active/queued/computing/admitted work and KV reservations returned to zero,
+and shutdown was clean. Retained KV capacity was 7,340,032 bytes. This is a
+functional/lifecycle check and supplies no HTTP speedup claim.
+
+The local race suite, vet, Python protocol/cleanup tests and CLI training/resume
+smoke passed. Code review of the paired kernel found no actionable P0–P2
+issues. CI also checks Go 1.22 and stable Go on Linux, and stable Go on macOS.

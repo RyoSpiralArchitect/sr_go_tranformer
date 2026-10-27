@@ -42,7 +42,7 @@ func TestQ4FullBlockAndEveryTailMatchLegacy(t *testing.T) {
 	// length. Mixed magnitudes exercise rounding/cancellation in all four
 	// accumulators. Other Q4 tests cover the per-row wide fallback and workers.
 	for width := 1; width <= 193; width++ {
-		for _, rows := range []int{1, 3, 4, 5, 7} {
+		for _, rows := range []int{1, 2, 3, 4, 5, 6, 7} {
 			x, dense, _ := linearFixture(rows, width, 5)
 			for i := range x {
 				x[i] = float32(math.Ldexp(float64(x[i]), (i*37)%181-90))

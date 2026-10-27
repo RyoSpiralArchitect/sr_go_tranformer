@@ -1,0 +1,980 @@
+{
+  "format": "monolith-kernel-comparison-v1",
+  "baseline_commit": "9a8db57ea197a1c1a602e321c867ead8efbe6b66",
+  "candidate_commit": "5c5a0e397980b5c4ae4b53420946baa8832f3ff9",
+  "host": "Darwin/arm64",
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "binary_sha256": "a20729691a4d4abda115edb6eafffca3c616dd7d8e4b84270ce3051ed2b87621",
+  "source_inputs_sha256": {
+    "dataset_resume_test.go": "e167048ae26ef923ff4f13b4dc2f21278cd1d413b7838f48123f8a720c022883",
+    "dataset_test.go": "da14c8eeb107317a0f5daaa6a539c27dcc38787f278dee3f516bf1145b9b06f5",
+    "engine_workspace_bench_test.go": "7f785025341568ca0af84a0540fc6f3c4e87d6d6531cb7fb87b8121d07411ed0",
+    "eval_forward_boundary_test.go": "f3c03200a6afb8bc1ce1133227d36cdfc04771438660800a07afe0ad4d8864dc",
+    "eval_forward_cancellation_test.go": "2d725fad345a59c6d1d1146e34b053cc9fcc640fc48d811a66a74b087e724e41",
+    "eval_forward_exact_test.go": "da208e96782368b91d1d5156c69cf39225065b21b6051116b8606d4c7c9e3bbc",
+    "evaluation_test.go": "67cbf938ac0cbc2a85f3ed65083cd88339868e8326ecb1bf0f90173f6a0db909",
+    "hf_cli_test.go": "1572a42c1fac1a79a56eb9dbe6300ab65f69152249b665d588b69872f7bb595e",
+    "hf_gpt2_test.go": "88fe7eeea3950d03bfc98287dd71980cc469aa947ab05062ea00c447abdc08ce",
+    "hf_inference_test.go": "bc5f551c64d25f105bbd657a0eead66689a4312b1a4f1c391834dd0ee36501ba",
+    "hf_llama3_chat_test.go": "94947e4b3407e39618fae54fb0a6967e50ad3ff7640f156034b43b5bb2fb4c24",
+    "hf_llama3_test.go": "20b5709ea361239827b34c3a1c3a0f2616eeb8e944b89fbedc288d1451c2ca9d",
+    "hf_llama3_tokenizer_test.go": "4ef33bb362012f4846bf505354b02e0c7157c43c83e0bfd2923dc045c7476154",
+    "hf_loader_test.go": "f3d0ac1870a5fe7791e88dd3d11682bba587a69f6b0ed2ca3f8cb15d17c0fb2b",
+    "hf_network_test.go": "d8ce6468b0b7e6c8c21275576b09f37d87633afe2523354a5f1d3becbc3684af",
+    "hf_offline_test.go": "e8117b69af4e180b56df32ce24f35e9e8314b4fcb78a43df3cce291f127305a1",
+    "hf_profiles_test.go": "39bf705325d4b8072e83f1cde4eff704484ad896513eba97ed3c031fd8b01871",
+    "hf_serving_test.go": "0087d95b603df6851bc135358de012a0c5b5b8f6f337c90b98b18f77ce03fe00",
+    "hf_tokenizer_test.go": "35b463123d68cafb397260afaccea491080de8bcdace2813baeb78fcd0fc6b86",
+    "inference_perf_test.go": "abf4b5974a58ead81ea0390705510c5786ae520b081da065a26dacd895ea652e",
+    "inference_workers_test.go": "1eea46c49be2e903ee23bed534650d9c3cd7b2695f39b366980fc758c7ee6767",
+    "inference_workspace_test.go": "7326d505ece66e26b5c70aa0177ab29d7f847450a8ff22eacfc97a31932cb9f1",
+    "linear_backward_test.go": "a4b182071d01432b08c89638cbfb6499dace93258b9b05263bf7842dfbb0ee4c",
+    "memory_plan_test.go": "3810d72e03a1d9876014a06cb934849b6bb531ffaa8f68dac7608fb66fb432a8",
+    "monolith.go": "5559be8c692a431deffe96f856ac9fc247bc6eb7c3116216287b1f0fe25ef021",
+    "monolith_test.go": "746ecd6ffee1fc16f80e9dd55a1a2b232a0f9af872dab75c78a1c460a81cf4ae",
+    "prefetch_data_test.go": "fd57e6548e7820a9a93c8c861c2474ab38947c88675ff4f7ed21597a08e967eb",
+    "prefill_test.go": "37be39c92f72fa9d781b47e2f9aa37796c17ab53545490b585b70f2b9a9b7451",
+    "q4_block_control_test.go": "37ba88f1731480334b384a23de099e6a0a73f4d25cd4ff90c60e5574f6c280cd",
+    "q4_block_test.go": "40946c5bddad9043cd5d702fb00134f2d9734c8a79d022f50797d67fd5e9909b",
+    "q4_pair_block_test.go": "de0d33eece20b3dc871943d910807f0129b8eadad2ed63335123f8397fbb44d1",
+    "q4_test.go": "1734477a96c8ba9b546a8c50ab96eea77a00523b432db9ba3470b3d02a7487cd",
+    "q8_cli_test.go": "d4b17957eea7d13715c6f1cdc4ea9ad6d43a99cbda080d6bc85bbbb8b3ef5bf2",
+    "q8_test.go": "f85d174eb71b0f7f50281550daa0d6cbc7624438cc8068680fb876d7c2cdff85",
+    "quality_ablation_test.go": "2d1415546a446a3351565b76077195193112bea163daa0a17bee1c510211994f",
+    "quality_validation_test.go": "e4c08e7c511f113f5cf3f07dd997d3928da22d2c17df58dc49b8e0196fa4a104",
+    "quant_pair_test.go": "fc9c85b9e43e298bcd7e76d6a1ca36e1f5aa407df2a7b647039d0939ea46a2fa",
+    "sampling_test.go": "aa8c0ad3a0726fd7adc6a5205caea127c3be4264255e8e53cb40d6f5082a19bb",
+    "scheduler_test.go": "7b7c87e87d6982e835365fae79dceb51adafa1d7256c753f7ecc11800d17478d",
+    "serving_lifecycle_test.go": "fe377534d98024d3adf691a7138762584e6fe0fcbeafdef74b6d7fff6fe37be4",
+    "shutdown_test.go": "8a05a02123683292524295d589ba04e2df9e567e98123f45aaa7bbce8f4738f9",
+    "streaming_test.go": "5c7a837fb2575f9555b6831bcc3201e2e1f929e561569be22bdee93b7c74ff9f",
+    "telemetry_test.go": "e885ecd0842f9cc4f6f3e197105e86727ad1a57230bb83eb9968f8365a6bce6a",
+    "workspace_boundary_test.go": "611ed722449e76819495ec4eed42827a36508bc6bf51abfbcba1544a778d0b74",
+    "workspace_exact_test.go": "cffc0c32ec04f3c1b0c37eccc296e6f1c26c77f80c92e94f5d5eaebc5a5f400f",
+    "workspace_training_test.go": "37fbabd18005fba97628b3b9fa1872b5ee805975d7ed1eb994bb72b2c6ff2ee6",
+    "go.mod": "8fd924c4124c93ce607d506cf677a5462ef233b3a776d0ba26d2a6fb3f498adf",
+    "go.sum": "8a0467c34198969fd6b4a4f0f41acfdaf433dc2a393db612c4d8121a60d1f66f",
+    "scripts/go.sh": "363c07f379265addabdd6e3319c4664840534a362f7644abd8eb436670705cc0"
+  },
+  "effective_go_env": {
+    "GOARCH": "arm64",
+    "GOENV": "",
+    "GOEXPERIMENT": "",
+    "GOFLAGS": "",
+    "GOOS": "darwin",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local",
+    "GOWORK": "off"
+  },
+  "environment": {
+    "GOMAXPROCS": "4",
+    "CGO_ENABLED": "0",
+    "GOENV": "off",
+    "GOWORK": "off",
+    "GOFLAGS": "",
+    "GOEXPERIMENT": "",
+    "GOGC": null,
+    "GOMEMLIMIT": null,
+    "GODEBUG": null
+  },
+  "flags": [
+    "-test.run=^$",
+    "-test.bench=^BenchmarkQ4PairBlock$",
+    "-test.benchmem",
+    "-test.benchtime=300ms",
+    "-test.count=3",
+    "-test.cpu=4",
+    "-test.timeout=10m"
+  ],
+  "process_resources": {
+    "peak_rss_bytes": 677445632,
+    "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+    "elapsed_seconds": 59.487783917,
+    "user_cpu_seconds": 195.483448,
+    "system_cpu_seconds": 2.179312
+  },
+  "note": "Synthetic same-binary kernel comparison with full PR33 callback reference and shared unchanged single-row helper. Four threads/workers, both run orders, three 300ms samples each. Not end-to-end throughput, memory bandwidth or a confidence interval.",
+  "cases": [
+    {
+      "shape": "8960x1536",
+      "rows": 1,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 841478,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 1014391,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 975749,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 871775,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 901127,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 876986,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 889056.5
+    },
+    {
+      "shape": "8960x1536",
+      "rows": 1,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 848953,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 860672,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 934952,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 880518,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 847738,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 871139,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 865905.5
+    },
+    {
+      "shape": "8960x1536",
+      "rows": 2,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 1774962,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 1600379,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 1616432,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 1780143,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 1728487,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 1652691,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 1690589.0
+    },
+    {
+      "shape": "8960x1536",
+      "rows": 2,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 1003065,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 1050013,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 1110875,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 1049240,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 1018002,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 1146734,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 1049626.5
+    },
+    {
+      "shape": "8960x1536",
+      "rows": 3,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 2453675,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 2551633,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 2579312,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2811489,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2813362,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2868219,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 2695400.5
+    },
+    {
+      "shape": "8960x1536",
+      "rows": 3,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 2024692,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 1950882,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 2035176,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 1972007,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2037550,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 1968742,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 1998349.5
+    },
+    {
+      "shape": "8960x1536",
+      "rows": 4,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 2747155,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 2750973,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 2689680,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2891320,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2733125,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2720647,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 2740140.0
+    },
+    {
+      "shape": "8960x1536",
+      "rows": 4,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 2682607,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 2710298,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 2619445,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2731435,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2734299,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 2688700,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 2699499.0
+    },
+    {
+      "shape": "8960x1536",
+      "rows": 6,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 5020152,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 4999153,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 4963291,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4896538,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 6325708,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 5045136,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 5009652.5
+    },
+    {
+      "shape": "8960x1536",
+      "rows": 6,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 4751070,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 4757306,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 4782117,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4794409,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4814393,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4794777,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 4788263.0
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 1,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 4439786,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 4369697,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 4528573,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4380550,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4510068,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4605097,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 4474927.0
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 1,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 4559513,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 4432706,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 4392504,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4339340,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4431059,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 4553050,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 4431882.5
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 2,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 8940954,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 9303915,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 9410820,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 11081149,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 10543289,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 11752978,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 9977054.5
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 2,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 6168470,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 6288207,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 6150983,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 6019730,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 6101784,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 6455653,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 6159726.5
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 3,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 14892148,
+          "bytes_per_op": 116,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 15464867,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 15425861,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 15400680,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 14247477,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 15033095,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 15216887.5
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 3,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 17590646,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 16902058,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 14785087,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 11555265,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 12133260,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 11662223,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 13459173.5
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 4,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 14875432,
+          "bytes_per_op": 116,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 14301044,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 13960290,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 14157072,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 20297549,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 15379025,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 14588238.0
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 4,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 14354572,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 14724195,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 14348967,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 14300325,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 14327135,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 14815804,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 14351769.5
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 6,
+      "variant": "before",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 29499542,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 27253017,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 27423399,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 27653257,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 27020590,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 28927934,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 27538328.0
+    },
+    {
+      "shape": "18944x3584",
+      "rows": 6,
+      "variant": "after",
+      "samples": [
+        {
+          "reverse": false,
+          "ns_per_op": 26229455,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 25652628,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": false,
+          "ns_per_op": 25964103,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 26329051,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 25520510,
+          "bytes_per_op": 112,
+          "allocs_per_op": 1
+        },
+        {
+          "reverse": true,
+          "ns_per_op": 26540013,
+          "bytes_per_op": 120,
+          "allocs_per_op": 1
+        }
+      ],
+      "median_ns_per_op": 26096779.0
+    }
+  ]
+}

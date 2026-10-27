@@ -1,0 +1,18 @@
+{
+  "format": "monolith-pair-block-experiment-plan-v1",
+  "baseline": "PR33 merged main; runtime identical to PR32 1226102391fc7ec27c5e3a84dbd4fbb47be217e6",
+  "proposal": "Specialize complete 64-element Q4 blocks for a two-row remainder using safe array views and unchanged accumulator/reduction order.",
+  "primary_model": "Qwen/Qwen2.5-7B-Instruct",
+  "revision": "a09a35458c702b33eeacc393d103063234e8bc28",
+  "format_weights": "q4-mixed",
+  "threads": 4,
+  "workers": 4,
+  "performance_protocol": "compare_inference.py --case-order balanced; 8-prefix/7-decode, 1 warmup+3 trials, ABBA with 1,2/1,2/2,1/2,1 orders",
+  "acceptance": {
+    "exact_logit_kv_ids": true,
+    "same_model_plan_workspace": true,
+    "single_session_after_before_median_at_most": 1.05,
+    "two_session_after_before_median_at_most": 0.9
+  },
+  "note": "Practical bounded acceptance thresholds, not statistical significance or universal guarantees. Preserve all attempts and negative results. No profilers or concurrent heavy tests during speed runs; 360M pilot then pinned 7B. Exact-bit tests, race/vet/CLI, independent review and serving/resource checks required."
+}
