@@ -436,8 +436,9 @@ three 300 ms samples in each order produced these medians:
 
 Two-row time is 37.9% / 38.3% shorter in the respective shapes. One/four-row
 controls are close; small differences are not claimed as independent gains.
-Every sample retains 112 B and one allocation per call. These are synthetic
-projection timings, not model throughput or a new memory saving. The shared
+Each case has a median of 112 B/op; individual samples span 112–120 B/op,
+with one allocation per call in every sample. These are synthetic projection
+timings, not model throughput or a new memory saving. The shared
 callback can compile differently even for unchanged paths, so the real-model
 single-session control remains necessary. Host activity and thermal state
 were uncontrolled. [Raw samples](validation/performance/q4-pair-block-kernels-20261027.txt)
