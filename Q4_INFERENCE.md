@@ -6,6 +6,8 @@ tradeoff. **It changes outputs substantially on some models.** FP32 is still
 the default; Q8 is the more conservative quantized option.
 For a measured middle ground, [mixed Q4/Q8](QUALITY_INFERENCE.md) protects
 embeddings/output heads with Q8 while retaining Q4 projections.
+Exact-preserving [paired-block kernel measurements](INFERENCE_PERFORMANCE.md#complete-blocks-for-paired-rows)
+cover concurrent inference; they do not undo the quantization error relative to FP32.
 
 ```sh
 go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
