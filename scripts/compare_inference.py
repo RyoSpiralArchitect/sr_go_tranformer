@@ -36,7 +36,20 @@ def numerical_signature(report):
                 decode_steps=report['decode_steps'], generated_ids_per_session=report['generated_ids_per_session'],
                 cases=[dict(sessions=c['sessions'], prompt_ids=c['prompt_ids'],
                             trials=[{k: t[k] for k in ('logits_sha256', 'kv_sha256', 'token_ids', 'workspace_bytes')}
-                                    for t in c['trials']]) for c in report['cases']])
+                                    for t in c['trials']]) for c in sorted(report['cases'], key=lambda c: c['sessions'])])
+
+
+def process_schedule(case_order):
+    """Cross both process order and case position without changing the workload."""
+    if case_order not in ('fixed', 'balanced'):
+        raise ValueError('Unknown case-order protocol')
+    return [(variant, [2, 1] if case_order == 'balanced' and index >= 2 else [1, 2])
+            for index, variant in enumerate(('before', 'after', 'after', 'before'))]
+
+
+def validate_case_order(report, expected):
+    if report.get('case_order') != expected or [c['sessions'] for c in report['cases']] != expected:
+        raise RuntimeError('Probe did not execute the requested case order')
 
 
 def main():
@@ -45,6 +58,8 @@ def main():
     parser.add_argument('--id', required=True, help='Pinned model catalog ID')
     parser.add_argument('--baseline-ref', required=True, help='Local Git commit to compare')
     parser.add_argument('--output-dir', type=Path, required=True)
+    parser.add_argument('--case-order', choices=('fixed', 'balanced'), default='fixed',
+                        help='fixed preserves 1,2; balanced reverses cases in the second process pair')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     model, output = args.model.resolve(), args.output_dir.resolve()
@@ -93,15 +108,18 @@ def main():
     # Two process pairs reverse run order. Each process warms both cases, then
     # measures three trials per case. Loading is outside the forward intervals.
     signature, reports = None, []
-    for index, variant in enumerate(('before', 'after', 'after', 'before')):
+    schedule = process_schedule(args.case_order)
+    for index, (variant, case_order) in enumerate(schedule):
         build = output/variant
         result = output/(str(index)+'-'+variant+'.json')
         env['MONOLITH_PERF_OUTPUT'] = str(result)
+        env['MONOLITH_PERF_CASE_ORDER'] = ','.join(map(str, case_order))
         with (output/(str(index)+'-'+variant+'.log')).open('w') as log:
             resources = run_measured([str(build/'probe.test'), '-test.run=^TestHFInferencePerformance$',
                                       '-test.v', '-test.timeout=11m'], cwd=root, env=env,
                                      stdout=log, stderr=subprocess.STDOUT, timeout=700)
         report = json.loads(result.read_text())
+        validate_case_order(report, case_order)
         current = numerical_signature(report)
         if signature is None:
             signature = current
@@ -119,7 +137,8 @@ def main():
             raise RuntimeError('Probe executable changed')
         if {n: sha(output/variant/n) for n in manifest['inputs_sha256']} != manifest['inputs_sha256']:
             raise RuntimeError('Build inputs changed')
-    receipt = dict(format='monolith-runtime-comparison-v1', baseline_commit=baseline,
+    receipt = dict(format='monolith-runtime-comparison-v2', baseline_commit=baseline,
+                   case_order_protocol=args.case_order, process_schedule=schedule,
                    model=source['repo'], revision=source['revision'], files=source['files'],
                    host=platform.system()+'/'+platform.machine(),
                    go_version=subprocess.check_output([go, 'version'], cwd=root, env=env, text=True).strip(),

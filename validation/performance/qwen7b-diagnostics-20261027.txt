@@ -1,0 +1,70 @@
+$ go tool pprof -top -nodecount=15 runs/concurrent-20261027/diagnostic-qwen7b/after/probe.test runs/concurrent-20261027/profiles/cpu.prof
+File: probe.test
+Type: cpu
+Time: 2026-10-27 17:48:27 JST
+Duration: 85.55s, Total samples = 187.04s (218.63%)
+Showing nodes accounting for 185.75s, 99.31% of 187.04s total
+Dropped 110 nodes (cum <= 0.94s)
+Showing top 15 nodes out of 39
+      flat  flat%   sum%        cum   cum%
+   112.63s 60.22% 60.22%    116.23s 62.14%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ4Into.func1
+    26.69s 14.27% 74.49%     26.69s 14.27%  syscall.rawsyscalln
+    14.71s  7.86% 82.35%     14.71s  7.86%  runtime.pthread_cond_signal
+     8.65s  4.62% 86.98%      9.15s  4.89%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ8Into.func1
+     7.48s  4.00% 90.98%      7.48s  4.00%  runtime.pthread_cond_wait
+     5.49s  2.94% 93.91%      5.49s  2.94%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*q4Weights).put (inline)
+     4.11s  2.20% 96.11%      4.11s  2.20%  runtime.asyncPreempt
+     3.93s  2.10% 98.21%      9.43s  5.04%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*Param).putQuantized
+     1.13s   0.6% 98.81%     38.64s 20.66%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*hfArchive).readTensorValues
+     0.91s  0.49% 99.30%     10.76s  5.75%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*hfArchive).readParam.func1
+     0.01s 0.0053% 99.30%     14.72s  7.87%  runtime.semawakeup
+     0.01s 0.0053% 99.31%     14.74s  7.88%  runtime.startm
+         0     0% 99.31%     14.64s  7.83%  _.goready.func1
+         0     0% 99.31%     38.64s 20.66%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*hfArchive).readParam
+         0     0% 99.31%    125.42s 67.06%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).run
+
+$ go tool pprof -top -nodecount=15 runs/concurrent-20261027/profiles/sched.pprof
+Main binary filename not available.
+Type: delay
+Showing nodes accounting for 295856.65us, 84.19% of 351414.82us total
+Dropped 87 nodes (cum <= 1757.07us)
+Showing top 15 nodes out of 18
+      flat  flat%   sum%        cum   cum%
+264625.54us 75.30% 75.30% 264642.76us 75.31%  runtime.chansend1
+11644.93us  3.31% 78.62% 11644.93us  3.31%  runtime.asyncPreempt2
+ 9091.26us  2.59% 81.20% 19712.70us  5.61%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*hfArchive).readParam.func1
+ 8934.85us  2.54% 83.75%  8999.23us  2.56%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*Param).putQuantized
+ 1556.16us  0.44% 84.19%  1573.70us  0.45%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*Param).quantScale
+    3.90us 0.0011% 84.19% 226551.02us 64.47%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearIntoWithExecutor
+         0     0% 84.19% 230740.72us 65.66%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*Model).prefillBorrowed
+         0     0% 84.19% 19814.46us  5.64%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*hfArchive).readParam
+         0     0% 84.19% 19806.01us  5.64%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*hfArchive).readTensorValues
+         0     0% 84.19% 230724.08us 65.66%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).parallel
+         0     0% 84.19% 45333.60us 12.90%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).run
+         0     0% 84.19% 251910.40us 71.68%  github.com/RyoSpiralArchitect/sr_go_tranformer.TestHFInferencePerformance
+         0     0% 84.19% 230742.76us 65.66%  github.com/RyoSpiralArchitect/sr_go_tranformer.TestHFInferencePerformance.func1
+         0     0% 84.19% 225291.69us 64.11%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ4Into
+         0     0% 84.19% 10173.76us  2.90%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ4Into.func1
+
+$ go tool pprof -top -nodecount=15 runs/concurrent-20261027/profiles/sync.pprof
+Main binary filename not available.
+Type: delay
+Showing nodes accounting for 319.71s, 100% of 319.72s total
+Dropped 15 nodes (cum <= 1.60s)
+Showing top 15 nodes out of 19
+      flat  flat%   sum%        cum   cum%
+   311.29s 97.36% 97.36%    311.29s 97.36%  runtime.chanrecv1
+     8.43s  2.64%   100%      8.43s  2.64%  runtime.chanrecv2
+         0     0%   100%     47.90s 14.98%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*Model).prefillBorrowed
+         0     0%   100%     47.90s 14.98%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).parallel
+         0     0%   100%      8.43s  2.64%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).run
+         0     0%   100%     47.90s 14.98%  github.com/RyoSpiralArchitect/sr_go_tranformer.TestHFInferencePerformance
+         0     0%   100%     47.90s 14.98%  github.com/RyoSpiralArchitect/sr_go_tranformer.TestHFInferencePerformance.func1
+         0     0%   100%     47.89s 14.98%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearIntoWithExecutor
+         0     0%   100%     44.94s 14.06%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ4Into
+         0     0%   100%      2.95s  0.92%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ8Into
+         0     0%   100%     88.10s 27.55%  main.main
+         0     0%   100%     87.31s 27.31%  runtime.(*traceAdvancerState).start.func1
+         0     0%   100%    175.29s 54.83%  runtime.(*wakeableSleep).sleep
+         0     0%   100%     87.98s 27.52%  runtime.traceStartReadCPU.func1
+         0     0%   100%     88.10s 27.55%  testing.(*M).Run

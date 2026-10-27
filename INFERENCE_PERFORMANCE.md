@@ -391,3 +391,12 @@ one request and canceled one; the server observed that cancellation. All six
 server requests released reservations, active/queued/computing work drained to
 zero, and shutdown was clean. Retained KV capacity was 7,340,032 bytes. This is
 a functional/lifecycle check, separate from the core-forward speed comparison.
+
+
+## Follow-up on concurrent inference
+
+The [balanced two-session diagnosis](INFERENCE_DIAGNOSTICS.md) repeats the
+single-row comparison with both case orders and separates profiling from
+speed measurements. It preserves the single-session improvement, finds a much
+smaller and inconsistent two-session difference, and identifies the paired Q4
+loop as an optimization target without assigning a unique regression cause.

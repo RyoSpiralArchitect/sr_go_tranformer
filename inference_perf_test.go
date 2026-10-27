@@ -11,11 +11,14 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"hash"
 	"math"
 	"os"
 	"reflect"
 	"runtime"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -33,14 +36,30 @@ func perfHashFloats(h hash.Hash, x []float32) {
 }
 
 type inferencePerfTrial struct {
-	PrefillSeconds float64 `json:"prefill_seconds"`
-	DecodeSeconds  float64 `json:"decode_seconds"`
-	AllocatedBytes uint64  `json:"allocated_bytes"`
-	Allocations    uint64  `json:"allocations"`
-	WorkspaceBytes int64   `json:"workspace_bytes"`
-	LogitsSHA256   string  `json:"logits_sha256"`
-	KVSHA256       string  `json:"kv_sha256"`
-	TokenIDs       [][]int `json:"token_ids"`
+	PrefillSeconds    float64   `json:"prefill_seconds"`
+	DecodeSeconds     float64   `json:"decode_seconds"`
+	DecodeStepSeconds []float64 `json:"decode_step_seconds"`
+	AllocatedBytes    uint64    `json:"allocated_bytes"`
+	Allocations       uint64    `json:"allocations"`
+	WorkspaceBytes    int64     `json:"workspace_bytes"`
+	LogitsSHA256      string    `json:"logits_sha256"`
+	KVSHA256          string    `json:"kv_sha256"`
+	TokenIDs          [][]int   `json:"token_ids"`
+}
+
+func perfCaseOrder(value string) ([]int, error) {
+	switch value {
+	case "", "1,2":
+		return []int{1, 2}, nil
+	case "2,1":
+		return []int{2, 1}, nil
+	case "1":
+		return []int{1}, nil
+	case "2":
+		return []int{2}, nil
+	default:
+		return nil, errors.New("case order must be 1,2; 2,1; 1; or 2")
+	}
 }
 
 func TestHFInferencePerformance(t *testing.T) {
@@ -50,6 +69,10 @@ func TestHFInferencePerformance(t *testing.T) {
 	}
 	if runtime.GOMAXPROCS(0) != 4 {
 		t.Fatal("probe requires GOMAXPROCS=4")
+	}
+	order, err := perfCaseOrder(os.Getenv("MONOLITH_PERF_CASE_ORDER"))
+	if err != nil {
+		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -89,7 +112,7 @@ func TestHFInferencePerformance(t *testing.T) {
 		Trials    []inferencePerfTrial `json:"trials"`
 	}
 	cases := []perfCase{}
-	for _, sessions := range []int{1, 2} {
+	for _, sessions := range order {
 		var workspace decodeWorkspace
 		// Each case reuses one bounded workspace; each trial starts fresh KV.
 		run := func() inferencePerfTrial {
@@ -99,7 +122,7 @@ func TestHFInferencePerformance(t *testing.T) {
 				chunks[i] = prompts[i]
 				defer caches[i].Close()
 			}
-			result := inferencePerfTrial{TokenIDs: make([][]int, sessions)}
+			result := inferencePerfTrial{TokenIDs: make([][]int, sessions), DecodeStepSeconds: make([]float64, 0, 7)}
 			logitHash, kvHash := sha256.New(), sha256.New()
 			// Only forward calls are timed. Hashing, greedy selection and stats
 			// stay outside those intervals. Allocation totals cover the loop.
@@ -121,6 +144,7 @@ func TestHFInferencePerformance(t *testing.T) {
 					result.PrefillSeconds = elapsed
 				} else {
 					result.DecodeSeconds += elapsed
+					result.DecodeStepSeconds = append(result.DecodeStepSeconds, elapsed)
 				}
 				perfHashFloats(logitHash, logits)
 				for i := range caches {
@@ -169,7 +193,7 @@ func TestHFInferencePerformance(t *testing.T) {
 		}
 		cases = append(cases, c)
 	}
-	report := map[string]any{"format": "monolith-core-performance-v1", "plan": plan, "cases": cases,
+	report := map[string]any{"format": "monolith-core-performance-v2", "plan": plan, "cases": cases, "case_order": order,
 		"threads": 4, "kernel_workers": 4, "context": 128, "prefill_tokens_per_session": 8,
 		"decode_steps": 7, "generated_ids_per_session": 8, "warmup_runs_per_case": 1,
 		"note": "Core forward intervals only: excludes loading, tokenization, hashing, sampling, HTTP and SSE. Fixed-step probe does not stop at EOS."}
@@ -187,5 +211,27 @@ func TestHFInferencePerformance(t *testing.T) {
 	}
 	if err = f.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPerfCaseOrder(t *testing.T) {
+	for _, s := range []string{"", "1,2", "2,1", "1", "2"} {
+		got, err := perfCaseOrder(s)
+		want := s
+		if want == "" {
+			want = "1,2"
+		}
+		var names []string
+		for _, n := range got {
+			names = append(names, strconv.Itoa(n))
+		}
+		if err != nil || strings.Join(names, ",") != want {
+			t.Fatalf("case order %q: %v, %v", s, got, err)
+		}
+	}
+	for _, s := range []string{"0", "3", "1,1", "2,2", "2,1,2", "1, 2", "garbage"} {
+		if _, err := perfCaseOrder(s); err == nil {
+			t.Fatalf("accepted invalid case order %q", s)
+		}
 	}
 }
