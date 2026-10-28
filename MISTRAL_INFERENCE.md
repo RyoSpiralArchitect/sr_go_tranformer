@@ -17,6 +17,21 @@ This downloads about 14.5 GB of original BF16 Safetensors on the first run.
 `q4-mixed` reduces resident weight storage, not download size. Set a small context
 first; the budgets below are limits, not measured total process memory.
 
+Prepare the verified snapshot separately from inference:
+
+```sh
+./scripts/go.sh run . infer local \
+  -repo mistralai/Mistral-7B-Instruct-v0.3 \
+  -revision c170c708c41dac9275d15a8fff4eca08d52bab71 \
+  -cache-dir runs/hf-cache -download-mib 15000 -download-timeout 2h \
+  -context 128 -weight-format q4-mixed -weight-mib 6144 fetch -json
+```
+
+Network failures and Ctrl-C retain progress; rerun the same command to resume.
+`fetch` verifies source hashes and model metadata without loading weight tensors.
+Only a complete snapshot is usable offline. See [download and resume behavior](INFERENCE.md)
+for concurrent downloads, deadlines and abrupt-termination limitations.
+
 ```sh
 ./scripts/go.sh run . infer local \
   -repo mistralai/Mistral-7B-Instruct-v0.3 \

@@ -213,6 +213,10 @@ func TestMistralHubFetchAndOffline(t *testing.T) {
 	if manifest.Revision != strings.Repeat("a", 40) {
 		t.Fatal(manifest)
 	}
+	check, err := checkHFFormat(cached, 64, 1, true, "q4-mixed")
+	if err != nil || check.TokenizerProfile != "mistral-v3-metaspace-bytefallback" || check.WeightValuesChecked {
+		t.Fatal("Mistral preparation profile", check, err)
+	}
 	before := counts()
 	t.Setenv("HF_HUB_OFFLINE", "1")
 	again, _, err := hub.resolve(context.Background(), source)

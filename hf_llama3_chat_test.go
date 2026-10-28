@@ -260,6 +260,14 @@ func testHFChatCLIFraming(t *testing.T, fixture string) {
 		header[spec.Name] = map[string]any{"dtype": "F32", "shape": spec.Shape, "data_offsets": []int{start, len(payload)}}
 	}
 	hfWriteShard(t, filepath.Join(dir, "model.safetensors"), header, payload)
+	profile := "llama3-bytelevel"
+	if h.ModelType == "mistral" {
+		profile = "mistral-v3-metaspace-bytefallback"
+	}
+	check, err := checkHFFormat(dir, 512, 1, true, "q4-mixed")
+	if err != nil || check.TokenizerProfile != profile {
+		t.Fatal("chat preparation profile", check.TokenizerProfile, err)
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
