@@ -246,7 +246,11 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	if err := readBoundedJSON(filepath.Join(dir, "config.json"), 1<<20, &raw); err != nil {
 		return h, Config{}, err
 	}
-	if string(raw["model_type"]) == `"gpt2"` {
+	var modelType string
+	if err := json.Unmarshal(raw["model_type"], &modelType); err != nil {
+		return h, Config{}, fmt.Errorf("invalid HF model_type: %w", err)
+	}
+	if modelType == "gpt2" {
 		return readGPT2Config(raw, contextLimit)
 	}
 	// Unknown computational fields must not silently change model semantics.
@@ -255,15 +259,15 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	for _, k := range allowed {
 		keys[k] = true
 	}
-	if string(raw["model_type"]) == `"qwen2"` {
+	if modelType == "qwen2" {
 		for _, k := range strings.Fields("use_sliding_window sliding_window max_window_layers layer_types") {
 			keys[k] = true
 		}
 	}
-	if string(raw["model_type"]) == `"llama"` {
+	if modelType == "llama" {
 		keys["head_dim"], keys["rope_scaling"] = true, true
 	}
-	if string(raw["model_type"]) == `"mistral"` {
+	if modelType == "mistral" {
 		keys["head_dim"], keys["sliding_window"] = true, true
 		// Mistral defaults to a sliding window when this field is omitted.
 		// Only explicit null selects the full-attention v0.2/v0.3 profile.
@@ -282,7 +286,7 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	var extraEOS []int
 	if eos := bytes.TrimSpace(raw["eos_token_id"]); len(eos) > 0 && eos[0] == '[' {
 		var ids []json.RawMessage
-		if string(raw["model_type"]) != `"llama"` || json.Unmarshal(eos, &ids) != nil || len(ids) < 1 || len(ids) > 8 {
+		if modelType != "llama" || json.Unmarshal(eos, &ids) != nil || len(ids) < 1 || len(ids) > 8 {
 			return h, Config{}, errors.New("Llama eos_token_id requires 1..8 integer IDs")
 		}
 		seen := map[int]bool{}

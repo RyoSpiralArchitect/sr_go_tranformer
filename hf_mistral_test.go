@@ -88,3 +88,31 @@ func TestMistral7BPlanBeforeAllocation(t *testing.T) {
 		t.Fatal("must reject before missing weight files are opened", err)
 	}
 }
+
+// JSON spelling must not bypass profile-specific defaults and restrictions.
+func TestMistralEscapedDiscriminator(t *testing.T) {
+	b, err := os.ReadFile("testdata/hf-mistral/f32/config.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, window := range []string{"", "null", "4096"} {
+		t.Run("window="+window, func(t *testing.T) {
+			var cfg map[string]json.RawMessage
+			if err := json.Unmarshal(b, &cfg); err != nil {
+				t.Fatal(err)
+			}
+			cfg["model_type"] = json.RawMessage(`"mis\u0074ral"`)
+			delete(cfg, "head_dim")
+			delete(cfg, "sliding_window")
+			if window != "" {
+				cfg["sliding_window"] = json.RawMessage(window)
+			}
+			dir := t.TempDir()
+			hfWriteJSON(t, filepath.Join(dir, "config.json"), cfg)
+			_, _, err := readHFConfig(dir, 64)
+			if (err == nil) != (window == "null") {
+				t.Fatalf("window=%q: %v", window, err)
+			}
+		})
+	}
+}
