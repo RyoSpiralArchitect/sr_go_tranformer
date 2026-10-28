@@ -64,8 +64,43 @@ pickle loading or repository code execution is involved. Config and tokenizer
 compatibility are checked before weight downloads. Source files are bounded by
 `-download-mib` (default 2048, maximum 16384), verified against HF Git blob or
 LFS identities, and published atomically only when complete. SHA-256 receipts
-are verified on every cache reuse. Interrupted staging files are discarded.
-Different processes can safely publish the same immutable snapshot.
+are verified on every cache reuse. Different processes can safely publish the
+same immutable snapshot.
+
+Network failures, request timeouts and normal cancellation (Ctrl-C/SIGTERM)
+retain a private partial snapshot. Rerun the same command with the same cache
+and immutable revision to resume. Complete files are rehashed and reused;
+an incomplete file requests the remaining bytes with [HTTP Range](https://www.rfc-editor.org/rfc/rfc9110.html#name-range). If the server
+ignores Range, its full response replaces the prefix. A mismatched range,
+encoded response, wrong size or failed file identity is rejected. No automatic
+retry is made, and offline mode never uses a partial snapshot.
+
+Partial stages use atomic directory handoff, so concurrent processes never
+append to the same file. At most one returned partial is kept per repository
+revision; concurrent failures may retain an earlier invocation's progress.
+Active stages are not reclaimed after SIGKILL, power loss or a runtime crash:
+they remain under `.download-*` and can be removed when no downloader is running.
+Retained `.partial-*` directories are also safe to remove when downloads have
+stopped. Both live inside this application's cache, not the Python HF cache.
+There is no second model-sized copy for resume. Cache files must not be edited.
+
+Use `fetch` to prepare a complete snapshot without allocating weight tensors,
+starting a server or reading a prompt. The report includes the resolved commit,
+source hashes/bytes, tokenizer/chat support and planned resident weight payload.
+It validates archive headers and metadata; tensor values are checked when loaded.
+These checks do not establish generation quality or peak process memory.
+
+```sh
+./monolith infer local -repo HuggingFaceTB/SmolLM2-135M-Instruct \
+  -revision 12fd25f77366fa6b3b4b768ec3050bf629380bac \
+  -context 512 -weight-mib 600 fetch -json
+```
+
+The default per-request deadline is 15 minutes, including transfer time.
+`-download-timeout 2h` allows slower multi-gigabyte shards; valid values are
+`1s` through `24h`. This is a source flag, before the action. It does not change
+inference deadlines. Preparation, including `-offline fetch`, rechecks the
+requested context/weight budget as well as cached file hashes.
 
 Public repositories need no token. Set `HF_TOKEN` in the environment for access
 to repositories your account can read. Tokens are not saved to the cache and
@@ -75,7 +110,7 @@ the responsibility of the caller.
 The download budget is separate from `-weight-mib` (selected resident weight payload),
 `-context`, and serving `-kv-mib`. None is a process RSS limit. See
 [local HF compatibility](HF_INFERENCE.md) for supported profiles and validation.
-Available local actions: `check`, `inspect`, `tokens`, `ids`, `generate`, `chat`,
+Available local actions: `fetch` (requires `-repo`), `check`, `inspect`, `tokens`, `ids`, `generate`, `chat`,
 and `serve`. Native checkpoints accept `inspect`, `generate` and `serve`.
 
 Local HF execution defaults to `-weight-format f32`. To reduce resident weights,

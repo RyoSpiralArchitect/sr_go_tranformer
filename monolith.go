@@ -978,6 +978,12 @@ func checkHFFormat(dir string, limit int, budget int64, requireChat bool, format
 	if tok.gpt2 {
 		profile = "gpt2-bytelevel"
 	}
+	if tok.llama3 {
+		profile = "llama3-bytelevel"
+	}
+	if tok.mistral {
+		profile = "mistral-v3-metaspace-bytefallback"
+	}
 	return hfCheck{Format: "monolith-hf-check-v1", Weights: a.Plan, TokenizerProfile: profile,
 		ChatSupported: tok.chat, ModelContext: a.Config.Context, WeightBudgetBytes: budget << 20,
 		KVPageAlignedBytes: int64((a.Plan.Config.Context+pageTokens-1)/pageTokens*pageTokens) * a.Plan.KVBytesPerToken}, nil
@@ -9238,7 +9244,7 @@ func hfHTTPError(status int) error {
 		return fmt.Errorf("HF request returned HTTP %d; no automatic retry was made", status)
 	}
 }
-func hfDo(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
+func hfRequest(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
 	if hfOffline() {
 		return nil, errHFOffline
 	}
@@ -9249,6 +9255,13 @@ func hfDo(ctx context.Context, client *http.Client, req *http.Request) (*http.Re
 		}
 		// Transport errors can contain signed download URLs. Keep them out of logs.
 		return nil, errors.New("HF request failed; check connectivity and timeout")
+	}
+	return resp, nil
+}
+func hfDo(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
+	resp, err := hfRequest(ctx, client, req)
+	if err != nil {
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
@@ -9395,17 +9408,79 @@ func writeHFJSON(path string, v any) error {
 	}
 	return os.Rename(f.Name(), path)
 }
+
+// Active stages have a private random name. Only a returning invocation parks
+// its stage for reuse; rename transfers ownership to exactly one later caller.
+// No shared writable files, persistent locks, or model-sized copies are needed.
+func hfDownloadStage(root, sha string) (string, error) {
+	stage, err := os.MkdirTemp(root, ".download-")
+	if err != nil {
+		return "", err
+	}
+	partial := filepath.Join(root, ".partial-"+sha)
+	st, err := os.Lstat(partial)
+	if os.IsNotExist(err) {
+		return stage, nil
+	}
+	if err != nil || !st.IsDir() {
+		os.Remove(stage)
+		return "", errors.New("HF partial snapshot must be a directory, not a symlink")
+	}
+	if err = os.Remove(stage); err != nil {
+		return "", err
+	}
+	if err = os.Rename(partial, stage); err == nil {
+		return stage, nil
+	}
+	if !os.IsNotExist(err) { // Another invocation may have claimed it first.
+		return "", err
+	}
+	return stage, os.Mkdir(stage, 0700)
+}
+func parkHFDownload(stage, root, sha string) error {
+	// Publication has moved stage away. Otherwise the first returning concurrent
+	// invocation keeps its partial; later ones discard only their private stage.
+	partial := filepath.Join(root, ".partial-"+sha)
+	if err := os.Rename(stage, partial); err != nil {
+		// Use the atomic operation's result: the winning parked directory may
+		// already have been claimed by the time a subsequent lookup runs.
+		if errors.Is(err, os.ErrExist) {
+			return os.RemoveAll(stage)
+		}
+		if _, statErr := os.Lstat(stage); os.IsNotExist(statErr) {
+			return nil
+		}
+		return fmt.Errorf("HF partial download remains at %s; could not save resume state: %w", stage, err)
+	}
+	return nil
+}
+
+type hfContextReader struct {
+	ctx context.Context
+	r   io.Reader
+}
+
+func (r hfContextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.r.Read(p)
+}
+
 func (h hfHub) download(ctx context.Context, dir, repo, sha string, f hfHubFile) (hfCachedFile, error) {
 	out := hfCachedFile{Name: f.Name, Size: f.Size}
-	resp, err := h.get(ctx, "/"+repo+"/resolve/"+sha+"/"+url.PathEscape(f.Name))
-	if err != nil {
+	path := filepath.Join(dir, f.Name)
+	var offset int64
+	mode := os.O_CREATE | os.O_EXCL | os.O_RDWR
+	if st, err := os.Lstat(path); err == nil {
+		if !st.Mode().IsRegular() || st.Size() > f.Size {
+			return out, errors.New("HF partial file size/type mismatch")
+		}
+		offset, mode = st.Size(), os.O_RDWR
+	} else if !os.IsNotExist(err) {
 		return out, err
 	}
-	defer resp.Body.Close()
-	if resp.ContentLength >= 0 && resp.ContentLength != f.Size {
-		return out, errors.New("HF download size differs from pinned metadata")
-	}
-	dst, err := os.OpenFile(filepath.Join(dir, f.Name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	dst, err := os.OpenFile(path, mode, 0600)
 	if err != nil {
 		return out, err
 	}
@@ -9413,23 +9488,89 @@ func (h hfHub) download(ctx context.Context, dir, repo, sha string, f hfHubFile)
 	sum := sha256.New()
 	gitBlob := sha1.New() // Git blob identity for non-LFS files, not a security primitive.
 	fmt.Fprintf(gitBlob, "blob %d%c", f.Size, 0)
-	n, err := io.CopyBuffer(io.MultiWriter(dst, sum, gitBlob), io.LimitReader(resp.Body, f.Size+1), make([]byte, 64<<10))
-	if err != nil {
-		if ctx.Err() != nil {
-			return out, ctx.Err()
-		}
-		return out, errors.New("HF file download interrupted")
+	buf := make([]byte, 64<<10)
+	// Rehash every saved byte, including complete files. A partial is never a
+	// trusted snapshot, even when a previous invocation had verified this file.
+	if n, err := io.CopyBuffer(io.MultiWriter(sum, gitBlob), hfContextReader{ctx, io.LimitReader(dst, offset)}, buf); err != nil || n != offset {
+		return out, errors.Join(errors.New("HF partial file could not be read"), err)
 	}
-	if n != f.Size {
-		return out, errors.New("HF download size mismatch")
+	if offset < f.Size {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(h.Base, "/")+"/"+repo+"/resolve/"+sha+"/"+url.PathEscape(f.Name), nil)
+		if err != nil {
+			return out, errors.New("invalid HF request URL")
+		}
+		if h.Token != "" {
+			req.Header.Set("Authorization", "Bearer "+h.Token)
+		}
+		req.Header.Set("User-Agent", "sr-go-tranformer/1")
+		req.Header.Set("Accept-Encoding", "identity")
+		if offset > 0 {
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
+		}
+		resp, err := hfRequest(ctx, h.Client, req)
+		if err != nil {
+			return out, err
+		}
+		defer resp.Body.Close()
+		switch resp.StatusCode {
+		case http.StatusPartialContent:
+			want := fmt.Sprintf("bytes %d-%d/%d", offset, f.Size-1, f.Size)
+			if offset == 0 || len(resp.Header.Values("Content-Range")) != 1 || resp.Header.Get("Content-Range") != want {
+				return out, errors.New("HF resume Content-Range differs from pinned metadata")
+			}
+		case http.StatusOK:
+			// Range is optional in HTTP. A full response replaces the prefix;
+			// appending it would silently corrupt every resumed file.
+			offset = 0
+		default:
+			return out, hfHTTPError(resp.StatusCode)
+		}
+		if encoding := resp.Header.Get("Content-Encoding"); encoding != "" && encoding != "identity" {
+			return out, errors.New("HF download requires identity content encoding")
+		}
+		if resp.ContentLength >= 0 && resp.ContentLength != f.Size-offset {
+			return out, errors.New("HF download size differs from pinned metadata")
+		}
+		if offset == 0 {
+			if err = dst.Truncate(0); err != nil {
+				return out, err
+			}
+			if _, err = dst.Seek(0, io.SeekStart); err != nil {
+				return out, err
+			}
+			sum.Reset()
+			gitBlob.Reset()
+			fmt.Fprintf(gitBlob, "blob %d%c", f.Size, 0)
+		}
+		n, copyErr := io.CopyBuffer(io.MultiWriter(dst, sum, gitBlob), hfContextReader{ctx, io.LimitReader(resp.Body, f.Size-offset+1)}, buf)
+		if n > f.Size-offset {
+			dst.Close()
+			os.Remove(path)
+			return out, errors.New("HF download exceeds pinned size")
+		}
+		if err = dst.Sync(); err != nil {
+			return out, err
+		}
+		if copyErr != nil || n != f.Size-offset {
+			if ctx.Err() != nil {
+				return out, ctx.Err()
+			}
+			return out, errors.New("HF file download interrupted; rerun the same command to resume")
+		}
 	}
 	out.SHA = hex.EncodeToString(sum.Sum(nil))
+	var identityErr error
 	if f.LFS != nil {
 		if f.LFS.Size != f.Size || out.SHA != f.LFS.SHA {
-			return out, errors.New("HF LFS SHA-256 mismatch")
+			identityErr = errors.New("HF LFS SHA-256 mismatch")
 		}
 	} else if hex.EncodeToString(gitBlob.Sum(nil)) != f.Blob {
-		return out, errors.New("HF Git blob identity mismatch")
+		identityErr = errors.New("HF Git blob identity mismatch")
+	}
+	if identityErr != nil {
+		dst.Close()
+		os.Remove(path) // Retain other files; never keep a known-corrupt prefix.
+		return out, identityErr
 	}
 	if err = dst.Sync(); err != nil {
 		return out, err
@@ -9437,7 +9578,7 @@ func (h hfHub) download(ctx context.Context, dir, repo, sha string, f hfHubFile)
 	return out, dst.Close()
 }
 
-func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, error) {
+func (h hfHub) resolve(ctx context.Context, s hfSource) (path string, snapshot hfSnapshot, retErr error) {
 	var empty hfSnapshot
 	if s.WeightFormat == "" {
 		s.WeightFormat = "f32"
@@ -9497,11 +9638,11 @@ func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, err
 	if err := os.MkdirAll(root, 0700); err != nil {
 		return "", empty, err
 	}
-	stage, err := os.MkdirTemp(root, ".download-")
+	stage, err := hfDownloadStage(root, sha)
 	if err != nil {
 		return "", empty, err
 	}
-	defer os.RemoveAll(stage)
+	defer func() { retErr = errors.Join(retErr, parkHFDownload(stage, root, sha)) }()
 	files := map[string]hfHubFile{}
 	for _, f := range info.Files {
 		if _, exists := files[f.Name]; exists {
@@ -9606,6 +9747,9 @@ func (h hfHub) resolve(ctx context.Context, s hfSource) (string, hfSnapshot, err
 			return "", empty, err
 		}
 		m = existing
+		if err = os.RemoveAll(stage); err != nil {
+			return "", empty, err
+		}
 	}
 	if err = os.MkdirAll(filepath.Dir(ref), 0700); err != nil {
 		return "", empty, err
@@ -9635,13 +9779,14 @@ func runInferLocal(ctx context.Context, args []string) error {
 	cache := f.String("cache-dir", "", "cache directory; default is the OS user cache")
 	offline := f.Bool("offline", false, "use a verified cached snapshot without network; also enabled by HF_HUB_OFFLINE")
 	download := f.Int64("download-mib", 2048, "maximum source files in MiB")
+	downloadTimeout := f.Duration("download-timeout", 15*time.Minute, "per-request download deadline (1s..24h), including body transfer")
 	dir := f.String("dir", "", "existing local HF model directory")
 	checkpoint := f.String("checkpoint", "", "native .mglm checkpoint")
 	limit := f.Int("context", 0, "HF context cap; 0 selects at most 2048")
 	weight := f.Int64("weight-mib", 2048, "maximum resident HF weight payload in MiB, not RSS")
 	format := f.String("weight-format", "f32", "resident HF weights: f32, q8, q4 or q4-mixed (Q8 embeddings/head, Q4 projections)")
 	f.Usage = func() {
-		fmt.Fprintln(f.Output(), "usage: monolith infer local [source flags] <check|inspect|tokens|ids|generate|chat|serve> [action flags]")
+		fmt.Fprintln(f.Output(), "usage: monolith infer local [source flags] <fetch|check|inspect|tokens|ids|generate|chat|serve> [action flags]")
 		f.PrintDefaults()
 	}
 	if err := f.Parse(args); err != nil {
@@ -9652,11 +9797,21 @@ func runInferLocal(ctx context.Context, args []string) error {
 		f.Usage()
 		return nil
 	}
-	action := map[string]string{"check": "check-hf", "inspect": "inspect-hf", "tokens": "tokenize-hf", "ids": "infer-hf", "generate": "generate", "chat": "chat", "serve": "serve"}[rest[0]]
+	action := map[string]string{"fetch": "fetch", "check": "check-hf", "inspect": "inspect-hf", "tokens": "tokenize-hf", "ids": "infer-hf", "generate": "generate", "chat": "chat", "serve": "serve"}[rest[0]]
 	if action == "" {
 		return errors.New("unknown infer local action")
 	}
-	if len(rest) == 2 && (rest[1] == "-h" || rest[1] == "--help") {
+	var fetchJSON bool
+	if action == "fetch" {
+		fetch := flags("infer local fetch")
+		fetch.BoolVar(&fetchJSON, "json", false, "emit pinned snapshot and metadata checks; does not load weight tensors")
+		if err := parse(fetch, rest[1:]); err != nil {
+			return err
+		}
+		if *repo == "" {
+			return errors.New("infer local fetch requires -repo; use check for existing -dir models")
+		}
+	} else if len(rest) == 2 && (rest[1] == "-h" || rest[1] == "--help") {
 		return run(ctx, []string{action, "-h"})
 	}
 	sources := 0
@@ -9671,14 +9826,19 @@ func runInferLocal(ctx context.Context, args []string) error {
 	if err := validateInferenceFlags(f); err != nil {
 		return err
 	}
-	if err := runInferenceAction(ctx, action, rest[1:], true); err != nil {
-		return err
+	if *downloadTimeout < time.Second || *downloadTimeout > 24*time.Hour {
+		return errors.New("download-timeout must be 1s..24h")
+	}
+	if action != "fetch" {
+		if err := runInferenceAction(ctx, action, rest[1:], true); err != nil {
+			return err
+		}
 	}
 	if *checkpoint != "" {
 		if action != "generate" && action != "serve" && rest[0] != "inspect" {
 			return errors.New("native checkpoints support generate, serve and inspect")
 		}
-		if flagSet(f, "context") || flagSet(f, "weight-mib") || flagSet(f, "weight-format") || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") || *offline {
+		if flagSet(f, "context") || flagSet(f, "weight-mib") || flagSet(f, "weight-format") || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") || flagSet(f, "download-timeout") || *offline {
 			return errors.New("HF source flags do not apply to a native checkpoint")
 		}
 		if rest[0] == "inspect" {
@@ -9697,7 +9857,7 @@ func runInferLocal(ctx context.Context, args []string) error {
 			}
 			*cache = filepath.Join(base, "sr_go_tranformer", "hf")
 		}
-		client := newHFClient(15 * time.Minute)
+		client := newHFClient(*downloadTimeout)
 		defer client.CloseIdleConnections()
 		h := hfHub{Base: "https://huggingface.co", Token: os.Getenv("HF_TOKEN"), Client: client}
 		path, m, err := h.resolve(ctx, hfSource{Repo: *repo, Revision: *revision, Cache: *cache, Offline: *offline, DownloadBytes: *download << 20, WeightMiB: *weight, WeightFormat: *format, Context: *limit})
@@ -9711,7 +9871,32 @@ func runInferLocal(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
-	} else if *offline || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") {
+		if action == "fetch" {
+			// Recheck the chosen context/storage even on a warm or offline cache.
+			// Archive headers and tokenizer metadata are read, not tensor payloads.
+			check, err := checkHFFormat(path, *limit, *weight, false, *format)
+			if err != nil {
+				return err
+			}
+			var sourceBytes int64
+			for _, file := range m.Files {
+				sourceBytes += file.Size
+			}
+			out, closeOut := cliOutput(ctx, os.Stdout)
+			defer closeOut()
+			if fetchJSON {
+				return json.NewEncoder(out).Encode(struct {
+					Format      string     `json:"format"`
+					Path        string     `json:"path"`
+					SourceBytes int64      `json:"source_bytes"`
+					Snapshot    hfSnapshot `json:"snapshot"`
+					Check       hfCheck    `json:"check"`
+				}{"monolith-hf-fetch-v1", path, sourceBytes, m, check})
+			}
+			_, err = fmt.Fprintf(out, "Prepared %d verified files (%.1f MiB) in %s\n%s; context %d; planned %s weights %.1f MiB; chat supported: %t\nWeight tensors were not loaded. Use the same source flags with -offline to generate, chat or serve.\n", len(m.Files), float64(sourceBytes)/(1<<20), path, check.TokenizerProfile, check.Weights.Config.Context, check.Weights.WeightFormat, float64(check.Weights.WeightBytes)/(1<<20), check.ChatSupported)
+			return err
+		}
+	} else if *offline || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") || flagSet(f, "download-timeout") {
 		return errors.New("cache/download flags require -repo")
 	}
 	injected := []string{action, "-hf-model", *dir, "-context", strconv.Itoa(*limit)}
