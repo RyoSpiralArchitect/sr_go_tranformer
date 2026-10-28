@@ -3,3 +3,5 @@ transformers==4.57.1
 safetensors==0.6.2
 numpy==2.3.4
 tokenizers==0.22.2
+sentencepiece==0.2.1
+protobuf==6.33.0

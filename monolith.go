@@ -1448,6 +1448,9 @@ type hfTokenizer struct {
 	qwen     bool
 	gpt2     bool
 	llama3   bool
+	mistral  bool
+	symbols  map[rune]int // Metaspace BPE starts from Unicode scalar values.
+	fallback []bool       // Token-ID boundaries matter for ByteFallback decoding.
 	cleanup  bool
 	whole    map[string]int // Llama BPE ignore_merges: exact pre-token vocabulary lookup.
 	extraEOS []int
@@ -1466,6 +1469,17 @@ func (t *hfTokenizer) isEOS(id int) bool {
 }
 func (t *hfTokenizer) blockedID() int { return -1 }
 func (t *hfTokenizer) Decode(ids []int) string {
+	if t.mistral {
+		d := newTextDecoder(t)
+		var b strings.Builder
+		for _, id := range ids {
+			if id >= 0 && id < len(t.pieces) {
+				b.WriteString(d.PushToken(id, t.pieces[id], false))
+			}
+		}
+		b.WriteString(d.PushToken(-1, nil, true))
+		return b.String()
+	}
 	var b []byte
 	for _, id := range ids {
 		if id >= 0 && id < len(t.pieces) {
@@ -1501,6 +1515,9 @@ func (t *hfTokenizer) formatChatAt(messages []ChatMessage, now time.Time) (strin
 	}
 	if len(messages) == 0 || len(messages) > 128 {
 		return "", errors.New("chat requires 1..128 messages")
+	}
+	if t.mistral {
+		return t.formatMistralChat(messages)
 	}
 	if t.llama3 {
 		return t.formatLlamaChat(messages, now)
@@ -1585,32 +1602,39 @@ func readStrictBoundedJSON(path string, limit int64, v any) error {
 	d.DisallowUnknownFields()
 	return d.Decode(v)
 }
+
+type hfTokenizerJSON struct {
+	Version       string          `json:"version"`
+	Truncation    json.RawMessage `json:"truncation"`
+	Padding       json.RawMessage `json:"padding"`
+	Added         []hfAddedToken  `json:"added_tokens"`
+	Normalizer    json.RawMessage `json:"normalizer"`
+	PreTokenizer  json.RawMessage `json:"pre_tokenizer"`
+	PostProcessor json.RawMessage `json:"post_processor"`
+	Decoder       json.RawMessage `json:"decoder"`
+	Model         struct {
+		Type     string            `json:"type"`
+		Dropout  *float64          `json:"dropout"`
+		Unk      *string           `json:"unk_token"`
+		Prefix   *string           `json:"continuing_subword_prefix"`
+		Suffix   *string           `json:"end_of_word_suffix"`
+		Fuse     bool              `json:"fuse_unk"`
+		Fallback bool              `json:"byte_fallback"`
+		Ignore   bool              `json:"ignore_merges"`
+		Vocab    map[string]int    `json:"vocab"`
+		Merges   []json.RawMessage `json:"merges"`
+	} `json:"model"`
+}
+
 func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
-	var raw struct {
-		Version       string          `json:"version"`
-		Truncation    json.RawMessage `json:"truncation"`
-		Padding       json.RawMessage `json:"padding"`
-		Added         []hfAddedToken  `json:"added_tokens"`
-		Normalizer    json.RawMessage `json:"normalizer"`
-		PreTokenizer  json.RawMessage `json:"pre_tokenizer"`
-		PostProcessor json.RawMessage `json:"post_processor"`
-		Decoder       json.RawMessage `json:"decoder"`
-		Model         struct {
-			Type     string            `json:"type"`
-			Dropout  *float64          `json:"dropout"`
-			Unk      *string           `json:"unk_token"`
-			Prefix   *string           `json:"continuing_subword_prefix"`
-			Suffix   *string           `json:"end_of_word_suffix"`
-			Fuse     bool              `json:"fuse_unk"`
-			Fallback bool              `json:"byte_fallback"`
-			Ignore   bool              `json:"ignore_merges"`
-			Vocab    map[string]int    `json:"vocab"`
-			Merges   []json.RawMessage `json:"merges"`
-		} `json:"model"`
-	}
+	var raw hfTokenizerJSON
 	if err := readStrictBoundedJSON(filepath.Join(dir, "tokenizer.json"), 32<<20, &raw); err != nil {
 		return nil, err
 	}
+	if h.ModelType == "mistral" {
+		return loadMistralTokenizer(dir, h, raw)
+	}
+
 	null := func(b json.RawMessage) bool { return len(b) == 0 || string(b) == "null" }
 	empty := func(s *string) bool { return s == nil || *s == "" }
 	// The original GPT-2 export predates the serialized BPE type discriminator.
@@ -1869,6 +1893,228 @@ func loadHFTokenizer(dir string, h hfConfig) (*hfTokenizer, error) {
 	return t, t.Validate()
 }
 
+// Only the serialized Mistral v3 Metaspace/ByteFallback profile is supported.
+// Keep its validation separate from the existing ByteLevel tokenizer families.
+func loadMistralTokenizer(dir string, h hfConfig, raw hfTokenizerJSON) (*hfTokenizer, error) {
+	canonical := func(b []byte) string {
+		var v any
+		if json.Unmarshal(b, &v) != nil {
+			return ""
+		}
+		x, _ := json.Marshal(v)
+		return string(x)
+	}
+	equal := func(b []byte, want string) bool { return canonical(b) == canonical([]byte(want)) }
+	post := fmt.Sprintf(`{"type":"TemplateProcessing","single":[{"SpecialToken":{"id":"<s>","type_id":0}},{"Sequence":{"id":"A","type_id":0}}],"pair":[{"SpecialToken":{"id":"<s>","type_id":0}},{"Sequence":{"id":"A","type_id":0}},{"SpecialToken":{"id":"<s>","type_id":1}},{"Sequence":{"id":"B","type_id":1}}],"special_tokens":{"<s>":{"id":"<s>","ids":[%d],"tokens":["<s>"]}}}`, h.BOS)
+	if raw.Version != "1.0" || !equal(raw.Truncation, "null") || !equal(raw.Padding, "null") || !equal(raw.Normalizer, "null") ||
+		!equal(raw.PreTokenizer, `{"type":"Metaspace","replacement":"▁","prepend_scheme":"first","split":false}`) ||
+		!equal(raw.PostProcessor, post) ||
+		!equal(raw.Decoder, `{"type":"Sequence","decoders":[{"type":"Replace","pattern":{"String":"▁"},"content":" "},{"type":"ByteFallback"},{"type":"Fuse"},{"type":"Strip","content":" ","start":1,"stop":0}]}`) ||
+		raw.Model.Type != "BPE" || raw.Model.Dropout != nil || raw.Model.Unk == nil || *raw.Model.Unk != "<unk>" || raw.Model.Prefix != nil || raw.Model.Suffix != nil || !raw.Model.Fuse || !raw.Model.Fallback || raw.Model.Ignore {
+		return nil, errors.New("unsupported Mistral tokenizer pipeline")
+	}
+	var cfg struct {
+		AddBOS    bool                       `json:"add_bos_token"`
+		AddEOS    bool                       `json:"add_eos_token"`
+		Prefix    bool                       `json:"add_prefix_space"`
+		Added     map[string]hfAddedToken    `json:"added_tokens_decoder"`
+		BOS       string                     `json:"bos_token"`
+		EOS       string                     `json:"eos_token"`
+		Unk       string                     `json:"unk_token"`
+		Pad       *string                    `json:"pad_token"`
+		Chat      string                     `json:"chat_template"`
+		Cleanup   bool                       `json:"clean_up_tokenization_spaces"`
+		Legacy    *bool                      `json:"legacy"`
+		MaxLength json.RawMessage            `json:"model_max_length"`
+		SP        map[string]json.RawMessage `json:"sp_model_kwargs"`
+		Spaces    bool                       `json:"spaces_between_special_tokens"`
+		Class     string                     `json:"tokenizer_class"`
+		System    bool                       `json:"use_default_system_prompt"`
+	}
+	if err := readStrictBoundedJSON(filepath.Join(dir, "tokenizer_config.json"), 1<<20, &cfg); err != nil {
+		return nil, err
+	}
+	var maxLength float64
+	if json.Unmarshal(cfg.MaxLength, &maxLength) != nil || !finite(maxLength) || maxLength < float64(h.Context) ||
+		!cfg.AddBOS || cfg.AddEOS || !cfg.Prefix || cfg.Cleanup || cfg.Legacy == nil || *cfg.Legacy || len(cfg.SP) != 0 || cfg.Spaces || cfg.System || cfg.Pad != nil || cfg.Class != "LlamaTokenizer" ||
+		cfg.BOS != "<s>" || cfg.EOS != "</s>" || cfg.Unk != "<unk>" ||
+		h.Vocab < 258 || h.Vocab > maxHFVocab || h.BOS < 0 || h.BOS >= h.Vocab || h.EOS < 0 || h.EOS >= h.Vocab || len(h.ExtraEOS) != 0 ||
+		len(raw.Model.Vocab) != h.Vocab || len(raw.Model.Merges) > 2*maxHFVocab || len(raw.Added) > 1024 || len(raw.Added) != len(cfg.Added) {
+		return nil, errors.New("unsupported Mistral tokenizer configuration")
+	}
+	t := &hfTokenizer{pieces: make([][]byte, h.Vocab), fallback: make([]bool, h.Vocab), merges: map[Pair]hfMerge{}, symbols: map[rune]int{}, mistral: true, bos: h.BOS, eos: h.EOS}
+	special := map[int]bool{}
+	for _, a := range raw.Added {
+		id, found := raw.Model.Vocab[a.Content]
+		configured, ok := cfg.Added[strconv.Itoa(a.ID)]
+		configured.ID = a.ID
+		if !found || id != a.ID || a.ID < 0 || a.ID >= h.Vocab || special[a.ID] || a.Content == "" || len(a.Content) > 256 || !utf8.ValidString(a.Content) || a.Normalized || a.SingleWord || a.LStrip || a.RStrip || !a.Special || !ok || configured != a {
+			return nil, errors.New("invalid Mistral added token")
+		}
+		special[a.ID] = true
+		t.specials = append(t.specials, a)
+	}
+	if raw.Model.Vocab["<s>"] != h.BOS || raw.Model.Vocab["</s>"] != h.EOS {
+		return nil, errors.New("Mistral BOS/EOS mismatch")
+	}
+	for _, name := range []string{"<s>", "</s>", "<unk>"} {
+		id, ok := raw.Model.Vocab[name]
+		if !ok || !special[id] {
+			return nil, errors.New("Mistral special token missing")
+		}
+	}
+	seen := make([]bool, h.Vocab)
+	total := 0
+	for word, id := range raw.Model.Vocab {
+		if id < 0 || id >= h.Vocab || seen[id] || word == "" || len(word) > 65536 || !utf8.ValidString(word) {
+			return nil, errors.New("invalid Mistral vocabulary")
+		}
+		if len(word) == 6 && strings.HasPrefix(word, "<0x") && strings.HasSuffix(word, ">") {
+			if b, err := strconv.ParseUint(word[3:5], 16, 8); err == nil && word != fmt.Sprintf("<0x%02X>", b) {
+				return nil, errors.New("unsupported Mistral byte fallback alias")
+			}
+		}
+		seen[id] = true
+		if special[id] {
+			continue
+		}
+		t.pieces[id] = []byte(strings.ReplaceAll(word, "▁", " "))
+		total += len(t.pieces[id])
+		if total > 16<<20 {
+			return nil, errors.New("Mistral vocabulary expansion limit")
+		}
+		if utf8.RuneCountInString(word) == 1 {
+			r, _ := utf8.DecodeRuneInString(word)
+			t.symbols[r] = id
+		}
+	}
+	for b := 0; b < 256; b++ {
+		id, ok := raw.Model.Vocab[fmt.Sprintf("<0x%02X>", b)]
+		if !ok || special[id] {
+			return nil, errors.New("Mistral requires all 256 byte fallback tokens")
+		}
+		t.bytes[b] = id
+		t.fallback[id] = true
+		t.pieces[id] = []byte{byte(b)}
+	}
+	if _, ok := t.symbols['▁']; !ok {
+		return nil, errors.New("Mistral requires the Metaspace symbol")
+	}
+	for rank, v := range raw.Model.Merges {
+		var pair []string
+		if len(v) > 0 && v[0] == '"' {
+			var s string
+			if err := json.Unmarshal(v, &s); err != nil {
+				return nil, err
+			}
+			pair = strings.Split(s, " ")
+		} else if err := json.Unmarshal(v, &pair); err != nil {
+			return nil, err
+		}
+		if len(pair) != 2 {
+			return nil, errors.New("invalid Mistral BPE merge")
+		}
+		a, okA := raw.Model.Vocab[pair[0]]
+		b, okB := raw.Model.Vocab[pair[1]]
+		id, okC := raw.Model.Vocab[pair[0]+pair[1]]
+		key := Pair{a, b}
+		_, exists := t.merges[key]
+		if !okA || !okB || !okC || special[a] || special[b] || special[id] || exists {
+			return nil, errors.New("invalid Mistral BPE merge")
+		}
+		t.merges[key] = hfMerge{rank, id}
+	}
+	sort.Slice(t.specials, func(i, j int) bool {
+		if len(t.specials[i].Content) == len(t.specials[j].Content) {
+			return t.specials[i].ID < t.specials[j].ID
+		}
+		return len(t.specials[i].Content) > len(t.specials[j].Content)
+	})
+	sum := sha256.Sum256([]byte(cfg.Chat))
+	t.chat = hex.EncodeToString(sum[:]) == "e16746b40344d6c5b5265988e0328a0bf7277be86f1c335156eae07e29c82826"
+	for _, name := range []string{"[INST]", "[/INST]"} {
+		id, ok := raw.Model.Vocab[name]
+		t.chat = t.chat && ok && special[id]
+	}
+	return t, t.Validate()
+}
+
+// The pinned HF v0.3 template's plain system/user/assistant path. Tools and
+// arbitrary Jinja are unsupported. A system message is inserted at the final
+// user turn exactly as in the template, not moved to the first user turn.
+func (t *hfTokenizer) formatMistralChat(messages []ChatMessage) (string, error) {
+	total := 32
+	for _, m := range messages {
+		total += len(m.Content) + 32
+		if !utf8.ValidString(m.Content) || total > 1<<20 {
+			return "", errors.New("chat exceeds UTF-8/1 MiB limit")
+		}
+	}
+	system := ""
+	hasSystem := messages[0].Role == "system"
+	if hasSystem {
+		system = messages[0].Content
+		messages = messages[1:]
+	}
+	var b strings.Builder
+	b.WriteString("<s>")
+	for i, m := range messages {
+		want := "user"
+		if i%2 == 1 {
+			want = "assistant"
+		}
+		if m.Role != want {
+			return "", errors.New("Mistral chat requires alternating user/assistant after optional system")
+		}
+		if m.Role == "user" {
+			b.WriteString("[INST] ")
+			if hasSystem && i == len(messages)-1 {
+				b.WriteString(system + "\n\n")
+			}
+			b.WriteString(m.Content + "[/INST]")
+		} else {
+			text := strings.TrimFunc(m.Content, func(r rune) bool { return inHFRanges(r, llama3SpaceRanges) || r >= 0x1c && r <= 0x1f })
+			b.WriteString(" " + text + "</s>")
+		}
+	}
+	return b.String(), nil
+}
+
+// ByteFallback decodes an entire contiguous byte-token run atomically. If any
+// byte is invalid, tokenizers emits one replacement per byte in that run. Thus
+// valid prefixes cannot be streamed before a run ends. Pending storage is
+// bounded by the request's generated-token/context budget; special tokens are
+// skipped without ending a run. Fuse then Strip remove only one leading space.
+func (d *incrementalText) PushToken(id int, piece []byte, final bool) string {
+	if d.mistral == nil {
+		return d.Push(piece, final)
+	}
+	var out strings.Builder
+	flush := func() {
+		if utf8.Valid(d.pending) {
+			out.Write(d.pending)
+		} else {
+			out.WriteString(strings.Repeat("\ufffd", len(d.pending)))
+		}
+		d.pending = d.pending[:0]
+	}
+	if id >= 0 && id < len(d.mistral.fallback) && d.mistral.fallback[id] {
+		d.pending = append(d.pending, piece...)
+	} else if len(piece) > 0 {
+		flush()
+		out.Write(piece)
+	}
+	if final {
+		flush()
+	}
+	text := out.String()
+	if d.leading && text != "" {
+		text = strings.TrimPrefix(text, " ")
+		d.leading = false
+	}
+	return text
+}
+
 type hfBPENode struct {
 	id, prev, next int
 	live           bool
@@ -1897,12 +2143,26 @@ func (t *hfTokenizer) bpe(ctx context.Context, s string) ([]int, error) {
 		return []int{id}, ctx.Err()
 	}
 	nodes := make([]hfBPENode, 0, len(s))
-	for i := 0; i < len(s); i++ {
-		// With unk_token=null and byte_fallback=false, HF BPE drops
-		// alphabet bytes absent from the vocabulary (the target has some).
-		if id := t.bytes[s[i]]; id >= 0 {
-			n := len(nodes)
-			nodes = append(nodes, hfBPENode{id, n - 1, n + 1, true})
+	addNode := func(id int) {
+		n := len(nodes)
+		nodes = append(nodes, hfBPENode{id, n - 1, n + 1, true})
+	}
+	if t.mistral {
+		for _, r := range s {
+			if id, ok := t.symbols[r]; ok {
+				addNode(id)
+			} else {
+				for _, b := range []byte(string(r)) {
+					addNode(t.bytes[b])
+				}
+			}
+		}
+	} else {
+		for i := 0; i < len(s); i++ {
+			// With null UNK and no fallback, HF drops absent alphabet bytes.
+			if id := t.bytes[s[i]]; id >= 0 {
+				addNode(id)
+			}
 		}
 	}
 	if len(nodes) == 0 {
@@ -2350,7 +2610,7 @@ func (t *hfTokenizer) encodeText(ctx context.Context, s string, limit int, speci
 		out = append(out, ids...)
 		return nil
 	}
-	if t.llama3 && special {
+	if (t.llama3 || t.mistral) && special {
 		if err := appendIDs([]int{t.bos}); err != nil {
 			return nil, err
 		}
@@ -2390,44 +2650,62 @@ func (t *hfTokenizer) encodeText(ctx context.Context, s string, limit int, speci
 				return nil, err
 			}
 		}
-		// Digits is applied before the byte-level regex, including whitespace.
-		for lo := 0; lo < len(plain); {
-			r, n := utf8.DecodeRuneInString(plain[lo:])
-			hi := lo + n
-			if t.qwen || t.gpt2 || t.llama3 {
-				hi = len(plain)
-			} else if !unicode.IsNumber(r) {
-				for hi < len(plain) {
-					r, n = utf8.DecodeRuneInString(plain[hi:])
-					if unicode.IsNumber(r) {
-						break
-					}
-					hi += n
+		if t.mistral {
+			if plain != "" {
+				// Metaspace prepend_scheme=first uses the original offset,
+				// including any preceding added tokens.
+				plain = strings.ReplaceAll(plain, " ", "▁")
+				if pos == 0 && !strings.HasPrefix(plain, "▁") {
+					plain = "▁" + plain
 				}
-			}
-			segment := plain[lo:hi]
-			for a := 0; a < len(segment); {
-				if err := ctx.Err(); err != nil {
-					return nil, err
-				}
-				b := hfWordEnd(segment, a)
-				if t.qwen || t.llama3 {
-					digits := 1
-					if t.llama3 {
-						digits = 3
-					}
-					b = hfSplitWordEnd(segment, a, digits)
-				}
-				ids, err := t.bpe(ctx, segment[a:b])
+				ids, err := t.bpe(ctx, plain)
 				if err != nil {
 					return nil, err
 				}
 				if err = appendIDs(ids); err != nil {
 					return nil, err
 				}
-				a = b
 			}
-			lo = hi
+		} else {
+			// Digits is applied before the byte-level regex, including whitespace.
+			for lo := 0; lo < len(plain); {
+				r, n := utf8.DecodeRuneInString(plain[lo:])
+				hi := lo + n
+				if t.qwen || t.gpt2 || t.llama3 {
+					hi = len(plain)
+				} else if !unicode.IsNumber(r) {
+					for hi < len(plain) {
+						r, n = utf8.DecodeRuneInString(plain[hi:])
+						if unicode.IsNumber(r) {
+							break
+						}
+						hi += n
+					}
+				}
+				segment := plain[lo:hi]
+				for a := 0; a < len(segment); {
+					if err := ctx.Err(); err != nil {
+						return nil, err
+					}
+					b := hfWordEnd(segment, a)
+					if t.qwen || t.llama3 {
+						digits := 1
+						if t.llama3 {
+							digits = 3
+						}
+						b = hfSplitWordEnd(segment, a, digits)
+					}
+					ids, err := t.bpe(ctx, segment[a:b])
+					if err != nil {
+						return nil, err
+					}
+					if err = appendIDs(ids); err != nil {
+						return nil, err
+					}
+					a = b
+				}
+				lo = hi
+			}
 		}
 		pos = end
 		if matched >= 0 {
@@ -6599,11 +6877,17 @@ type incrementalText struct {
 	hf      bool
 	cleanup bool
 	held    [10]string
+	mistral *hfTokenizer
+	leading bool
 }
 
 func newTextDecoder(tok inferenceTokenizer) incrementalText {
 	h, ok := tok.(*hfTokenizer)
-	return incrementalText{hf: ok, cleanup: ok && h.cleanup}
+	d := incrementalText{hf: ok, cleanup: ok && h.cleanup}
+	if ok && h.mistral {
+		d.mistral, d.leading = h, true
+	}
+	return d
 }
 
 // Transformers' ordered cleanup replacements, implemented as a bounded
@@ -7326,7 +7610,7 @@ func (e *Engine) run() {
 				reason = "length"
 			}
 			if s.Request.Events != nil {
-				event := TokenEvent{TokenID: id, Text: s.Text.Push(e.pieces[id], reason != "")}
+				event := TokenEvent{TokenID: id, Text: s.Text.PushToken(id, e.pieces[id], reason != "")}
 				select {
 				case s.Request.Events <- event:
 				default:
@@ -10009,7 +10293,7 @@ func runInfer(ctx context.Context, args []string) error {
 			{"Qwen2 / Qwen2.5", "restricted Qwen2 profile; tested Qwen2.5 0.5B/1.5B and 7B (Q8/Q4/mixed weights)", "HF chat API; provider or dedicated endpoint required"},
 			{"GPT-2", "tied GPT2LMHeadModel, absolute positions and gelu_new; raw text", "dedicated HF text-generation endpoint"},
 			{"gpt-oss", "not supported (MoE)", "HF chat API; provider or dedicated endpoint required"},
-			{"Mistral", "full-attention token IDs; text/chat pending", "HF chat API; provider or dedicated endpoint required"},
+			{"Mistral", "full-attention v0.3 text/chat; 7B weights not yet validated", "HF chat API; provider or dedicated endpoint required"},
 			{"Gemma", "not supported", "HF chat API; provider or dedicated endpoint required"},
 		}
 		if *asJSON {

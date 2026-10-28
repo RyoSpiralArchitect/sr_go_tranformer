@@ -60,8 +60,8 @@ def fixture(folder):
     (folder / "tokenizer_config.json").write_text(json.dumps(cfg, indent=2) + "\n")
 
 
-def oracle(folder, output, add_special_tokens=False, extra_texts=(), chat_date=None, extra_chats=()):
-    tok = AutoTokenizer.from_pretrained(folder, local_files_only=True, trust_remote_code=False)
+def oracle(folder, output, add_special_tokens=False, extra_texts=(), chat_date=None, extra_chats=(), tokenizer=None):
+    tok = tokenizer if tokenizer is not None else AutoTokenizer.from_pretrained(folder, local_files_only=True, trust_remote_code=False)
     cases = []
     for text in texts() + list(extra_texts):
         ids = tok.encode(text, add_special_tokens=add_special_tokens)

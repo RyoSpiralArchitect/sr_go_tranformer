@@ -228,9 +228,15 @@ func TestLlama3CLIChatFraming(t *testing.T) {
 		main()
 		os.Exit(0)
 	}
+	testHFChatCLIFraming(t, "testdata/hf-llama3-chat")
+}
+func TestMistralCLIChatFraming(t *testing.T) {
+	testHFChatCLIFraming(t, "testdata/hf-mistral-tokenizer")
+}
+func testHFChatCLIFraming(t *testing.T, fixture string) {
 	dir := t.TempDir()
 	for _, name := range []string{"config.json", "tokenizer.json", "tokenizer_config.json"} {
-		b, err := os.ReadFile(filepath.Join("testdata/hf-llama3-chat", name))
+		b, err := os.ReadFile(filepath.Join(fixture, name))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -238,13 +244,13 @@ func TestLlama3CLIChatFraming(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	_, c, err := readHFConfig(dir, 512)
+	h, c, err := readHFConfig(dir, 512)
 	if err != nil {
 		t.Fatal(err)
 	}
 	header := map[string]any{}
 	var payload []byte
-	for _, spec := range hfTensorSpecs(c) {
+	for _, spec := range hfProfileSpecs(c, h) {
 		n := 1
 		for _, d := range spec.Shape {
 			n *= d

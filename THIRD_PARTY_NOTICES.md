@@ -31,3 +31,13 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## Mistral-7B-Instruct-v0.3 tokenizer metadata
+
+The synthetic Mistral tokenizer fixture retains the tokenizer pipeline,
+registered special-token names and chat template from Mistral AI's
+[Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/tree/c170c708c41dac9275d15a8fff4eca08d52bab71),
+revision `c170c708c41dac9275d15a8fff4eca08d52bab71`, published under Apache-2.0.
+The Apache-2.0 license is included in [LICENSE](LICENSE). Fixture vocabulary,
+model dimensions and token-ID oracles are locally generated modifications;
+pretrained weights and the official SentencePiece model are not redistributed.
