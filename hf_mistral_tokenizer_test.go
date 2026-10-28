@@ -234,3 +234,39 @@ func TestMistralHubFetchAndOffline(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Rust accepts a leading plus in ByteFallback hex, unlike Go's ParseUint.
+// Keep the complete canonical byte table so this exercises alias rejection,
+// rather than a missing-byte or vocabulary-size failure.
+func TestMistralRejectsAdditionalByteAliases(t *testing.T) {
+	for _, alias := range []string{"<0x+A>", "<0x+0>", "<0xff>"} {
+		t.Run(alias, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, name := range []string{"config.json", "tokenizer.json", "tokenizer_config.json"} {
+				b, err := os.ReadFile(filepath.Join("testdata/hf-mistral-tokenizer", name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				var raw map[string]any
+				if err = json.Unmarshal(b, &raw); err != nil {
+					t.Fatal(err)
+				}
+				if name == "config.json" {
+					raw["vocab_size"] = raw["vocab_size"].(float64) + 1
+				}
+				if name == "tokenizer.json" {
+					v := raw["model"].(map[string]any)["vocab"].(map[string]any)
+					v[alias] = len(v)
+				}
+				hfWriteJSON(t, filepath.Join(dir, name), raw)
+			}
+			h, _, err := readHFConfig(dir, 64)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = loadHFTokenizer(dir, h); err == nil || !strings.Contains(err.Error(), "byte fallback alias") {
+				t.Fatal("accepted alias or wrong boundary", err)
+			}
+		})
+	}
+}

@@ -1970,7 +1970,7 @@ func loadMistralTokenizer(dir string, h hfConfig, raw hfTokenizerJSON) (*hfToken
 			return nil, errors.New("invalid Mistral vocabulary")
 		}
 		if len(word) == 6 && strings.HasPrefix(word, "<0x") && strings.HasSuffix(word, ">") {
-			if b, err := strconv.ParseUint(word[3:5], 16, 8); err == nil && word != fmt.Sprintf("<0x%02X>", b) {
+			if b, err := strconv.ParseUint(word[3:5], 16, 8); err != nil || word != fmt.Sprintf("<0x%02X>", b) {
 				return nil, errors.New("unsupported Mistral byte fallback alias")
 			}
 		}
