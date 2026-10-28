@@ -125,7 +125,7 @@ func testHFTokenizerReference(t *testing.T, dir, path string) {
 		d := newTextDecoder(tok)
 		var out string
 		for i, id := range tc.IDs {
-			out += d.Push(tok.pieces[id], i == len(tc.IDs)-1)
+			out += d.PushToken(id, tok.pieces[id], i == len(tc.IDs)-1)
 		}
 		if out != tc.Decoded {
 			t.Fatalf("stream IDs %v got %q want %q", tc.IDs, out, tc.Decoded)

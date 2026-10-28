@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "model": "mistralai/Mistral-7B-Instruct-v0.3",
+  "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+  "date": "2026-10-28",
+  "scope": "Synthetic numerical profile plus official tokenizer equivalence; no real 7B weight or generation result.",
+  "reference_versions": {
+    "torch": "2.8.0",
+    "transformers": "4.57.1",
+    "tokenizers": "0.22.2",
+    "safetensors": "0.6.2",
+    "sentencepiece": "0.2.1",
+    "protobuf": "6.33.0"
+  },
+  "numerical": {
+    "source_weights": "locally seeded small Mistral F32/F16/BF16",
+    "logits_and_kv_absolute_tolerance": 2e-05,
+    "fixture_directory": "testdata/hf-mistral",
+    "passed": true
+  },
+  "tokenizer": {
+    "reference": "validation/hf/mistral-v03-tokenizer-reference.json",
+    "reference_sha256": "176682d9ccd64cc522fc96166ac00440a35596b5a70e632ee2f6e45ca8f4fbe7",
+    "text_cases": 174,
+    "chat_cases": 7,
+    "decode_cases": 12,
+    "default_auto_tokenizer_equals_serialized_pipeline": true,
+    "go_matches_reference": true,
+    "metadata_files": {
+      "config.json": "affafc6478ec0fd07a32f0ca57aa2fc57743f4d17d6730f86a96ac24d1507f99",
+      "tokenizer.json": "e553af6fff7d7ad76e830608b218c5c0b0822998d5a1a96099a74cd3c1cb1a49",
+      "tokenizer_config.json": "0533dec9cfe319163801b6618d0f3ec9cfa126b6288e3df5deca6e32acb09cd2"
+    }
+  },
+  "integration": {
+    "weights": "synthetic only",
+    "cli_chat_stdin_and_reset": true,
+    "http_and_sse_equal_completion": true,
+    "eos_and_resource_release": true,
+    "hub_fetch_and_HF_HUB_OFFLINE_roundtrip": "local HTTP fixture, no network access during offline phase"
+  },
+  "real_7b": {
+    "weight_bytes_expected": 14496080928,
+    "hashes_source": "HF Hub LFS metadata, not local weight verification",
+    "complete_weights_verified": false,
+    "generation_validated": false,
+    "quality_validated": false,
+    "performance_validated": false,
+    "download_attempt": "HTTPS transfer interrupted; bounded range succeeded; anonymous Xet attempt stopped after more than 12 minutes with no completed shard. Incomplete files never treated as a snapshot."
+  }
+}

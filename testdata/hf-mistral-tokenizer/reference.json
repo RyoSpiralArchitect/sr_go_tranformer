@@ -1,0 +1,2880 @@
+{
+  "tokenizers": "0.22.2",
+  "add_special_tokens": true,
+  "cases": [
+    {
+      "text": "",
+      "ids": [
+        1
+      ],
+      "decoded": ""
+    },
+    {
+      "text": "Hello, world!",
+      "ids": [
+        1,
+        869,
+        1180,
+        1233,
+        1170,
+        778
+      ],
+      "decoded": "Hello, world!"
+    },
+    {
+      "text": "  hello   world  ",
+      "ids": [
+        1,
+        925,
+        1173,
+        1070,
+        1170,
+        925
+      ],
+      "decoded": " hello   world  "
+    },
+    {
+      "text": "a \n b",
+      "ids": [
+        1,
+        931,
+        1166,
+        807
+      ],
+      "decoded": "a \n b"
+    },
+    {
+      "text": "\t\tword\n\n",
+      "ids": [
+        1,
+        929,
+        1206,
+        935
+      ],
+      "decoded": "\t\tword\n\n"
+    },
+    {
+      "text": "can't won't I'm I'll she'd they're we've I'M WE'RE",
+      "ids": [
+        1,
+        869,
+        917,
+        1096,
+        869,
+        945,
+        1096,
+        1014,
+        1272,
+        952,
+        869,
+        1274,
+        1230,
+        1111,
+        982,
+        1280,
+        1278,
+        1269
+      ],
+      "decoded": "can't won't I'm I'll she'd they're we've I'M WE'RE"
+    },
+    {
+      "text": "Goの並行処理🐈‍⬛🌀",
+      "ids": [
+        1,
+        869,
+        1243,
+        871,
+        872,
+        876,
+        873,
+        875,
+        882,
+        864,
+        870,
+        880
+      ],
+      "decoded": "Goの並行処理🐈‍⬛🌀"
+    },
+    {
+      "text": "café é Ελληνικά العربية",
+      "ids": [
+        1,
+        957,
+        1161,
+        843,
+        848,
+        848,
+        845,
+        849,
+        846,
+        847,
+        844,
+        869,
+        850,
+        855,
+        854,
+        853,
+        851,
+        856,
+        852
+      ],
+      "decoded": "café é Ελληνικά العربية"
+    },
+    {
+      "text": " 12345.67 １２３ ٣٤ Ⅳ ½ ²",
+      "ids": [
+        1,
+        1156,
+        1234,
+        1238,
+        869,
+        859,
+        860,
+        956,
+        955,
+        869,
+        836
+      ],
+      "decoded": "12345.67 １２３ ٣٤ Ⅳ ½ ²"
+    },
+    {
+      "text": "a  b c",
+      "ids": [
+        1,
+        1160,
+        863,
+        1266,
+        808
+      ],
+      "decoded": "a  b c"
+    },
+    {
+      "text": "<|im_start|>user\nHello!<|im_end|>\n<|im_start|>assistant\n",
+      "ids": [
+        1,
+        930,
+        1277,
+        1226,
+        1227,
+        964,
+        1254,
+        1276,
+        1273,
+        775
+      ],
+      "decoded": "<|im_start|>user\nHello!<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "text": "<|im_start|><|im_start|><|im_end|>",
+      "ids": [
+        1,
+        930,
+        1128
+      ],
+      "decoded": "<|im_start|><|im_start|><|im_end|>"
+    },
+    {
+      "text": "x\u0000\u0004\u0006\u0013y",
+      "ids": [
+        1,
+        869,
+        1279,
+        1200,
+        830
+      ],
+      "decoded": "x\u0000\u0004\u0006\u0013y"
+    },
+    {
+      "text": "񀀀򀀀 􏿿",
+      "ids": [
+        1,
+        987,
+        887,
+        869,
+        888
+      ],
+      "decoded": "񀀀򀀀 􏿿"
+    },
+    {
+      "text": "👩🏽‍💻",
+      "ids": [
+        1,
+        869,
+        884,
+        881,
+        864,
+        885
+      ],
+      "decoded": "👩🏽‍💻"
+    },
+    {
+      "text": " \r\n\t   a   ",
+      "ids": [
+        1,
+        1053,
+        1204,
+        931,
+        1070
+      ],
+      "decoded": "\r\n\t   a   "
+    },
+    {
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ids": [
+        1,
+        869,
+        1072,
+        1072,
+        806
+      ],
+      "decoded": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "text": "    ",
+      "ids": [
+        1,
+        925,
+        925
+      ],
+      "decoded": "   "
+    },
+    {
+      "text": "<|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|>",
+      "ids": [
+        1,
+        869,
+        1030,
+        1030,
+        944
+      ],
+      "decoded": "<|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|><|im_start|>x<|im_end|>"
+    },
+    {
+      "text": "\t're  's123a<|im_end|>\t́\n ١٢<|im_end|> e<|im_end|> 🌀a\u0004񀀀Z",
+      "ids": [
+        1,
+        1159,
+        925,
+        994,
+        1093,
+        962,
+        1215,
+        958,
+        904,
+        1157,
+        1190
+      ],
+      "decoded": "\t're  's123a<|im_end|>\t́\n ١٢<|im_end|> e<|im_end|> 🌀a\u0004񀀀Z"
+    },
+    {
+      "text": "'s\n\ń<|im_end|>\u0004🌀's's",
+      "ids": [
+        1,
+        949,
+        935,
+        840,
+        1129,
+        1017,
+        908
+      ],
+      "decoded": "'s\n\ń<|im_end|>\u0004🌀's's"
+    },
+    {
+      "text": "<|im_start|>١٢Z񀀀're  a 猫́ e猫񀀀 🌀<|im_end|>🌀?!猫\u0004Ⅳ e",
+      "ids": [
+        1,
+        930,
+        912,
+        1089,
+        911,
+        835,
+        1160,
+        970,
+        909,
+        971,
+        927,
+        973,
+        913,
+        1116,
+        909
+      ],
+      "decoded": "<|im_start|>١٢Z񀀀're  a 猫́ e猫񀀀 🌀<|im_end|>🌀?!猫\u0004Ⅳ e"
+    },
+    {
+      "text": "🌀½a123\t猫🌀're's🌀Ⅳ e½<|im_start|>񀀀Ⅳ猫a?!\u0004?!\n",
+      "ids": [
+        1,
+        927,
+        837,
+        1008,
+        1207,
+        911,
+        975,
+        868,
+        909,
+        1011,
+        886,
+        868,
+        874,
+        1010,
+        1076,
+        775
+      ],
+      "decoded": "🌀½a123\t猫🌀're's🌀Ⅳ e½<|im_start|>񀀀Ⅳ猫a?!\u0004?!\n"
+    },
+    {
+      "text": "'re123́",
+      "ids": [
+        1,
+        941,
+        907,
+        840
+      ],
+      "decoded": "'re123́"
+    },
+    {
+      "text": " ١٢<|im_end|>Zcafé\u0004½  <|im_end|>\n🌀🌀're é½猫́123ⅣZ e e \u0004١٢",
+      "ids": [
+        1,
+        940,
+        912,
+        992,
+        943,
+        837,
+        1164,
+        1217,
+        911,
+        933,
+        837,
+        970,
+        907,
+        1107,
+        995,
+        1294
+      ],
+      "decoded": " ١٢<|im_end|>Zcafé\u0004½  <|im_end|>\n🌀🌀're é½猫́123ⅣZ e e \u0004١٢"
+    },
+    {
+      "text": "́Z 123\u0004\u0004  ½",
+      "ids": [
+        1,
+        1167,
+        1296,
+        1189,
+        837
+      ],
+      "decoded": "́Z 123\u0004\u0004  ½"
+    },
+    {
+      "text": "?!\n<|im_start|>猫\u0004\n<|im_start|> eZ",
+      "ids": [
+        1,
+        938,
+        964,
+        874,
+        1078,
+        1026
+      ],
+      "decoded": "?!\n<|im_start|>猫\u0004\n<|im_start|> eZ"
+    },
+    {
+      "text": "½a\t\n\n",
+      "ids": [
+        1,
+        955,
+        951,
+        935
+      ],
+      "decoded": "½a\t\n\n"
+    },
+    {
+      "text": "123١٢猫́🌀🌀Ⅳ're",
+      "ids": [
+        1,
+        1029,
+        970,
+        942,
+        954
+      ],
+      "decoded": "123١٢猫́🌀🌀Ⅳ're"
+    },
+    {
+      "text": " ?!123?!café\u0004  a123🌀123's½'s\u0004\t<|im_end|>\u0004ⅣⅣ eⅣ\n١٢١٢",
+      "ids": [
+        1,
+        938,
+        907,
+        913,
+        943,
+        1282,
+        1008,
+        1178,
+        1101,
+        1186,
+        1129,
+        985,
+        976,
+        1004,
+        912
+      ],
+      "decoded": "?!123?!café\u0004  a123🌀123's½'s\u0004\t<|im_end|>\u0004ⅣⅣ eⅣ\n١٢١٢"
+    },
+    {
+      "text": "<|im_start|>́",
+      "ids": [
+        1,
+        930,
+        840
+      ],
+      "decoded": "<|im_start|>́"
+    },
+    {
+      "text": "'s<|im_start|>́ ́½🌀<|im_start|> e ea񀀀café\u0004\n\tZ",
+      "ids": [
+        1,
+        949,
+        1126,
+        939,
+        1100,
+        900,
+        995,
+        967,
+        943,
+        1221
+      ],
+      "decoded": "'s<|im_start|>́ ́½🌀<|im_start|> e ea񀀀café\u0004\n\tZ"
+    },
+    {
+      "text": "\n'recafé\u0004猫're<|im_start|>🌀\n<|im_start|>?!\tⅣ<|im_end|><|im_start|>'s",
+      "ids": [
+        1,
+        947,
+        911,
+        943,
+        874,
+        978,
+        880,
+        964,
+        913,
+        1035,
+        904,
+        900,
+        908
+      ],
+      "decoded": "\n'recafé\u0004猫're<|im_start|>🌀\n<|im_start|>?!\tⅣ<|im_end|><|im_start|>'s"
+    },
+    {
+      "text": "123Ⅳ<|im_end|> e's<|im_start|>猫a 123?!<|im_end|>񀀀\u0004 123café",
+      "ids": [
+        1,
+        926,
+        868,
+        958,
+        908,
+        1127,
+        1264,
+        1022,
+        961,
+        907,
+        919
+      ],
+      "decoded": "123Ⅳ<|im_end|> e's<|im_start|>猫a 123?!<|im_end|>񀀀\u0004 123café"
+    },
+    {
+      "text": "\n é're<|im_end|>\t½Z\n١٢\n 🌀🌀́123́?!\tZ񀀀\tⅣ?! ",
+      "ids": [
+        1,
+        947,
+        933,
+        1065,
+        1034,
+        1250,
+        963,
+        942,
+        840,
+        907,
+        1012,
+        1000,
+        886,
+        1035,
+        913,
+        869
+      ],
+      "decoded": "\n é're<|im_end|>\t½Z\n١٢\n 🌀🌀́123́?!\tZ񀀀\tⅣ?! "
+    },
+    {
+      "text": "猫ZⅣ\u0004猫١٢",
+      "ids": [
+        1,
+        869,
+        988,
+        1106,
+        989
+      ],
+      "decoded": "猫ZⅣ\u0004猫١٢"
+    },
+    {
+      "text": "Z?!Ⅳ́123 e e🌀<|im_end|>\t\nZ🌀١٢猫\n123're١٢café<|im_start|>",
+      "ids": [
+        1,
+        986,
+        913,
+        968,
+        907,
+        1174,
+        904,
+        1079,
+        1251,
+        874,
+        1003,
+        996,
+        1069
+      ],
+      "decoded": "Z?!Ⅳ́123 e e🌀<|im_end|>\t\nZ🌀١٢猫\n123're١٢café<|im_start|>"
+    },
+    {
+      "text": "café Z񀀀 ½١٢́\t",
+      "ids": [
+        1,
+        957,
+        1298,
+        983,
+        1145,
+        774
+      ],
+      "decoded": "café Z񀀀 ½١٢́\t"
+    },
+    {
+      "text": "\u0004 's're猫🌀½'reⅣ\u0004 e123<|im_start|>½123猫🌀́",
+      "ids": [
+        1,
+        946,
+        1045,
+        911,
+        1016,
+        1050,
+        1106,
+        909,
+        1061,
+        837,
+        907,
+        1016,
+        840
+      ],
+      "decoded": "\u0004 's're猫🌀½'reⅣ\u0004 e123<|im_start|>½123猫🌀́"
+    },
+    {
+      "text": "a\nZZ<|im_end|>񀀀Z\u0004<|im_start|>🌀🌀123're١٢a猫́'sⅣ́",
+      "ids": [
+        1,
+        931,
+        1222,
+        904,
+        932,
+        1187,
+        1165,
+        996,
+        1260,
+        908,
+        968
+      ],
+      "decoded": "a\nZZ<|im_end|>񀀀Z\u0004<|im_start|>🌀🌀123're١٢a猫́'sⅣ́"
+    },
+    {
+      "text": "123\n're?!½ ́<|im_end|>½񀀀񀀀a\t١٢",
+      "ids": [
+        1,
+        926,
+        1081,
+        1028,
+        1162,
+        1049,
+        886,
+        951,
+        912
+      ],
+      "decoded": "123\n're?!½ ́<|im_end|>½񀀀񀀀a\t١٢"
+    },
+    {
+      "text": " e  e?!<|im_end|>½١٢\t<|im_start|>café123 123<|im_start|>١٢<|im_end|>123\n<|im_end|>  123a",
+      "ids": [
+        1,
+        909,
+        1013,
+        1148,
+        837,
+        1066,
+        1021,
+        974,
+        1061,
+        912,
+        1023,
+        1214,
+        1287,
+        806
+      ],
+      "decoded": "e  e?!<|im_end|>½١٢\t<|im_start|>café123 123<|im_start|>١٢<|im_end|>123\n<|im_end|>  123a"
+    },
+    {
+      "text": "<|im_start|>🌀١٢",
+      "ids": [
+        1,
+        930,
+        1056
+      ],
+      "decoded": "<|im_start|>🌀١٢"
+    },
+    {
+      "text": "\ńa?! ½?!½123Ⅳ's",
+      "ids": [
+        1,
+        947,
+        840,
+        1010,
+        955,
+        1028,
+        907,
+        969
+      ],
+      "decoded": "\ńa?! ½?!½123Ⅳ's"
+    },
+    {
+      "text": " \n  ecafé's's123\n?!猫<|im_end|>123's?!<|im_end|>񀀀 ",
+      "ids": [
+        1,
+        1166,
+        977,
+        908,
+        994,
+        1171,
+        1023,
+        1135,
+        1022,
+        869
+      ],
+      "decoded": "\n  ecafé's's123\n?!猫<|im_end|>123's?!<|im_end|>񀀀 "
+    },
+    {
+      "text": "'re\u0004 Ⅳ<|im_end|>?!\u0004١٢ 񀀀Z",
+      "ids": [
+        1,
+        1071,
+        956,
+        993,
+        999,
+        1288
+      ],
+      "decoded": "'re\u0004 Ⅳ<|im_end|>?!\u0004١٢ 񀀀Z"
+    },
+    {
+      "text": "<|im_end|>\ń\n",
+      "ids": [
+        1,
+        936,
+        1223
+      ],
+      "decoded": "<|im_end|>\ń\n"
+    },
+    {
+      "text": " ecafé\n񀀀<|im_end|><|im_end|>?! a\t\n e\n½'reZ<|im_start|>Ⅳ",
+      "ids": [
+        1,
+        977,
+        1036,
+        1130,
+        1290,
+        965,
+        981,
+        1144,
+        868
+      ],
+      "decoded": "ecafé\n񀀀<|im_end|><|im_end|>?! a\t\n e\n½'reZ<|im_start|>Ⅳ"
+    },
+    {
+      "text": " e\u0004١٢́",
+      "ids": [
+        1,
+        909,
+        999,
+        840
+      ],
+      "decoded": "e\u0004١٢́"
+    },
+    {
+      "text": " é123<|im_end|>񀀀Ⅳ\t\naa a's猫",
+      "ids": [
+        1,
+        933,
+        907,
+        1022,
+        953,
+        1213,
+        931,
+        908,
+        874
+      ],
+      "decoded": "é123<|im_end|>񀀀Ⅳ\t\naa a's猫"
+    },
+    {
+      "text": "́123 e<|im_start|>",
+      "ids": [
+        1,
+        948,
+        907,
+        1137
+      ],
+      "decoded": "́123 e<|im_start|>"
+    },
+    {
+      "text": "\u0004're🌀café 's񀀀\ń?!a<|im_end|>\u0004 're",
+      "ids": [
+        1,
+        946,
+        1141,
+        919,
+        949,
+        1122,
+        1012,
+        1093,
+        961,
+        911
+      ],
+      "decoded": "\u0004're🌀café 's񀀀\ń?!a<|im_end|>\u0004 're"
+    },
+    {
+      "text": "123café́'recafé½\t<|im_end|>?!?!<|im_end|>Z?!猫 ́\n123½",
+      "ids": [
+        1,
+        926,
+        919,
+        1105,
+        919,
+        1047,
+        993,
+        913,
+        992,
+        913,
+        874,
+        948,
+        1003,
+        837
+      ],
+      "decoded": "123café́'recafé½\t<|im_end|>?!?!<|im_end|>Z?!猫 ́\n123½"
+    },
+    {
+      "text": "🌀's猫Ⅳ  e\tⅣ\t\u0004",
+      "ids": [
+        1,
+        927,
+        908,
+        1015,
+        1013,
+        1205,
+        772
+      ],
+      "decoded": "🌀's猫Ⅳ  e\tⅣ\t\u0004"
+    },
+    {
+      "text": "½猫\tⅣ's <|im_start|>\n\t́a<|im_start|> e<|im_start|>\n\n񀀀١٢'s🌀 񀀀\u0004\n?!",
+      "ids": [
+        1,
+        955,
+        1114,
+        969,
+        1299,
+        962,
+        1043,
+        1137,
+        935,
+        991,
+        975,
+        987,
+        1194
+      ],
+      "decoded": "½猫\tⅣ's <|im_start|>\n\t́a<|im_start|> e<|im_start|>\n\n񀀀١٢'s🌀 񀀀\u0004\n?!"
+    },
+    {
+      "text": "\t're<|im_end|>Ⅳ're<|im_start|>\n½猫½񀀀Z<|im_end|> ½aZ½123123123🌀\ncaféZ١٢<|im_start|>",
+      "ids": [
+        1,
+        929,
+        1065,
+        954,
+        900,
+        981,
+        874,
+        837,
+        932,
+        904,
+        983,
+        1040,
+        837,
+        1062,
+        907,
+        1119,
+        1068,
+        1146
+      ],
+      "decoded": "\t're<|im_end|>Ⅳ're<|im_start|>\n½猫½񀀀Z<|im_end|> ½aZ½123123123🌀\ncaféZ١٢<|im_start|>"
+    },
+    {
+      "text": "<|im_start|><|im_start|>\t ½猫Z's 's123á١٢?!🌀🌀 ½١٢\t猫're🌀're<|im_start|>",
+      "ids": [
+        1,
+        930,
+        1059,
+        955,
+        988,
+        908,
+        1293,
+        1042,
+        912,
+        913,
+        942,
+        955,
+        1066,
+        1054,
+        880,
+        978
+      ],
+      "decoded": "<|im_start|><|im_start|>\t ½猫Z's 's123á١٢?!🌀🌀 ½١٢\t猫're🌀're<|im_start|>"
+    },
+    {
+      "text": "café's ?!🌀½<|im_start|><|im_start|> 123're",
+      "ids": [
+        1,
+        1169,
+        1046,
+        880,
+        1011,
+        1019,
+        907,
+        911
+      ],
+      "decoded": "café's ?!🌀½<|im_start|><|im_start|> 123're"
+    },
+    {
+      "text": " é\n  ½'scafé🌀123Ⅳ\n½123Ⅳa",
+      "ids": [
+        1,
+        933,
+        963,
+        983,
+        1063,
+        1055,
+        868,
+        981,
+        907,
+        868,
+        806
+      ],
+      "decoded": "é\n  ½'scafé🌀123Ⅳ\n½123Ⅳa"
+    },
+    {
+      "text": "<|im_end|>\n e e e🌀",
+      "ids": [
+        1,
+        936,
+        965,
+        1174
+      ],
+      "decoded": "<|im_end|>\n e e e🌀"
+    },
+    {
+      "text": "?!?!",
+      "ids": [
+        1,
+        938,
+        913
+      ],
+      "decoded": "?!?!"
+    },
+    {
+      "text": " e<|im_end|>'s eZ<|im_start|>\ta",
+      "ids": [
+        1,
+        909,
+        1024,
+        909,
+        950,
+        1202
+      ],
+      "decoded": "e<|im_end|>'s eZ<|im_start|>\ta"
+    },
+    {
+      "text": " e猫Zcafé\n ١٢١٢́a\t",
+      "ids": [
+        1,
+        909,
+        988,
+        919,
+        963,
+        912,
+        1145,
+        951
+      ],
+      "decoded": "e猫Zcafé\n ١٢١٢́a\t"
+    },
+    {
+      "text": " <|im_start|>?!a?!猫 e١٢'re\u0004🌀́́'re١٢",
+      "ids": [
+        1,
+        940,
+        900,
+        913,
+        1010,
+        874,
+        909,
+        912,
+        1138,
+        880,
+        923,
+        996
+      ],
+      "decoded": " <|im_start|>?!a?!猫 e١٢'re\u0004🌀́́'re١٢"
+    },
+    {
+      "text": "\t's🌀猫 're ?!'s 's<|im_end|>🌀猫?!caféⅣ<|im_start|>123猫񀀀񀀀١٢",
+      "ids": [
+        1,
+        929,
+        975,
+        874,
+        1286,
+        1046,
+        908,
+        949,
+        973,
+        874,
+        1150,
+        868,
+        1020,
+        971,
+        991
+      ],
+      "decoded": "\t's🌀猫 're ?!'s 's<|im_end|>🌀猫?!caféⅣ<|im_start|>123猫񀀀񀀀١٢"
+    },
+    {
+      "text": "🌀🌀½ e",
+      "ids": [
+        1,
+        927,
+        1120,
+        909
+      ],
+      "decoded": "🌀🌀½ e"
+    },
+    {
+      "text": "١٢\ta񀀀",
+      "ids": [
+        1,
+        937,
+        1080
+      ],
+      "decoded": "١٢\ta񀀀"
+    },
+    {
+      "text": "123're½ é?!'re",
+      "ids": [
+        1,
+        926,
+        911,
+        837,
+        933,
+        913,
+        911
+      ],
+      "decoded": "123're½ é?!'re"
+    },
+    {
+      "text": "́?!́'re<|im_start|><|im_end|>猫123  ",
+      "ids": [
+        1,
+        948,
+        913,
+        840,
+        978,
+        904,
+        874,
+        974,
+        869
+      ],
+      "decoded": "́?!́'re<|im_start|><|im_end|>猫123  "
+    },
+    {
+      "text": "Ⅳ?! <|im_start|> Z",
+      "ids": [
+        1,
+        956,
+        1067,
+        1019,
+        804
+      ],
+      "decoded": "Ⅳ?! <|im_start|> Z"
+    },
+    {
+      "text": "?! ?!猫's ",
+      "ids": [
+        1,
+        938,
+        1046,
+        1115,
+        869
+      ],
+      "decoded": "?! ?!猫's "
+    },
+    {
+      "text": "🌀Z e½<|im_end|> e١٢'s",
+      "ids": [
+        1,
+        927,
+        1247,
+        837,
+        958,
+        912,
+        908
+      ],
+      "decoded": "🌀Z e½<|im_end|> e١٢'s"
+    },
+    {
+      "text": "́<|im_end|>'s猫<|im_start|>café猫café<|im_start|>'re猫café e<|im_end|>🌀猫🌀caféZ\na\t's\n",
+      "ids": [
+        1,
+        948,
+        1024,
+        874,
+        1021,
+        990,
+        972,
+        990,
+        1064,
+        1016,
+        1068,
+        1218,
+        908,
+        775
+      ],
+      "decoded": "́<|im_end|>'s猫<|im_start|>café猫café<|im_start|>'re猫café e<|im_end|>🌀猫🌀caféZ\na\t's\n"
+    },
+    {
+      "text": "\t񀀀123½<|im_start|>Ⅳcafé?!🌀\u0004're<|im_start|> ea's\u0004",
+      "ids": [
+        1,
+        929,
+        1058,
+        1011,
+        868,
+        919,
+        913,
+        1118,
+        978,
+        909,
+        1044,
+        772
+      ],
+      "decoded": "\t񀀀123½<|im_start|>Ⅳcafé?!🌀\u0004're<|im_start|> ea's\u0004"
+    },
+    {
+      "text": "'s's123're<|im_end|>",
+      "ids": [
+        1,
+        949,
+        994,
+        1065
+      ],
+      "decoded": "'s's123're<|im_end|>"
+    },
+    {
+      "text": " ١٢\tZcafé<|im_end|>\u0004١٢Z\u0004<|im_end|>café\u0004café123 ?!\t½<|im_end|> \u0004",
+      "ids": [
+        1,
+        937,
+        1000,
+        1153,
+        999,
+        1253,
+        943,
+        1154,
+        938,
+        1034,
+        904,
+        1099
+      ],
+      "decoded": "١٢\tZcafé<|im_end|>\u0004١٢Z\u0004<|im_end|>café\u0004café123 ?!\t½<|im_end|> \u0004"
+    },
+    {
+      "text": "Ⅳ\u0004 ecafé?!١٢ZⅣⅣaZ're<|im_start|>",
+      "ids": [
+        1,
+        956,
+        1196,
+        913,
+        912,
+        1249,
+        1040,
+        978
+      ],
+      "decoded": "Ⅳ\u0004 ecafé?!١٢ZⅣⅣaZ're<|im_start|>"
+    },
+    {
+      "text": "<|im_start|>'s\t<|im_start|>\t\u0004  e١٢a ́<|im_end|>Ⅳ١٢café\t",
+      "ids": [
+        1,
+        930,
+        1131,
+        1059,
+        1198,
+        912,
+        1265,
+        1109,
+        919,
+        774
+      ],
+      "decoded": "<|im_start|>'s\t<|im_start|>\t\u0004  e١٢a ́<|im_end|>Ⅳ١٢café\t"
+    },
+    {
+      "text": "🌀's're's\t e?!123񀀀Z'scafé\u0004<|im_start|> 🌀 e\n<|im_end|> e<|im_start|>񀀀<|im_end|> e🌀a<|im_start|>  ",
+      "ids": [
+        1,
+        927,
+        1134,
+        908,
+        979,
+        913,
+        907,
+        932,
+        908,
+        943,
+        1019,
+        880,
+        1136,
+        958,
+        900,
+        886,
+        958,
+        880,
+        1043,
+        940
+      ],
+      "decoded": "🌀's're's\t e?!123񀀀Z'scafé\u0004<|im_start|> 🌀 e\n<|im_end|> e<|im_start|>񀀀<|im_end|> e🌀a<|im_start|>  "
+    },
+    {
+      "text": " 's🌀",
+      "ids": [
+        1,
+        940,
+        975
+      ],
+      "decoded": " 's🌀"
+    },
+    {
+      "text": "<|im_end|>",
+      "ids": [
+        1,
+        936
+      ],
+      "decoded": "<|im_end|>"
+    },
+    {
+      "text": "<|im_start|>'s123ⅣⅣ١٢café\u0004's\n񀀀\u0004\u0004 eⅣ\u0004",
+      "ids": [
+        1,
+        930,
+        994,
+        985,
+        912,
+        943,
+        908,
+        1036,
+        1074,
+        1172
+      ],
+      "decoded": "<|im_start|>'s123ⅣⅣ١٢café\u0004's\n񀀀\u0004\u0004 eⅣ\u0004"
+    },
+    {
+      "text": "123<|im_start|><|im_end|> ́?!'s\u0004Ⅳ١٢🌀's½́123\u0004Ⅳ're ",
+      "ids": [
+        1,
+        926,
+        1128,
+        939,
+        1149,
+        1032,
+        912,
+        1017,
+        1048,
+        1025,
+        954,
+        869
+      ],
+      "decoded": "123<|im_start|><|im_end|> ́?!'s\u0004Ⅳ١٢🌀's½́123\u0004Ⅳ're "
+    },
+    {
+      "text": " café猫١٢ ١٢猫́café123񀀀\nⅣ\n🌀Ⅳ's?!Ⅳ\n\n",
+      "ids": [
+        1,
+        957,
+        989,
+        937,
+        970,
+        1154,
+        1122,
+        1052,
+        880,
+        969,
+        913,
+        868,
+        935
+      ],
+      "decoded": "café猫١٢ ١٢猫́café123񀀀\nⅣ\n🌀Ⅳ's?!Ⅳ\n\n"
+    },
+    {
+      "text": "½'s½½a\t?! \n e猫\t́\ta½Z񀀀Za 🌀\u0004 é猫񀀀񀀀a",
+      "ids": [
+        1,
+        955,
+        908,
+        984,
+        951,
+        1067,
+        965,
+        874,
+        962,
+        1209,
+        1090,
+        1257,
+        1191,
+        971,
+        1057
+      ],
+      "decoded": "½'s½½a\t?! \n e猫\t́\ta½Z񀀀Za 🌀\u0004 é猫񀀀񀀀a"
+    },
+    {
+      "text": "'sZ 're\u0004猫猫 é'rea<|im_start|>\u0004caféa½  e's Ⅳ ́Za123<|im_start|>123123",
+      "ids": [
+        1,
+        949,
+        1252,
+        874,
+        874,
+        933,
+        911,
+        1043,
+        1077,
+        1041,
+        1013,
+        908,
+        956,
+        1167,
+        1008,
+        1020,
+        907
+      ],
+      "decoded": "'sZ 're\u0004猫猫 é'rea<|im_start|>\u0004caféa½  e's Ⅳ ́Za123<|im_start|>123123"
+    },
+    {
+      "text": "\t½񀀀½\t\u0004's\tⅣ\n e񀀀café're\u0004're猫<|im_start|>\n\t١٢<|im_start|>́🌀🌀🌀",
+      "ids": [
+        1,
+        929,
+        1049,
+        1047,
+        1033,
+        1035,
+        965,
+        886,
+        919,
+        1138,
+        1140,
+        1125,
+        1002,
+        1126,
+        942,
+        880
+      ],
+      "decoded": "\t½񀀀½\t\u0004's\tⅣ\n e񀀀café're\u0004're猫<|im_start|>\n\t١٢<|im_start|>́🌀🌀🌀"
+    },
+    {
+      "text": "123?!Ⅳ١٢a١٢\n ́񀀀\u0004 ½aZ",
+      "ids": [
+        1,
+        1155,
+        1109,
+        1009,
+        1216,
+        886,
+        961,
+        837,
+        1040
+      ],
+      "decoded": "123?!Ⅳ١٢a١٢\n ́񀀀\u0004 ½aZ"
+    },
+    {
+      "text": " ecafé's?!?!½'re١٢猫Ⅳ eⅣ\u0004́'re'scafé\t́<|im_start|>123½🌀Ⅳ\tⅣ🌀猫",
+      "ids": [
+        1,
+        977,
+        1135,
+        1028,
+        996,
+        1015,
+        1172,
+        1105,
+        1063,
+        962,
+        1020,
+        1100,
+        953,
+        868,
+        880,
+        874
+      ],
+      "decoded": "ecafé's?!?!½'re١٢猫Ⅳ eⅣ\u0004́'re'scafé\t́<|im_start|>123½🌀Ⅳ\tⅣ🌀猫"
+    },
+    {
+      "text": "猫123<|im_start|>猫'reZ<|im_start|>½\u0004a\t猫  \t e🌀'sⅣ½café\u0004\n½café\n\n",
+      "ids": [
+        1,
+        869,
+        874,
+        1061,
+        1054,
+        950,
+        837,
+        1192,
+        874,
+        940,
+        979,
+        1017,
+        1108,
+        943,
+        981,
+        919,
+        935
+      ],
+      "decoded": "猫123<|im_start|>猫'reZ<|im_start|>½\u0004a\t猫  \t e🌀'sⅣ½café\u0004\n½café\n\n"
+    },
+    {
+      "text": "Za's񀀀<|im_end|>Ⅳ́",
+      "ids": [
+        1,
+        986,
+        1044,
+        1124,
+        968
+      ],
+      "decoded": "Za's񀀀<|im_end|>Ⅳ́"
+    },
+    {
+      "text": "񀀀Z?!🌀Ⅳ́猫١٢<|im_start|>café123Ⅳ'reá",
+      "ids": [
+        1,
+        869,
+        932,
+        913,
+        880,
+        968,
+        989,
+        1021,
+        907,
+        954,
+        1042
+      ],
+      "decoded": "񀀀Z?!🌀Ⅳ́猫١٢<|im_start|>café123Ⅳ'reá"
+    },
+    {
+      "text": "🌀're123١٢123<|im_end|>café񀀀Z're񀀀񀀀Z\n eZa\n\u0004 񀀀񀀀١٢ ecafé123猫",
+      "ids": [
+        1,
+        927,
+        1143,
+        1027,
+        904,
+        919,
+        932,
+        1142,
+        932,
+        965,
+        1245,
+        980,
+        987,
+        991,
+        977,
+        1060
+      ],
+      "decoded": "🌀're123١٢123<|im_end|>café񀀀Z're񀀀񀀀Z\n eZa\n\u0004 񀀀񀀀١٢ ecafé123猫"
+    },
+    {
+      "text": "?!<|im_end|>'s<|im_end|>Z½caféZⅣ're١٢",
+      "ids": [
+        1,
+        938,
+        1024,
+        992,
+        837,
+        1068,
+        954,
+        912
+      ],
+      "decoded": "?!<|im_end|>'s<|im_end|>Z½caféZⅣ're١٢"
+    },
+    {
+      "text": " <|im_end|>\t's?!?!café񀀀123<|im_end|>123\n\u0004<|im_start|>Ź½½aⅣ\t🌀 <|im_end|>񀀀're",
+      "ids": [
+        1,
+        1164,
+        1001,
+        913,
+        1150,
+        1058,
+        1023,
+        980,
+        900,
+        1246,
+        984,
+        1259,
+        880,
+        1295,
+        911
+      ],
+      "decoded": " <|im_end|>\t's?!?!café񀀀123<|im_end|>123\n\u0004<|im_start|>Ź½½aⅣ\t🌀 <|im_end|>񀀀're"
+    },
+    {
+      "text": "123<|im_start|>café񀀀\u0004'sa١٢?!񀀀 ",
+      "ids": [
+        1,
+        926,
+        1021,
+        886,
+        1033,
+        1009,
+        1151
+      ],
+      "decoded": "123<|im_start|>café񀀀\u0004'sa١٢?!񀀀 "
+    },
+    {
+      "text": "'re\u0004́ⅣⅣ123123",
+      "ids": [
+        1,
+        1071,
+        840,
+        985,
+        1062
+      ],
+      "decoded": "'re\u0004́ⅣⅣ123123"
+    },
+    {
+      "text": " ½café񀀀 Ⅳ're\t́ ",
+      "ids": [
+        1,
+        940,
+        837,
+        919,
+        1018,
+        954,
+        962,
+        869
+      ],
+      "decoded": " ½café񀀀 Ⅳ're\t́ "
+    },
+    {
+      "text": "123١٢<|im_end|>🌀<|im_start|>\tZ<|im_start|>",
+      "ids": [
+        1,
+        1029,
+        973,
+        1059,
+        950
+      ],
+      "decoded": "123١٢<|im_end|>🌀<|im_start|>\tZ<|im_start|>"
+    },
+    {
+      "text": "١٢?!Ⅳ's'rea猫're\n\u0004\n½񀀀Za½ <|im_end|>\u0004½'re",
+      "ids": [
+        1,
+        937,
+        913,
+        969,
+        911,
+        1262,
+        980,
+        981,
+        932,
+        1041,
+        936,
+        1199
+      ],
+      "decoded": "١٢?!Ⅳ's'rea猫're\n\u0004\n½񀀀Za½ <|im_end|>\u0004½'re"
+    },
+    {
+      "text": "<|im_start|>猫Z e\nZ<|im_start|>",
+      "ids": [
+        1,
+        930,
+        988,
+        1136,
+        950
+      ],
+      "decoded": "<|im_start|>猫Z e\nZ<|im_start|>"
+    },
+    {
+      "text": "\u0004 ?!猫́<|im_start|>'re\t\tcafé",
+      "ids": [
+        1,
+        946,
+        938,
+        970,
+        972,
+        1201,
+        919
+      ],
+      "decoded": "\u0004 ?!猫́<|im_start|>'re\t\tcafé"
+    },
+    {
+      "text": "a ½\u0004\t١٢½½猫?!½猫\t123 񀀀½?!Z's",
+      "ids": [
+        1,
+        931,
+        983,
+        1197,
+        984,
+        874,
+        1028,
+        1114,
+        907,
+        987,
+        1102,
+        1038
+      ],
+      "decoded": "a ½\u0004\t١٢½½猫?!½猫\t123 񀀀½?!Z's"
+    },
+    {
+      "text": "aa 's🌀<|im_start|><|im_start|>猫猫café\n<|im_start|>\t\ncafé\n123١٢́?!café \n 🌀 \u0004",
+      "ids": [
+        1,
+        869,
+        894,
+        1292,
+        900,
+        1127,
+        990,
+        964,
+        1079,
+        919,
+        1003,
+        912,
+        1012,
+        919,
+        1291,
+        880,
+        1099
+      ],
+      "decoded": "aa 's🌀<|im_start|><|im_start|>猫猫café\n<|im_start|>\t\ncafé\n123١٢́?!café \n 🌀 \u0004"
+    },
+    {
+      "text": "'reZ",
+      "ids": [
+        1,
+        941,
+        804
+      ],
+      "decoded": "'reZ"
+    },
+    {
+      "text": " e<|im_end|>🌀\t١٢🌀́ e񀀀<|im_start|>½½񀀀're e?! ١٢  🌀's½ 123١٢\t́",
+      "ids": [
+        1,
+        1064,
+        1002,
+        1121,
+        909,
+        1123,
+        984,
+        886,
+        911,
+        909,
+        1067,
+        912,
+        940,
+        1017,
+        837,
+        1029,
+        962
+      ],
+      "decoded": "e<|im_end|>🌀\t١٢🌀́ e񀀀<|im_start|>½½񀀀're e?! ١٢  🌀's½ 123١٢\t́"
+    },
+    {
+      "text": "񀀀cafécafé<|im_start|>",
+      "ids": [
+        1,
+        987,
+        919,
+        1069
+      ],
+      "decoded": "񀀀cafécafé<|im_start|>"
+    },
+    {
+      "text": "<|im_start|>a񀀀 e's猫񀀀 ́Ⅳ ½Z eⅣcafé e ",
+      "ids": [
+        1,
+        930,
+        967,
+        909,
+        908,
+        971,
+        939,
+        868,
+        983,
+        1248,
+        919,
+        909,
+        835
+      ],
+      "decoded": "<|im_start|>a񀀀 e's猫񀀀 ́Ⅳ ½Z eⅣcafé e "
+    },
+    {
+      "text": "<|im_start|>\n 'reⅣ're񀀀a e\n١٢🌀🌀<|im_end|><|im_end|>́123 're  é",
+      "ids": [
+        1,
+        930,
+        963,
+        911,
+        954,
+        1179,
+        1004,
+        942,
+        904,
+        904,
+        840,
+        974,
+        1139,
+        933
+      ],
+      "decoded": "<|im_start|>\n 'reⅣ're񀀀a e\n١٢🌀🌀<|im_end|><|im_end|>́123 're  é"
+    },
+    {
+      "text": "'s ?!\n're eZ\n?!\t'scafé\u0004 \tⅣ\t e're\n\n?!١٢ e",
+      "ids": [
+        1,
+        949,
+        938,
+        1081,
+        1026,
+        966,
+        1001,
+        943,
+        929,
+        953,
+        909,
+        911,
+        935,
+        913,
+        1147
+      ],
+      "decoded": "'s ?!\n're eZ\n?!\t'scafé\u0004 \tⅣ\t e're\n\n?!١٢ e"
+    },
+    {
+      "text": "café猫café\n猫\u0004ⅣⅣ\t١٢123Z's",
+      "ids": [
+        1,
+        957,
+        990,
+        1224,
+        953,
+        1027,
+        1038
+      ],
+      "decoded": "café猫café\n猫\u0004ⅣⅣ\t١٢123Z's"
+    },
+    {
+      "text": " ١٢🌀\tZ١٢½́ZZcafé猫½<|im_start|>?!񀀀 猫's'sⅣ½Ⅳ́?!",
+      "ids": [
+        1,
+        937,
+        880,
+        1000,
+        912,
+        1048,
+        1007,
+        919,
+        874,
+        1011,
+        1151,
+        1115,
+        908,
+        1108,
+        968,
+        913
+      ],
+      "decoded": "١٢🌀\tZ١٢½́ZZcafé猫½<|im_start|>?!񀀀 猫's'sⅣ½Ⅳ́?!"
+    },
+    {
+      "text": "١٢́a١٢猫café's\t",
+      "ids": [
+        1,
+        937,
+        840,
+        1009,
+        990,
+        1131
+      ],
+      "decoded": "١٢́a١٢猫café's\t"
+    },
+    {
+      "text": "?! ́🌀123's're١٢'re񀀀<|im_end|>?!cafécafé<|im_end|> ",
+      "ids": [
+        1,
+        938,
+        948,
+        1178,
+        996,
+        1142,
+        993,
+        919,
+        1153,
+        869
+      ],
+      "decoded": "?! ́🌀123's're١٢'re񀀀<|im_end|>?!cafécafé<|im_end|> "
+    },
+    {
+      "text": "123١٢",
+      "ids": [
+        1,
+        1029
+      ],
+      "decoded": "123١٢"
+    },
+    {
+      "text": " 🌀񀀀'sZ",
+      "ids": [
+        1,
+        1158,
+        1132
+      ],
+      "decoded": "🌀񀀀'sZ"
+    },
+    {
+      "text": "<|im_end|>񀀀\t e½a\u0004café١٢\t🌀\n",
+      "ids": [
+        1,
+        936,
+        886,
+        979,
+        837,
+        1263,
+        1066,
+        1119
+      ],
+      "decoded": "<|im_end|>񀀀\t e½a\u0004café١٢\t🌀\n"
+    },
+    {
+      "text": "Z<|im_start|>́\ta񀀀caféá½<|im_start|>'re<|im_end|>Z🌀́½١٢a?!́a🌀\t's<|im_start|><|im_end|> e",
+      "ids": [
+        1,
+        869,
+        950,
+        840,
+        1080,
+        919,
+        1042,
+        837,
+        972,
+        992,
+        1121,
+        837,
+        912,
+        1010,
+        840,
+        1256,
+        1176,
+        958
+      ],
+      "decoded": "Z<|im_start|>́\ta񀀀caféá½<|im_start|>'re<|im_end|>Z🌀́½١٢a?!́a🌀\t's<|im_start|><|im_end|> e"
+    },
+    {
+      "text": "🌀 e\u0004?!'re\t Ⅳ\nZ's\n񀀀<|im_start|>'re123's🌀́́񀀀\n?!猫",
+      "ids": [
+        1,
+        927,
+        909,
+        1076,
+        911,
+        1203,
+        1052,
+        1038,
+        1036,
+        972,
+        907,
+        975,
+        923,
+        886,
+        1171
+      ],
+      "decoded": "🌀 e\u0004?!'re\t Ⅳ\nZ's\n񀀀<|im_start|>'re123's🌀́́񀀀\n?!猫"
+    },
+    {
+      "text": "\t're",
+      "ids": [
+        1,
+        1159
+      ],
+      "decoded": "\t're"
+    },
+    {
+      "text": "café's\u0004 🌀?!\u0004<|im_end|> e½́ \t½\u0004 a猫\t e \u0004123猫",
+      "ids": [
+        1,
+        1169,
+        961,
+        880,
+        913,
+        1193,
+        1048,
+        1297,
+        961,
+        1255,
+        979,
+        946,
+        1060
+      ],
+      "decoded": "café's\u0004 🌀?!\u0004<|im_end|> e½́ \t½\u0004 a猫\t e \u0004123猫"
+    },
+    {
+      "text": "a?! eⅣ ١٢񀀀\t񀀀<|im_end|>́<|im_start|>  ?!́🌀<|im_start|>Z're123񀀀",
+      "ids": [
+        1,
+        931,
+        913,
+        976,
+        937,
+        886,
+        1211,
+        840,
+        1019,
+        938,
+        1051,
+        900,
+        1039,
+        907,
+        886
+      ],
+      "decoded": "a?! eⅣ ١٢񀀀\t񀀀<|im_end|>́<|im_start|>  ?!́🌀<|im_start|>Z're123񀀀"
+    },
+    {
+      "text": "a e's're 123\n e's e123\u0004café🌀񀀀a e",
+      "ids": [
+        1,
+        931,
+        909,
+        1134,
+        1285,
+        965,
+        1133,
+        1025,
+        1152,
+        1179
+      ],
+      "decoded": "a e's're 123\n e's e123\u0004café🌀񀀀a e"
+    },
+    {
+      "text": "\u0004café́\n  e🌀",
+      "ids": [
+        1,
+        946,
+        919,
+        840,
+        963,
+        909,
+        880
+      ],
+      "decoded": "\u0004café́\n  e🌀"
+    },
+    {
+      "text": "\t\n١٢'re񀀀 <|im_end|>\n?!񀀀١٢́񀀀",
+      "ids": [
+        1,
+        929,
+        1004,
+        911,
+        1018,
+        904,
+        966,
+        991,
+        840,
+        886
+      ],
+      "decoded": "\t\n١٢'re񀀀 <|im_end|>\n?!񀀀١٢́񀀀"
+    },
+    {
+      "text": "Ⅳcafé<|im_start|>'s'scafé\t e<|im_end|>Z \u0004123",
+      "ids": [
+        1,
+        956,
+        1069,
+        908,
+        1063,
+        979,
+        992,
+        946,
+        907
+      ],
+      "decoded": "Ⅳcafé<|im_start|>'s'scafé\t e<|im_end|>Z \u0004123"
+    },
+    {
+      "text": "'re\n\u0004 \t123猫\n\n e <|im_start|>",
+      "ids": [
+        1,
+        941,
+        980,
+        929,
+        1060,
+        935,
+        909,
+        930
+      ],
+      "decoded": "'re\n\u0004 \t123猫\n\n e <|im_start|>"
+    },
+    {
+      "text": "café",
+      "ids": [
+        1,
+        957
+      ],
+      "decoded": "café"
+    },
+    {
+      "text": "<|im_end|>'re123",
+      "ids": [
+        1,
+        936,
+        1143
+      ],
+      "decoded": "<|im_end|>'re123"
+    },
+    {
+      "text": "\n\n<|im_start|>a'sⅣ 's e123 \u0004 <|im_start|>́?!",
+      "ids": [
+        1,
+        1113,
+        900,
+        1044,
+        868,
+        1045,
+        909,
+        974,
+        961,
+        900,
+        1012
+      ],
+      "decoded": "\n\n<|im_start|>a'sⅣ 's e123 \u0004 <|im_start|>́?!"
+    },
+    {
+      "text": "\u0004 eZa 猫Ⅳ<|im_end|><|im_end|>?!",
+      "ids": [
+        1,
+        946,
+        1026,
+        1092,
+        1015,
+        1130
+      ],
+      "decoded": "\u0004 eZa 猫Ⅳ<|im_end|><|im_end|>?!"
+    },
+    {
+      "text": "🌀aⅣZZ🌀½ <|im_end|>Z're?!\t<|im_end|>123١٢123́'s½?! ́½'reZZ",
+      "ids": [
+        1,
+        1157,
+        868,
+        1007,
+        1120,
+        936,
+        1039,
+        913,
+        1208,
+        1027,
+        1104,
+        1102,
+        948,
+        1050,
+        1007
+      ],
+      "decoded": "🌀aⅣZZ🌀½ <|im_end|>Z're?!\t<|im_end|>123١٢123́'s½?! ́½'reZZ"
+    },
+    {
+      "text": "\t123\u0004123<|im_end|>ⅣⅣ½Z're猫١٢񀀀½񀀀<|im_start|>a Z½\t",
+      "ids": [
+        1,
+        929,
+        1025,
+        907,
+        904,
+        985,
+        837,
+        1039,
+        989,
+        886,
+        1049,
+        900,
+        1261,
+        1047
+      ],
+      "decoded": "\t123\u0004123<|im_end|>ⅣⅣ½Z're猫١٢񀀀½񀀀<|im_start|>a Z½\t"
+    },
+    {
+      "text": "'re<|im_start|>'ré's񀀀<|im_start|>Z",
+      "ids": [
+        1,
+        941,
+        972,
+        1104,
+        1123,
+        804
+      ],
+      "decoded": "'re<|im_start|>'ré's񀀀<|im_start|>Z"
+    },
+    {
+      "text": "🌀Ⅳ's١٢<|im_start|> eŹ🌀're're猫🌀🌀123's e?!'s",
+      "ids": [
+        1,
+        927,
+        969,
+        1146,
+        1026,
+        1051,
+        911,
+        1140,
+        1165,
+        1133,
+        1149
+      ],
+      "decoded": "🌀Ⅳ's١٢<|im_start|> eŹ🌀're're猫🌀🌀123's e?!'s"
+    },
+    {
+      "text": "123<|im_end|>\u0004'sa񀀀 're ́123a123",
+      "ids": [
+        1,
+        926,
+        904,
+        1033,
+        967,
+        941,
+        1163,
+        1008
+      ],
+      "decoded": "123<|im_end|>\u0004'sa񀀀 're ́123a123"
+    },
+    {
+      "text": "\n\u0004ZⅣ's\n🌀\u0004🌀١٢½<|im_end|>猫ZⅣZ é's123 <|im_start|>123",
+      "ids": [
+        1,
+        947,
+        1075,
+        969,
+        1225,
+        1056,
+        837,
+        904,
+        988,
+        1107,
+        933,
+        908,
+        974,
+        1020
+      ],
+      "decoded": "\n\u0004ZⅣ's\n🌀\u0004🌀١٢½<|im_end|>猫ZⅣZ é's123 <|im_start|>123"
+    },
+    {
+      "text": " e\t's<|im_start|> ecafé're e e 'sⅣ́<|im_start|>'re½'sa 's\u0004",
+      "ids": [
+        1,
+        909,
+        1176,
+        977,
+        911,
+        995,
+        1045,
+        968,
+        972,
+        1101,
+        1258,
+        772
+      ],
+      "decoded": "e\t's<|im_start|> ecafé're e e 'sⅣ́<|im_start|>'re½'sa 's\u0004"
+    },
+    {
+      "text": "'re're're?!<|im_end|>'reZ<|im_start|> Z񀀀½ <|im_end|>",
+      "ids": [
+        1,
+        941,
+        911,
+        911,
+        1148,
+        1144,
+        986,
+        886,
+        837,
+        1284
+      ],
+      "decoded": "'re're're?!<|im_end|>'reZ<|im_start|> Z񀀀½ <|im_end|>"
+    },
+    {
+      "text": "Z猫񀀀񀀀Ⅳ\na١٢\n123 ́123\n\u0004\n're<|im_start|>猫 eⅣ١٢café🌀",
+      "ids": [
+        1,
+        986,
+        971,
+        886,
+        1052,
+        1009,
+        1003,
+        1163,
+        980,
+        1219,
+        874,
+        976,
+        912,
+        1152
+      ],
+      "decoded": "Z猫񀀀񀀀Ⅳ\na١٢\n123 ́123\n\u0004\n're<|im_start|>猫 eⅣ١٢café🌀"
+    },
+    {
+      "text": "\t猫Ⅳ½½ ١٢ e\u0004\u0004\t're🌀 ١٢½",
+      "ids": [
+        1,
+        929,
+        1015,
+        984,
+        835,
+        1147,
+        1074,
+        1212,
+        937,
+        837
+      ],
+      "decoded": "\t猫Ⅳ½½ ١٢ e\u0004\u0004\t're🌀 ١٢½"
+    },
+    {
+      "text": "<|im_end|>'sⅣ\t  ́猫񀀀\u0004Z \u0004123 \u0004a񀀀",
+      "ids": [
+        1,
+        936,
+        908,
+        953,
+        1289,
+        971,
+        1075,
+        946,
+        974,
+        1195
+      ],
+      "decoded": "<|im_end|>'sⅣ\t  ́猫񀀀\u0004Z \u0004123 \u0004a񀀀"
+    },
+    {
+      "text": "🌀Z猫 񀀀́🌀café",
+      "ids": [
+        1,
+        927,
+        1088,
+        1283,
+        1051,
+        919
+      ],
+      "decoded": "🌀Z猫 񀀀́🌀café"
+    },
+    {
+      "text": "🌀񀀀\t١٢ <|im_end|>񀀀١٢١٢\u0004\n<|im_start|>🌀 Ⅳ \n񀀀123caféa ",
+      "ids": [
+        1,
+        1158,
+        1002,
+        936,
+        991,
+        912,
+        1078,
+        880,
+        956,
+        947,
+        1058,
+        919,
+        1092
+      ],
+      "decoded": "🌀񀀀\t١٢ <|im_end|>񀀀١٢١٢\u0004\n<|im_start|>🌀 Ⅳ \n񀀀123caféa "
+    },
+    {
+      "text": "<|im_end|>Z񀀀Z١٢\n?!Z猫",
+      "ids": [
+        1,
+        936,
+        1090,
+        912,
+        966,
+        1088
+      ],
+      "decoded": "<|im_end|>Z񀀀Z١٢\n?!Z猫"
+    },
+    {
+      "text": "猫١٢<|im_end|>'sZ",
+      "ids": [
+        1,
+        869,
+        989,
+        1024,
+        804
+      ],
+      "decoded": "猫١٢<|im_end|>'sZ"
+    },
+    {
+      "text": " e<|im_end|>🌀'sZ?!١٢123́\n",
+      "ids": [
+        1,
+        1064,
+        1132,
+        913,
+        1027,
+        1103
+      ],
+      "decoded": "e<|im_end|>🌀'sZ?!١٢123́\n"
+    },
+    {
+      "text": "é Å Å 가",
+      "ids": [
+        1,
+        1161,
+        1242,
+        869,
+        867,
+        869,
+        861,
+        862
+      ],
+      "decoded": "é Å Å 가"
+    },
+    {
+      "text": "I'M WE'RE She's 'RE 'ſ",
+      "ids": [
+        1,
+        1184,
+        869,
+        1244,
+        908,
+        869,
+        1073,
+        869,
+        1232
+      ],
+      "decoded": "I'M WE'RE She's 'RE 'ſ"
+    },
+    {
+      "text": "!hello 👋word \tword\nword",
+      "ids": [
+        1,
+        1110,
+        1173,
+        869,
+        883,
+        998,
+        929,
+        998,
+        1220
+      ],
+      "decoded": "!hello 👋word \tword\nword"
+    },
+    {
+      "text": " \n  \r\n\t text",
+      "ids": [
+        1,
+        947,
+        925,
+        1005,
+        1210,
+        1268,
+        825
+      ],
+      "decoded": "\n  \r\n\t text"
+    },
+    {
+      "text": "123456 １２３ ١٢٣",
+      "ids": [
+        1,
+        1156,
+        1237,
+        937,
+        859
+      ],
+      "decoded": "123456 １２３ ١٢٣"
+    },
+    {
+      "text": "<tool_call>{\"x\":1}</tool_call>",
+      "ids": [
+        1,
+        869,
+        1239,
+        1281,
+        1228,
+        1236,
+        1240
+      ],
+      "decoded": "<tool_call>{\"x\":1}</tool_call>"
+    },
+    {
+      "text": "á́́́́́́́́́́́́́́́́́́́́́́́́",
+      "ids": [
+        1,
+        931,
+        1175,
+        997,
+        840
+      ],
+      "decoded": "á́́́́́́́́́́́́́́́́́́́́́́́́"
+    },
+    {
+      "text": "a͏́",
+      "ids": [
+        1,
+        931,
+        842,
+        840
+      ],
+      "decoded": "a͏́"
+    },
+    {
+      "text": " \n\n",
+      "ids": [
+        1,
+        1113
+      ],
+      "decoded": "\n\n"
+    },
+    {
+      "text": "\r\n   ",
+      "ids": [
+        1,
+        1053,
+        1070
+      ],
+      "decoded": "\r\n   "
+    },
+    {
+      "text": "!? \r\nx",
+      "ids": [
+        1,
+        1110,
+        1241,
+        829
+      ],
+      "decoded": "!? \r\nx"
+    },
+    {
+      "text": "  word",
+      "ids": [
+        1,
+        869,
+        865,
+        866,
+        998
+      ],
+      "decoded": "  word"
+    },
+    {
+      "text": "<s>hello",
+      "ids": [
+        1,
+        1,
+        1173
+      ],
+      "decoded": "hello"
+    },
+    {
+      "text": "[INST]hello",
+      "ids": [
+        1,
+        3,
+        1173
+      ],
+      "decoded": "hello"
+    },
+    {
+      "text": "a[INST]hello",
+      "ids": [
+        1,
+        931,
+        3,
+        1173
+      ],
+      "decoded": "ahello"
+    },
+    {
+      "text": "<s> hello",
+      "ids": [
+        1,
+        1,
+        869,
+        1173
+      ],
+      "decoded": "hello"
+    },
+    {
+      "text": "[INST] hello",
+      "ids": [
+        1,
+        3,
+        869,
+        1173
+      ],
+      "decoded": "hello"
+    },
+    {
+      "text": "hi</s>there",
+      "ids": [
+        1,
+        869,
+        813,
+        814,
+        2,
+        825,
+        982,
+        823,
+        810
+      ],
+      "decoded": "hithere"
+    },
+    {
+      "text": "▁hello",
+      "ids": [
+        1,
+        869,
+        1173
+      ],
+      "decoded": "hello"
+    },
+    {
+      "text": "a▁b",
+      "ids": [
+        1,
+        931,
+        869,
+        807
+      ],
+      "decoded": "a b"
+    },
+    {
+      "text": "🌀󠀁",
+      "ids": [
+        1,
+        927,
+        1543,
+        1460,
+        1428,
+        1429
+      ],
+      "decoded": "🌀󠀁"
+    },
+    {
+      "text": "\ttext",
+      "ids": [
+        1,
+        929,
+        825,
+        1268,
+        825
+      ],
+      "decoded": "\ttext"
+    },
+    {
+      "text": "<unk>",
+      "ids": [
+        1,
+        0
+      ],
+      "decoded": ""
+    },
+    {
+      "text": "<s><s>",
+      "ids": [
+        1,
+        1,
+        1
+      ],
+      "decoded": ""
+    },
+    {
+      "text": "[control_768]a",
+      "ids": [
+        1,
+        770,
+        806
+      ],
+      "decoded": "a"
+    },
+    {
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ids": [
+        1,
+        869,
+        1072,
+        1072,
+        1072,
+        1072,
+        1072,
+        1072,
+        1072,
+        1072
+      ],
+      "decoded": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "text": "                                                                ",
+      "ids": [
+        1,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925,
+        925
+      ],
+      "decoded": "                                                               "
+    }
+  ],
+  "chats": [
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Hello! 🐈‍⬛"
+        }
+      ],
+      "prompt": "<s>[INST] Hello! 🐈‍⬛[/INST]",
+      "ids": [
+        1,
+        3,
+        869,
+        1180,
+        778,
+        869,
+        882,
+        864,
+        870,
+        4
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "Answer briefly."
+        },
+        {
+          "role": "user",
+          "content": "2+2?"
+        }
+      ],
+      "prompt": "<s>[INST] Answer briefly.\n\n2+2?[/INST]",
+      "ids": [
+        1,
+        3,
+        869,
+        795,
+        819,
+        824,
+        828,
+        1267,
+        869,
+        807,
+        823,
+        814,
+        810,
+        811,
+        817,
+        830,
+        782,
+        935,
+        785,
+        1343,
+        785,
+        794,
+        4
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Hi"
+        },
+        {
+          "role": "assistant",
+          "content": "Hello."
+        },
+        {
+          "role": "user",
+          "content": "Let's write Go."
+        }
+      ],
+      "prompt": "<s>[INST] Hi[/INST] Hello.</s>[INST] Let's write Go.[/INST]",
+      "ids": [
+        1,
+        3,
+        869,
+        798,
+        814,
+        4,
+        869,
+        1180,
+        782,
+        2,
+        3,
+        869,
+        1376,
+        810,
+        825,
+        908,
+        869,
+        828,
+        823,
+        814,
+        825,
+        810,
+        869,
+        1243,
+        782,
+        4
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": " sys "
+        },
+        {
+          "role": "user",
+          "content": " first "
+        },
+        {
+          "role": "assistant",
+          "content": " \u001c ok \u001f "
+        },
+        {
+          "role": "user",
+          "content": " next "
+        }
+      ],
+      "prompt": "<s>[INST]  first [/INST] ok</s>[INST]  sys \n\n next [/INST]",
+      "ids": [
+        1,
+        3,
+        925,
+        811,
+        814,
+        823,
+        895,
+        869,
+        4,
+        869,
+        820,
+        816,
+        2,
+        3,
+        925,
+        824,
+        830,
+        824,
+        1113,
+        869,
+        819,
+        1268,
+        825,
+        869,
+        4
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "system only"
+        }
+      ],
+      "prompt": "<s>",
+      "ids": [
+        1
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "A"
+        },
+        {
+          "role": "assistant",
+          "content": "B"
+        }
+      ],
+      "prompt": "<s>[INST] A[/INST] B</s>",
+      "ids": [
+        1,
+        3,
+        869,
+        795,
+        4,
+        869,
+        1366,
+        2
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "[INST]literal<s> 🐈‍⬛"
+        }
+      ],
+      "prompt": "<s>[INST] [INST]literal<s> 🐈‍⬛[/INST]",
+      "ids": [
+        1,
+        3,
+        869,
+        3,
+        817,
+        814,
+        825,
+        1267,
+        806,
+        817,
+        1,
+        869,
+        882,
+        864,
+        870,
+        4
+      ]
+    }
+  ],
+  "decode_cases": [
+    {
+      "ids": [
+        904
+      ],
+      "decoded": "<|im_end|>"
+    },
+    {
+      "ids": [
+        1365,
+        1555
+      ],
+      "decoded": "��"
+    },
+    {
+      "ids": [
+        1540,
+        1459
+      ],
+      "decoded": "��"
+    },
+    {
+      "ids": [
+        1365,
+        1540,
+        1459
+      ],
+      "decoded": "���"
+    },
+    {
+      "ids": [
+        1540,
+        1459,
+        1444,
+        1436
+      ],
+      "decoded": "🐈"
+    },
+    {
+      "ids": [
+        1555,
+        1365
+      ],
+      "decoded": "��"
+    },
+    {
+      "ids": [
+        1332
+      ],
+      "decoded": ""
+    },
+    {
+      "ids": [
+        1332,
+        1332
+      ],
+      "decoded": " "
+    },
+    {
+      "ids": [],
+      "decoded": ""
+    },
+    {
+      "ids": [
+        1540,
+        1459,
+        806,
+        1444,
+        1436
+      ],
+      "decoded": "��a��"
+    },
+    {
+      "ids": [
+        1540,
+        1459,
+        1,
+        1444,
+        1436
+      ],
+      "decoded": "🐈"
+    },
+    {
+      "ids": [
+        1,
+        869,
+        869,
+        806
+      ],
+      "decoded": " a"
+    }
+  ],
+  "files": {
+    "tokenizer.json": "3dde163f12ef975b3278b28fb85f634b1f25c1429453fa98eceda884058a6cea",
+    "tokenizer_config.json": "9d02b7d9572253cd03b521b41738c84da1770ed4bb39940cf96aaadc24454244"
+  },
+  "transformers": "4.57.1",
+  "default_auto_tokenizer_checked": false
+}

@@ -13,7 +13,7 @@ biases. Tied and separate output embeddings are supported. Sliding-window
 attention, other RoPE scaling algorithms, MoE and unknown computational settings are rejected.
 Mistral requires explicit `sliding_window: null`; omitting the field does not
 select full attention. See [Mistral inference](MISTRAL_INFERENCE.md) for its
-current token-ID boundary. This is not general Transformers compatibility.
+v0.3 text/chat profile and validation boundary. This is not general Transformers compatibility.
 
 It also accepts tied `GPT2LMHeadModel` with learned absolute positions, affine
 LayerNorm, standard scaled causal attention and `gelu_new`. GPT-2 accepts raw

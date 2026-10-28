@@ -106,7 +106,12 @@ func TestHFInferenceProfileValidation(t *testing.T) {
 	}
 }
 func TestHFHTTPMessagesAndStream(t *testing.T) {
-	tok := testHFTokenizer(t, "testdata/hf-tokenizer")
+	for _, dir := range []string{"testdata/hf-tokenizer", "testdata/hf-mistral-tokenizer"} {
+		t.Run(dir, func(t *testing.T) { testHFHTTPMessagesAndStream(t, dir) })
+	}
+}
+func testHFHTTPMessagesAndStream(t *testing.T, dir string) {
+	tok := testHFTokenizer(t, dir)
 	m := hfServingModel(t, tok, -1)
 	s := defaultSampling()
 	s.Temperature = 0
@@ -117,7 +122,7 @@ func TestHFHTTPMessagesAndStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := Generate(context.Background(), m, tok, prompt, s)
+	want, err := generateInput(context.Background(), m, tok, prompt, s, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,6 +184,9 @@ func TestHFHTTPMessagesAndStream(t *testing.T) {
 		`{"messages":[{"role":"tool","content":"hi"}]}`,
 		`{"prompt":""}`,
 	} {
+		if tok.mistral && body == `{"prompt":""}` {
+			continue
+		} // BOS alone is a valid prompt.
 		resp, err := http.Post(server.URL+"/v1/completions", "application/json", strings.NewReader(body))
 		if err != nil {
 			t.Fatal(err)
