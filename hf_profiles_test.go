@@ -46,7 +46,7 @@ func TestHFProfileLimitsAndBudget(t *testing.T) {
 }
 
 func TestHFExtraWeightsCountAndTrainingRejection(t *testing.T) {
-	for _, name := range []string{"hf-qwen2/f32", "hf-qwen2/untied-bf16", "hf-llama/untied-f32"} {
+	for _, name := range []string{"hf-qwen2/f32", "hf-qwen2/untied-bf16", "hf-llama/untied-f32", "hf-mistral/f32"} {
 		dir := filepath.Join("testdata", name)
 		m, plan, err := loadHFModel(context.Background(), dir, 64, 1)
 		if err != nil {

@@ -3,15 +3,17 @@
 This guide describes the local Go importer. See [inference setup](INFERENCE.md)
 for automatic downloads and remote HF execution without local weights.
 
-The importer accepts restricted `LlamaForCausalLM` and `Qwen2ForCausalLM`
-profiles: SiLU, GQA, scalar BOS IDs, half-split RoPE and full
+The importer accepts restricted `LlamaForCausalLM`, `Qwen2ForCausalLM` and full-attention
+`MistralForCausalLM` profiles: SiLU, GQA, scalar BOS IDs, half-split RoPE and full
 causal attention. Llama additionally accepts the fixed `llama3` frequency
 scaling profile, up to eight configured EOS IDs and the
 [Llama 3.2 text/chat tokenizer](LLAMA3_INFERENCE.md). Qwen2 and GPT-2 retain
-scalar EOS profiles. Llama projections must be bias-free; Qwen2 includes Q/K/V
-biases. Both tied and separate output embeddings are supported. Sliding-window
+scalar EOS profiles. Llama/Mistral projections must be bias-free; Qwen2 includes Q/K/V
+biases. Tied and separate output embeddings are supported. Sliding-window
 attention, other RoPE scaling algorithms, MoE and unknown computational settings are rejected.
-This is not general Transformers compatibility.
+Mistral requires explicit `sliding_window: null`; omitting the field does not
+select full attention. See [Mistral inference](MISTRAL_INFERENCE.md) for its
+current token-ID boundary. This is not general Transformers compatibility.
 
 It also accepts tied `GPT2LMHeadModel` with learned absolute positions, affine
 LayerNorm, standard scaled causal attention and `gelu_new`. GPT-2 accepts raw
@@ -148,12 +150,12 @@ go run . infer-hf -hf-model runs/smollm2 -context 512 \
 `infer-hf` accepts already framed IDs, performs chunked prefill followed by
 greedy decode, and stops at the model's EOS. It adds no BOS and masks no IDs.
 The diagnostic command is bounded to 256 output tokens; `-logits` includes
-each next-token vector. Llama/Qwen2 models use half-split RoPE and FP32
+each next-token vector. Llama/Qwen2/Mistral models use half-split RoPE and FP32
 frequency construction. Native models retain adjacent-pair RoPE and their
 existing exact checkpoint/resume behavior. Imported models cannot be written
 as native `.mglm` checkpoints.
 
-CI uses small seeded, synthetic Llama, Qwen2 and GPT-2 fixtures generated with Transformers
+CI uses small seeded, synthetic Llama, Qwen2, Mistral and GPT-2 fixtures generated with Transformers
 4.57.1, Torch 2.8.0 CPU eager attention and Safetensors 0.6.2. F32/F16/BF16
 weights are each loaded as FP32. Tests compare logits and every KV row across
 chunk sizes 1/4/16/35, a page boundary, decode, ragged batches and worker

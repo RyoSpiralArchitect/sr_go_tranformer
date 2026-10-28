@@ -263,6 +263,14 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	if string(raw["model_type"]) == `"llama"` {
 		keys["head_dim"], keys["rope_scaling"] = true, true
 	}
+	if string(raw["model_type"]) == `"mistral"` {
+		keys["head_dim"], keys["sliding_window"] = true, true
+		// Mistral defaults to a sliding window when this field is omitted.
+		// Only explicit null selects the full-attention v0.2/v0.3 profile.
+		if !bytes.Equal(bytes.TrimSpace(raw["sliding_window"]), []byte("null")) {
+			return h, Config{}, errors.New("Mistral requires explicit sliding_window:null; sliding attention is not supported")
+		}
+	}
 	for k, v := range raw {
 		if k == "rope_scaling" && string(v) == "null" {
 			continue
@@ -329,9 +337,9 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 			return h, Config{}, errors.New("unsupported or invalid Llama 3 RoPE scaling")
 		}
 	}
-	arch := map[string]string{"llama": "LlamaForCausalLM", "qwen2": "Qwen2ForCausalLM"}[h.ModelType]
+	arch := map[string]string{"llama": "LlamaForCausalLM", "qwen2": "Qwen2ForCausalLM", "mistral": "MistralForCausalLM"}[h.ModelType]
 	if arch == "" || len(h.Architectures) != 1 || h.Architectures[0] != arch || h.Act != "silu" || h.AttentionBias || h.MLPBias || h.Interleaved || h.Dropout != 0 || (h.TP != 0 && h.TP != 1) || h.Sliding {
-		return h, Config{}, errors.New("unsupported HF profile: require Llama or Qwen2, SiLU, supported half-split RoPE and full causal attention")
+		return h, Config{}, errors.New("unsupported HF profile: require Llama, Qwen2 or full-attention Mistral, SiLU, supported half-split RoPE and full causal attention")
 	}
 	if len(h.LayerTypes) != 0 && len(h.LayerTypes) != h.Layers {
 		return h, Config{}, errors.New("HF layer_types count mismatch")
@@ -9997,7 +10005,7 @@ func runInfer(ctx context.Context, args []string) error {
 			{"Qwen2 / Qwen2.5", "restricted Qwen2 profile; tested Qwen2.5 0.5B/1.5B and 7B (Q8/Q4/mixed weights)", "HF chat API; provider or dedicated endpoint required"},
 			{"GPT-2", "tied GPT2LMHeadModel, absolute positions and gelu_new; raw text", "dedicated HF text-generation endpoint"},
 			{"gpt-oss", "not supported (MoE)", "HF chat API; provider or dedicated endpoint required"},
-			{"Mistral", "not supported", "HF chat API; provider or dedicated endpoint required"},
+			{"Mistral", "full-attention token IDs; text/chat pending", "HF chat API; provider or dedicated endpoint required"},
 			{"Gemma", "not supported", "HF chat API; provider or dedicated endpoint required"},
 		}
 		if *asJSON {
