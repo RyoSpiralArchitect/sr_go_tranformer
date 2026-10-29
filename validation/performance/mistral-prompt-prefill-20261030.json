@@ -1,0 +1,570 @@
+{
+  "format": "monolith-prompt-first-token-result-v1",
+  "protocol": {
+    "format": "monolith-prompt-first-token-protocol-v1",
+    "baseline": "68ee4d8406b907c6bf6c77fdd364146da4aac7cf",
+    "order": [
+      "before",
+      "after",
+      "after",
+      "before"
+    ],
+    "case_orders": [
+      "short,long",
+      "short,long",
+      "long,short",
+      "long,short"
+    ],
+    "model": "mistral-7b-v03",
+    "context": 1024,
+    "weight_format": "q4-mixed",
+    "threads": 4,
+    "long_trials_per_process": 1,
+    "short_trials_per_process": 3,
+    "warmups": 0,
+    "gate": {
+      "long_median_ratio_max": 0.95,
+      "short_median_ratio_max": 1.05,
+      "exact_completion": true
+    },
+    "scope": "Generate to first output token, excludes load, includes prompt encoding and sampling. Two long trials per variant, no confidence intervals. Retain all attempts."
+  },
+  "host": "Darwin/arm64",
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "model": "mistralai/Mistral-7B-Instruct-v0.3",
+  "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+  "files": {
+    "config.json": "affafc6478ec0fd07a32f0ca57aa2fc57743f4d17d6730f86a96ac24d1507f99",
+    "tokenizer.json": "e553af6fff7d7ad76e830608b218c5c0b0822998d5a1a96099a74cd3c1cb1a49",
+    "tokenizer_config.json": "0533dec9cfe319163801b6618d0f3ec9cfa126b6288e3df5deca6e32acb09cd2",
+    "model.safetensors.index.json": "e489ba553b87cde188d921b1a8283c2e0b9d33d635b88147d96ff0fcd6250016",
+    "model-00001-of-00003.safetensors": "ce6fb6f6f4d0183f4813cbf4ece24109da629a08d4210da46f77e1d8b0bd5c19",
+    "model-00002-of-00003.safetensors": "8c0e72f148366b6a3709e002a98706a33d31aec8515090c856c95b2044f92ae0",
+    "model-00003-of-00003.safetensors": "905dd405363e43d95779c1c1155a2dbfd36155914ae95dbd934e12e490cfb4ca"
+  },
+  "builds": {
+    "before": {
+      "binary_sha256": "e525249ea6b088c35892433ca9e245afe0723a5160fa6aacb0bde9656cabea10",
+      "inputs_sha256": {
+        "monolith.go": "6fa26256beae962e8ad0f52788618788b1b6329618512b1b16a51c789048f10b",
+        "go.mod": "8fd924c4124c93ce607d506cf677a5462ef233b3a776d0ba26d2a6fb3f498adf",
+        "go.sum": "8a0467c34198969fd6b4a4f0f41acfdaf433dc2a393db612c4d8121a60d1f66f",
+        "prompt_real_test.go": "4f5438fe3313b2d7102a293586efbec6e592790b0e468be58aa71a478c619029"
+      }
+    },
+    "after": {
+      "binary_sha256": "b5d6718745d6d0f083d81fe7f2b1a8694b7e38ba1b18b07830ffa989ab4c011f",
+      "inputs_sha256": {
+        "monolith.go": "5a0bdd4d2304c7bc33a3366d567a45209cf34e7ba834afedc27c2b260c2712d9",
+        "go.mod": "8fd924c4124c93ce607d506cf677a5462ef233b3a776d0ba26d2a6fb3f498adf",
+        "go.sum": "8a0467c34198969fd6b4a4f0f41acfdaf433dc2a393db612c4d8121a60d1f66f",
+        "prompt_real_test.go": "4f5438fe3313b2d7102a293586efbec6e592790b0e468be58aa71a478c619029"
+      }
+    }
+  },
+  "source_sha256": {
+    "monolith.go": "5a0bdd4d2304c7bc33a3366d567a45209cf34e7ba834afedc27c2b260c2712d9",
+    "go.mod": "8fd924c4124c93ce607d506cf677a5462ef233b3a776d0ba26d2a6fb3f498adf",
+    "go.sum": "8a0467c34198969fd6b4a4f0f41acfdaf433dc2a393db612c4d8121a60d1f66f"
+  },
+  "reports": [
+    {
+      "variant": "before",
+      "report": {
+        "cases": [
+          {
+            "name": "short",
+            "trials": [
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 2.1059455,
+                "allocated_bytes": 8929784,
+                "allocations": 1116
+              },
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 1.725267583,
+                "allocated_bytes": 8929704,
+                "allocations": 1114
+              },
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 1.742779458,
+                "allocated_bytes": 8929080,
+                "allocations": 1113
+              }
+            ]
+          },
+          {
+            "name": "long",
+            "trials": [
+              {
+                "completion": {
+                  "text": "is",
+                  "token_ids": [
+                    1117
+                  ],
+                  "prompt_tokens": 275,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 146.344901875,
+                "allocated_bytes": 84687600,
+                "allocations": 74245
+              }
+            ]
+          }
+        ],
+        "note": "One output token measures direct Generate first-token latency excluding loading. Fixed prompts and greedy sampling.",
+        "plan": {
+          "format": "monolith-hf-plan-v1",
+          "model_type": "mistral",
+          "tied_embeddings": false,
+          "eos_token_ids": [
+            2
+          ],
+          "config": {
+            "vocab": 32768,
+            "dim": 4096,
+            "hidden": 14336,
+            "layers": 32,
+            "heads": 32,
+            "kv_heads": 8,
+            "context": 1024,
+            "rope_theta": 1000000,
+            "norm_eps": 1e-05
+          },
+          "parameters": 7248023552,
+          "weight_bytes": 4212146176,
+          "weight_format": "q4-mixed",
+          "fp32_weight_bytes": 28992094208,
+          "quantized_parameters": 7247757312,
+          "q8_parameters": 268435456,
+          "q4_parameters": 6979321856,
+          "scale_bytes": 452984832,
+          "quantization_block": 64,
+          "quantization_buffer_bytes": 256,
+          "rope_bytes": 524288,
+          "kv_bytes_per_token": 262144,
+          "full_context_kv_bytes": 268435456,
+          "conversion_buffer_bytes": 65536,
+          "source_bytes": 14496080928,
+          "shards": 3,
+          "tensor_dtypes": {
+            "BF16": 291
+          }
+        },
+        "threads": 4
+      },
+      "resources": {
+        "peak_rss_bytes": 4178411520,
+        "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+        "elapsed_seconds": 192.36436233400002,
+        "user_cpu_seconds": 577.673022,
+        "system_cpu_seconds": 7.671491
+      }
+    },
+    {
+      "variant": "after",
+      "report": {
+        "cases": [
+          {
+            "name": "short",
+            "trials": [
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 1.491834584,
+                "allocated_bytes": 9630576,
+                "allocations": 351
+              },
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 1.2968440829999999,
+                "allocated_bytes": 9623704,
+                "allocations": 341
+              },
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 1.325996458,
+                "allocated_bytes": 9625288,
+                "allocations": 344
+              }
+            ]
+          },
+          {
+            "name": "long",
+            "trials": [
+              {
+                "completion": {
+                  "text": "is",
+                  "token_ids": [
+                    1117
+                  ],
+                  "prompt_tokens": 275,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 113.884558042,
+                "allocated_bytes": 80821560,
+                "allocations": 8191
+              }
+            ]
+          }
+        ],
+        "note": "One output token measures direct Generate first-token latency excluding loading. Fixed prompts and greedy sampling.",
+        "plan": {
+          "format": "monolith-hf-plan-v1",
+          "model_type": "mistral",
+          "tied_embeddings": false,
+          "eos_token_ids": [
+            2
+          ],
+          "config": {
+            "vocab": 32768,
+            "dim": 4096,
+            "hidden": 14336,
+            "layers": 32,
+            "heads": 32,
+            "kv_heads": 8,
+            "context": 1024,
+            "rope_theta": 1000000,
+            "norm_eps": 1e-05
+          },
+          "parameters": 7248023552,
+          "weight_bytes": 4212146176,
+          "weight_format": "q4-mixed",
+          "fp32_weight_bytes": 28992094208,
+          "quantized_parameters": 7247757312,
+          "q8_parameters": 268435456,
+          "q4_parameters": 6979321856,
+          "scale_bytes": 452984832,
+          "quantization_block": 64,
+          "quantization_buffer_bytes": 256,
+          "rope_bytes": 524288,
+          "kv_bytes_per_token": 262144,
+          "full_context_kv_bytes": 268435456,
+          "conversion_buffer_bytes": 65536,
+          "source_bytes": 14496080928,
+          "shards": 3,
+          "tensor_dtypes": {
+            "BF16": 291
+          }
+        },
+        "threads": 4
+      },
+      "resources": {
+        "peak_rss_bytes": 4183965696,
+        "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+        "elapsed_seconds": 158.11808825000003,
+        "user_cpu_seconds": 470.493765,
+        "system_cpu_seconds": 6.52544
+      }
+    },
+    {
+      "variant": "after",
+      "report": {
+        "cases": [
+          {
+            "name": "long",
+            "trials": [
+              {
+                "completion": {
+                  "text": "is",
+                  "token_ids": [
+                    1117
+                  ],
+                  "prompt_tokens": 275,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 108.477576208,
+                "allocated_bytes": 80823368,
+                "allocations": 8194
+              }
+            ]
+          },
+          {
+            "name": "short",
+            "trials": [
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 1.524302458,
+                "allocated_bytes": 9625064,
+                "allocations": 342
+              },
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 1.519845833,
+                "allocated_bytes": 9624920,
+                "allocations": 342
+              },
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 1.581459417,
+                "allocated_bytes": 9624920,
+                "allocations": 342
+              }
+            ]
+          }
+        ],
+        "note": "One output token measures direct Generate first-token latency excluding loading. Fixed prompts and greedy sampling.",
+        "plan": {
+          "format": "monolith-hf-plan-v1",
+          "model_type": "mistral",
+          "tied_embeddings": false,
+          "eos_token_ids": [
+            2
+          ],
+          "config": {
+            "vocab": 32768,
+            "dim": 4096,
+            "hidden": 14336,
+            "layers": 32,
+            "heads": 32,
+            "kv_heads": 8,
+            "context": 1024,
+            "rope_theta": 1000000,
+            "norm_eps": 1e-05
+          },
+          "parameters": 7248023552,
+          "weight_bytes": 4212146176,
+          "weight_format": "q4-mixed",
+          "fp32_weight_bytes": 28992094208,
+          "quantized_parameters": 7247757312,
+          "q8_parameters": 268435456,
+          "q4_parameters": 6979321856,
+          "scale_bytes": 452984832,
+          "quantization_block": 64,
+          "quantization_buffer_bytes": 256,
+          "rope_bytes": 524288,
+          "kv_bytes_per_token": 262144,
+          "full_context_kv_bytes": 268435456,
+          "conversion_buffer_bytes": 65536,
+          "source_bytes": 14496080928,
+          "shards": 3,
+          "tensor_dtypes": {
+            "BF16": 291
+          }
+        },
+        "threads": 4
+      },
+      "resources": {
+        "peak_rss_bytes": 4198907904,
+        "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+        "elapsed_seconds": 156.52217241699998,
+        "user_cpu_seconds": 465.649092,
+        "system_cpu_seconds": 6.238517
+      }
+    },
+    {
+      "variant": "before",
+      "report": {
+        "cases": [
+          {
+            "name": "long",
+            "trials": [
+              {
+                "completion": {
+                  "text": "is",
+                  "token_ids": [
+                    1117
+                  ],
+                  "prompt_tokens": 275,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 141.93944075,
+                "allocated_bytes": 84683240,
+                "allocations": 74241
+              }
+            ]
+          },
+          {
+            "name": "short",
+            "trials": [
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 2.067603583,
+                "allocated_bytes": 8930040,
+                "allocations": 1117
+              },
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 2.077487959,
+                "allocated_bytes": 8928232,
+                "allocations": 1112
+              },
+              {
+                "completion": {
+                  "text": "was",
+                  "token_ids": [
+                    1171
+                  ],
+                  "prompt_tokens": 4,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 2.217077416,
+                "allocated_bytes": 8929304,
+                "allocations": 1115
+              }
+            ]
+          }
+        ],
+        "note": "One output token measures direct Generate first-token latency excluding loading. Fixed prompts and greedy sampling.",
+        "plan": {
+          "format": "monolith-hf-plan-v1",
+          "model_type": "mistral",
+          "tied_embeddings": false,
+          "eos_token_ids": [
+            2
+          ],
+          "config": {
+            "vocab": 32768,
+            "dim": 4096,
+            "hidden": 14336,
+            "layers": 32,
+            "heads": 32,
+            "kv_heads": 8,
+            "context": 1024,
+            "rope_theta": 1000000,
+            "norm_eps": 1e-05
+          },
+          "parameters": 7248023552,
+          "weight_bytes": 4212146176,
+          "weight_format": "q4-mixed",
+          "fp32_weight_bytes": 28992094208,
+          "quantized_parameters": 7247757312,
+          "q8_parameters": 268435456,
+          "q4_parameters": 6979321856,
+          "scale_bytes": 452984832,
+          "quantization_block": 64,
+          "quantization_buffer_bytes": 256,
+          "rope_bytes": 524288,
+          "kv_bytes_per_token": 262144,
+          "full_context_kv_bytes": 268435456,
+          "conversion_buffer_bytes": 65536,
+          "source_bytes": 14496080928,
+          "shards": 3,
+          "tensor_dtypes": {
+            "BF16": 291
+          }
+        },
+        "threads": 4
+      },
+      "resources": {
+        "peak_rss_bytes": 4191387648,
+        "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+        "elapsed_seconds": 186.964958959,
+        "user_cpu_seconds": 578.018899,
+        "system_cpu_seconds": 7.156152
+      }
+    }
+  ],
+  "summary": {
+    "short": {
+      "before": 2.0725457709999997,
+      "after": 1.5058402085,
+      "ratio": 0.7265654778632149
+    },
+    "long": {
+      "before": 144.1421713125,
+      "after": 111.181067125,
+      "ratio": 0.771329209991985
+    }
+  },
+  "checks": {
+    "identity": true,
+    "long": true,
+    "short": true
+  },
+  "accepted": true
+}

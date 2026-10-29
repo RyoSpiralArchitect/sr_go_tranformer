@@ -1,0 +1,54 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkPromptPrefillGenerate/prefix3/reversefalse/before-4         	     307	    929303 ns/op	   78993 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversefalse/before-4         	     322	    924104 ns/op	   78999 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversefalse/before-4         	     322	    934507 ns/op	   78988 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversefalse/after-4          	     296	    987524 ns/op	   78979 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversefalse/after-4          	     307	    977518 ns/op	   78991 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversefalse/after-4          	     316	    943696 ns/op	   78997 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversetrue/after-4           	     321	    940260 ns/op	   78984 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversetrue/after-4           	     318	    939464 ns/op	   78991 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversetrue/after-4           	     316	    950752 ns/op	   78993 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversetrue/before-4          	     318	    938266 ns/op	   78999 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversetrue/before-4          	     319	    953394 ns/op	   78979 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix3/reversetrue/before-4          	     316	   1039929 ns/op	   79000 B/op	     320 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversefalse/before-4        	      24	  13056455 ns/op	  140600 B/op	     593 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversefalse/before-4        	      27	  10150656 ns/op	  140600 B/op	     593 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversefalse/before-4        	      30	  10195468 ns/op	  140600 B/op	     593 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversefalse/after-4         	     136	   2275491 ns/op	  343421 B/op	     323 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversefalse/after-4         	     124	   2306097 ns/op	  343416 B/op	     323 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversefalse/after-4         	     128	   2331493 ns/op	  343427 B/op	     323 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversetrue/after-4          	     120	   2337530 ns/op	  343444 B/op	     323 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversetrue/after-4          	     136	   2219881 ns/op	  343433 B/op	     323 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversetrue/after-4          	     100	   2533375 ns/op	  343419 B/op	     323 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversetrue/before-4         	      27	  10791409 ns/op	  140639 B/op	     593 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversetrue/before-4         	      26	  11257732 ns/op	  140600 B/op	     593 allocs/op
+BenchmarkPromptPrefillGenerate/prefix33/reversetrue/before-4         	      27	  10441829 ns/op	  140600 B/op	     593 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversefalse/before-4       	       6	  59937208 ns/op	  332194 B/op	    1468 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversefalse/before-4       	       6	  43757076 ns/op	  332194 B/op	    1468 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversefalse/before-4       	       6	  43870785 ns/op	  332194 B/op	    1468 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversefalse/after-4        	      33	   8778182 ns/op	  454570 B/op	     388 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversefalse/after-4        	      32	   9187974 ns/op	  454589 B/op	     388 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversefalse/after-4        	      33	   8271628 ns/op	  454560 B/op	     388 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversetrue/after-4         	      34	   8167467 ns/op	  454590 B/op	     388 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversetrue/after-4         	      33	   8817596 ns/op	  454560 B/op	     388 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversetrue/after-4         	      34	   8199953 ns/op	  454586 B/op	     388 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversetrue/before-4        	       7	  44524095 ns/op	  332194 B/op	    1468 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversetrue/before-4        	       6	  42844264 ns/op	  332194 B/op	    1468 allocs/op
+BenchmarkPromptPrefillGenerate/prefix129/reversetrue/before-4        	       7	  43472030 ns/op	  332194 B/op	    1468 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversefalse/before-4       	       3	  94867431 ns/op	  589445 B/op	    2633 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversefalse/before-4       	       3	  86793653 ns/op	  589445 B/op	    2633 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversefalse/before-4       	       3	  90025667 ns/op	  589744 B/op	    2635 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversefalse/after-4        	      16	  22203354 ns/op	  610597 B/op	     473 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversefalse/after-4        	      16	  17796284 ns/op	  610673 B/op	     474 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversefalse/after-4        	      15	  18116358 ns/op	  610583 B/op	     473 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversetrue/after-4         	      15	  18142556 ns/op	  610605 B/op	     473 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversetrue/after-4         	      15	  17664364 ns/op	  610650 B/op	     473 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversetrue/after-4         	      14	  19024905 ns/op	  610569 B/op	     473 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversetrue/before-4        	       3	  96899125 ns/op	  589706 B/op	    2635 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversetrue/before-4        	       3	  87749194 ns/op	  589594 B/op	    2634 allocs/op
+BenchmarkPromptPrefillGenerate/prefix257/reversetrue/before-4        	       3	  85258472 ns/op	  589594 B/op	    2634 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	23.193s
