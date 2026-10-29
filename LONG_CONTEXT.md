@@ -91,3 +91,20 @@ The tiny fixture establishes execution/admission mechanics. It is not evidence
 of 7B long-context quality or full-8K throughput. Any larger-model receipt must
 state its actual prompt/generated lengths independently of the configured
 maximum context.
+
+## Bounded original-model check
+
+The [pinned local Mistral receipt](validation/hf/mistral-long-context-20261030.json)
+loads all original Q4-mixed weights with an 8,192-position context and an
+explicit 2 GiB direct KV budget. A 275-token prompt and one greedy output
+matched the same request at context 1,024 exactly (token 1117, text `is`, usage
+and stopping reason). The full-context plan requires 256 pages of 8 MiB each.
+Original model files were hashed before and after, and the receipt binds the
+binary and source inputs. Separate metadata-only checks admitted 4K/1 GiB and
+8K/2 GiB and rejected 8K under the default 512 MiB budget.
+
+Only 275 prompt tokens were executed in this 7B check. It validates bounded
+loading/generation with the larger selected context; full-4K/8K pretrained-model
+latency and long-document answer quality have not been measured. The tiny
+fixture separately executes all 8,192 positions. These evidence levels are
+intentionally distinct.

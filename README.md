@@ -261,3 +261,6 @@ The text training path and BPE tokenizer training remain bounded, in-memory impl
 Copyright 2026 RyoSpiralArchitect.
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
+
+For longer HF contexts, see [explicit KV budgets](LONG_CONTEXT.md), including
+4K/8K storage planning, preflight rejection and the actual validation scope.
