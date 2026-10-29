@@ -212,6 +212,7 @@ One goroutine owns sessions and KV pages. HTTP handlers drain bounded event chan
 | `-max-batch` | 8 | Maximum active sessions. |
 | `-queue` | 32 | Pending request capacity. |
 | `-kv-mib` | 256 | KV page budget; full request capacity is reserved before execution. |
+| `-prefix-cache-mib` | 0 | Optional single-prefix retention, carved out of the KV budget; reuses immutable full pages. |
 | `-prefill-chunk` | 16 | Maximum prompt tokens per session per scheduling tick. Set 1 for sequential prefill. |
 | `-mixed-prefill-chunk` | 1 | Prompt tokens per session when any session is already generating; capped by `prefill-chunk`. |
 | `-token-budget` | `max(max-batch, 64)` | Total tokens processed in a tick, between `max-batch` and 1,024. |
@@ -221,6 +222,11 @@ One goroutine owns sessions and KV pages. HTTP handlers drain bounded event chan
 Each active session receives at least one token of work every tick. Remaining capacity is shared among prompt chunks. By default, prompt chunks shrink to one token while any session is generating, preserving a shorter scheduling tick for ongoing output. Set `-mixed-prefill-chunk` equal to `-prefill-chunk` to favor prompt throughput over output cadence. Chunked prefill batches matrix projections across prompt rows and computes vocabulary logits only for each chunk's final row. The token budget bounds rows of work, not wall-clock latency; attention cost still grows with context length.
 
 The engine reuses its compute workers for projections and attention, with small kernels executed inline. Each kernel joins before scratch or KV ownership can end; `Engine.Close()` also joins the workers. `-threads` controls process-wide Go execution parallelism, while `-kernel-workers` fixes each engine's worker capacity for its lifetime. See [inference workers](INFERENCE_WORKERS.md) for ownership rules, exactness tests and scoped allocation/timing measurements.
+
+Chat and serving can opt into [prefix reuse](PREFIX_CACHE.md) with
+`-prefix-cache-mib`. Matching input pages are read-only, mutable tails remain
+session-owned, and `/reset` invalidates chat retention. A pinned Mistral 7B probe
+reused 96 input positions while preserving both eight-token completions exactly.
 
 ### Measurement
 

@@ -105,3 +105,13 @@ HF_HUB_OFFLINE=1 GOMAXPROCS=4 \
 This is a functionality/equivalence probe, not a language-quality evaluation or
 a speed benchmark. The single before/after pair has no balanced timing control;
 its durations must not be presented as an established throughput gain.
+
+The [2026-10-30 pinned Mistral 7B receipt](validation/hf/mistral-prefix-cache-20261030.json)
+records two 120-token chat prompts with 114 common token IDs, each generating
+eight greedy output tokens. Reuse skipped 96 input positions (three complete
+pages) on the second request. Both completions matched the disabled mode exactly;
+computed input rows fell from 240 to 144 across the pair. The snapshot retained
+24 MiB, and total allocated KV payload was 56 MiB within the 512 MiB engine budget.
+Shutdown released the snapshot. Original model files matched the pinned hashes
+before and after the run. The measured process peak RSS was about 3.94 GiB,
+including model loading; it is distinct from the KV payload budget.
