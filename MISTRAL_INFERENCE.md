@@ -10,8 +10,9 @@ Numerical parity tests use small synthetic models and an official tokenizer
 reference. The complete pinned 7B files have now also been verified locally and
 used for bounded Q8/Q4-mixed generation and memory probes. Q4-mixed CLI, HTTP
 and concurrent SSE agree, with cancellation and resource release checked.
-These short probes do not establish general language quality or long-context
-performance. See [local validation](validation/hf/mistral-v03-local-20261029.json)
+These short probes do not establish general language quality. A separate
+[long-generation comparison](LONG_GENERATION.md) measures a 256-token prefix
+and 256 output IDs with exact numerical checks. See [local validation](validation/hf/mistral-v03-local-20261029.json)
 and the [earlier incomplete-download record](validation/hf/mistral-v03-validation.json).
 
 ## Run locally
@@ -33,7 +34,8 @@ listed by that index. All three original BF16 shards must be present. Use
 These are original source weights quantized by Go during loading; prequantized
 GGUF/GPTQ/AWQ/MLX formats remain unsupported.
 
-This downloads about 14.5 GB of original BF16 Safetensors on the first run.
+The `-repo` examples below download about 14.5 GB of original BF16 Safetensors
+on the first run. Existing `-path` files are read locally.
 `q4-mixed` reduces resident weight storage, not download size. Set a small context
 first; the budgets below are limits, not measured total process memory.
 

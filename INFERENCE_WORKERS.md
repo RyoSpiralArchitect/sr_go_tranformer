@@ -66,9 +66,11 @@ memory to the OS. See [measurements](INFERENCE_PERFORMANCE.md).
 
 Workers partition independent outputs and retain the original reduction order
 within every output. Four-row projection tiles, attention reductions, FP32
-storage and random sampling are unchanged. Training, evaluation and standalone
-`Model.PrefillBatch` keep the original dispatch path; the engine passes its
-executor explicitly, so a shared model does not acquire mutable executor state.
+storage and random sampling are unchanged. Training and evaluation keep their existing paths. Standalone
+`Model.PrefillBatch` uses the default dispatcher with the same inference
+head/lane partition; the engine passes its fixed executor explicitly, so a
+shared model does not acquire mutable executor state. See
+[long generation](LONG_GENERATION.md) for head partitioning and score scratch.
 
 Request cancellation is checked between scheduling ticks. A shared batch uses
 the engine context, so canceling one request does not abort healthy peers.

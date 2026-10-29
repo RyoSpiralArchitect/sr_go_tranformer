@@ -43,6 +43,8 @@ Choose an explicit backend. See [inference setup](INFERENCE.md) for model
 families, cache/offline operation, HF endpoints and compatibility limits.
 See [inference performance](INFERENCE_PERFORMANCE.md) for measured optimizations
 and reproduction commands.
+[Long generation](LONG_GENERATION.md) partitions attention across bounded worker
+lanes, with exact-output checks and a measured Mistral 7B comparison.
 For smaller resident weights, see [Q8 inference](Q8_INFERENCE.md), including
 accuracy tradeoffs and bounded larger-model examples.
 [Experimental Q4 inference](Q4_INFERENCE.md) packs weights further with a shared

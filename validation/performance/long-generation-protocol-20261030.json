@@ -1,0 +1,44 @@
+{
+  "format": "monolith-long-generation-plan-v1",
+  "date": "2026-10-30",
+  "baseline": "7167259d6773c04a97d95dc137a1382590ac8ba1",
+  "proposal": "Partition inference attention by heads across bounded existing worker lanes. Reuse one page-rounded score buffer per lane; preserve arithmetic within every head and all KV values.",
+  "host": "Apple M4 / 24 GiB / Go 1.27.1 / four threads and workers",
+  "micro": "Synthetic Mistral geometry 4096 dim,32 heads,8 KV heads; 1/2/16 rows, prefix lengths 128/2048/8192; paired/reversed samples; retained old attention callback.",
+  "full_model": "Pinned local Mistral7B v0.3 Q4-mixed; short control and continuous 256-output-ID core decode, real KV built only by model forward; identical harness, ABBA order, one model resident. Long trajectory is fixed-step even at EOS, with actual text generation separately checked.",
+  "acceptance": {
+    "exact_logits_kv_ids": true,
+    "unchanged_weights_and_KV_format": true,
+    "attention_single_2048_median_ratio_max": 0.75,
+    "attention_pair_2048_median_ratio_max": 0.9,
+    "long_model_decode_median_ratio_max": 0.95,
+    "short_model_decode_median_ratio_max": 1.05,
+    "score_scratch_bound": "at most min(worker count,rows*heads,256) * page-rounded context * 4 bytes, subject to total workspace budget",
+    "score_reallocations": "at most one per KV page while layout is unchanged"
+  },
+  "limits": "Bounded host-specific engineering gates, not broad quality or throughput claims. Preserve failed attempts. No concurrent heavy work during speed probes. Do not alter model files or quantization.",
+  "full_model_settings": {
+    "context": 1024,
+    "short_prefix_tokens": 8,
+    "short_output_ids": 8,
+    "short_warmups": 1,
+    "short_trials_per_process": 3,
+    "long_prefix_tokens": 256,
+    "long_prefill_chunk": 16,
+    "long_output_ids": 256,
+    "long_trajectories_per_process": 1,
+    "process_order": [
+      "before",
+      "after",
+      "after",
+      "before"
+    ],
+    "case_order": [
+      "short,long",
+      "short,long",
+      "long,short",
+      "long,short"
+    ],
+    "notes": "Fixed before real-model measurements. Two complete long trajectories per variant, fresh KV each. Model is reloaded per process; one resident model. Long prefill and decode timed separately."
+  }
+}

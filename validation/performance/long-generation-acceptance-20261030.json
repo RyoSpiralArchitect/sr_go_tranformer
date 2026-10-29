@@ -1,0 +1,232 @@
+{
+  "format": "monolith-long-generation-acceptance-v1",
+  "protocol": {
+    "format": "monolith-long-generation-plan-v1",
+    "date": "2026-10-30",
+    "baseline": "7167259d6773c04a97d95dc137a1382590ac8ba1",
+    "proposal": "Partition inference attention by heads across bounded existing worker lanes. Reuse one page-rounded score buffer per lane; preserve arithmetic within every head and all KV values.",
+    "host": "Apple M4 / 24 GiB / Go 1.27.1 / four threads and workers",
+    "micro": "Synthetic Mistral geometry 4096 dim,32 heads,8 KV heads; 1/2/16 rows, prefix lengths 128/2048/8192; paired/reversed samples; retained old attention callback.",
+    "full_model": "Pinned local Mistral7B v0.3 Q4-mixed; short control and continuous 256-output-ID core decode, real KV built only by model forward; identical harness, ABBA order, one model resident. Long trajectory is fixed-step even at EOS, with actual text generation separately checked.",
+    "acceptance": {
+      "exact_logits_kv_ids": true,
+      "unchanged_weights_and_KV_format": true,
+      "attention_single_2048_median_ratio_max": 0.75,
+      "attention_pair_2048_median_ratio_max": 0.9,
+      "long_model_decode_median_ratio_max": 0.95,
+      "short_model_decode_median_ratio_max": 1.05,
+      "score_scratch_bound": "at most min(worker count,rows*heads,256) * page-rounded context * 4 bytes, subject to total workspace budget",
+      "score_reallocations": "at most one per KV page while layout is unchanged"
+    },
+    "limits": "Bounded host-specific engineering gates, not broad quality or throughput claims. Preserve failed attempts. No concurrent heavy work during speed probes. Do not alter model files or quantization.",
+    "full_model_settings": {
+      "context": 1024,
+      "short_prefix_tokens": 8,
+      "short_output_ids": 8,
+      "short_warmups": 1,
+      "short_trials_per_process": 3,
+      "long_prefix_tokens": 256,
+      "long_prefill_chunk": 16,
+      "long_output_ids": 256,
+      "long_trajectories_per_process": 1,
+      "process_order": [
+        "before",
+        "after",
+        "after",
+        "before"
+      ],
+      "case_order": [
+        "short,long",
+        "short,long",
+        "long,short",
+        "long,short"
+      ],
+      "notes": "Fixed before real-model measurements. Two complete long trajectories per variant, fresh KV each. Model is reloaded per process; one resident model. Long prefill and decode timed separately."
+    }
+  },
+  "checks": {
+    "exact_numerical_identity": true,
+    "non_score_workspace_identity": true,
+    "micro": true,
+    "long_speed": true,
+    "short_control": true
+  },
+  "accepted": true,
+  "summary": {
+    "short": {
+      "before": {
+        "decode_seconds": {
+          "median": 3.174838876,
+          "minimum": 2.8137191259999996,
+          "maximum": 3.4558086670000003
+        },
+        "prefill_seconds": {
+          "median": 2.747361646,
+          "minimum": 2.371565708,
+          "maximum": 3.012117417
+        },
+        "workspace_bytes": {
+          "median": 2228480.0,
+          "minimum": 2228480,
+          "maximum": 2228480
+        },
+        "score_bytes": {
+          "median": 256.0,
+          "minimum": 256,
+          "maximum": 256
+        },
+        "score_reallocations": {
+          "median": 0.0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "allocated_bytes": {
+          "median": 8668144.0,
+          "minimum": 8668128,
+          "maximum": 8668256
+        },
+        "allocations": {
+          "median": 2075.0,
+          "minimum": 2075,
+          "maximum": 2076
+        },
+        "kv_bytes": {
+          "median": 8388608.0,
+          "minimum": 8388608,
+          "maximum": 8388608
+        }
+      },
+      "after": {
+        "decode_seconds": {
+          "median": 3.2211733535000002,
+          "minimum": 3.1274616680000005,
+          "maximum": 3.554678375
+        },
+        "prefill_seconds": {
+          "median": 2.8184512495,
+          "minimum": 2.683416417,
+          "maximum": 3.101561125
+        },
+        "workspace_bytes": {
+          "median": 2228736.0,
+          "minimum": 2228736,
+          "maximum": 2228736
+        },
+        "score_bytes": {
+          "median": 512.0,
+          "minimum": 512,
+          "maximum": 512
+        },
+        "score_reallocations": {
+          "median": 0.0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "allocated_bytes": {
+          "median": 8663968.0,
+          "minimum": 8663968,
+          "maximum": 8664192
+        },
+        "allocations": {
+          "median": 2067.0,
+          "minimum": 2067,
+          "maximum": 2069
+        },
+        "kv_bytes": {
+          "median": 8388608.0,
+          "minimum": 8388608,
+          "maximum": 8388608
+        }
+      },
+      "ratio": 1.014594276846697
+    },
+    "long": {
+      "before": {
+        "decode_seconds": {
+          "median": 139.81450693399995,
+          "minimum": 138.70320399099995,
+          "maximum": 140.92580987699992
+        },
+        "prefill_seconds": {
+          "median": 91.068973269,
+          "minimum": 90.636656,
+          "maximum": 91.50129053799999
+        },
+        "workspace_bytes": {
+          "median": 4341760.0,
+          "minimum": 4341760,
+          "maximum": 4341760
+        },
+        "score_bytes": {
+          "median": 16384.0,
+          "minimum": 16384,
+          "maximum": 16384
+        },
+        "score_reallocations": {
+          "median": 0.0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "allocated_bytes": {
+          "median": 148165168.0,
+          "minimum": 148162568,
+          "maximum": 148167768
+        },
+        "allocations": {
+          "median": 70331.0,
+          "minimum": 70329,
+          "maximum": 70333
+        },
+        "kv_bytes": {
+          "median": 134217728.0,
+          "minimum": 134217728,
+          "maximum": 134217728
+        }
+      },
+      "after": {
+        "decode_seconds": {
+          "median": 126.87688916849999,
+          "minimum": 124.74855403899996,
+          "maximum": 129.005224298
+        },
+        "prefill_seconds": {
+          "median": 90.84919806549999,
+          "minimum": 90.104156086,
+          "maximum": 91.59424004499998
+        },
+        "workspace_bytes": {
+          "median": 4333568.0,
+          "minimum": 4333568,
+          "maximum": 4333568
+        },
+        "score_bytes": {
+          "median": 8192.0,
+          "minimum": 8192,
+          "maximum": 8192
+        },
+        "score_reallocations": {
+          "median": 8.0,
+          "minimum": 8,
+          "maximum": 8
+        },
+        "allocated_bytes": {
+          "median": 147953632.0,
+          "minimum": 147950152,
+          "maximum": 147957112
+        },
+        "allocations": {
+          "median": 70057.0,
+          "minimum": 70048,
+          "maximum": 70066
+        },
+        "kv_bytes": {
+          "median": 134217728.0,
+          "minimum": 134217728,
+          "maximum": 134217728
+        }
+      },
+      "ratio": 0.9074658413550232
+    }
+  },
+  "receipt_sha256": "bc85adbcab401685485faeb7bcda8ed89cb011339c04cde4d9d3b4897c2c9fea"
+}
