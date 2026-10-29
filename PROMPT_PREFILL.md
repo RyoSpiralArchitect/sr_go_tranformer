@@ -63,3 +63,47 @@ Adoption requires exact output/KV parity, at least 5% less median time at
 control. Native fixture results do not establish pretrained 7B performance;
 real-model comparisons must be recorded separately. All samples, including
 regressions, are retained.
+
+## Native first-token measurement
+
+Apple M4 / 24 GiB / Go 1.27.1, four threads, three 250 ms samples in each
+implementation order. This native fixture is not a complete pretrained model.
+
+| Prompt tokens | Before median, ms | Chunked median, ms | Allocated bytes before / after |
+| ---: | ---: | ---: | ---: |
+| 3 | 0.936 | 0.947 | 78,996 / 78,991 |
+| 33 | 10.617 | 2.319 | 140,600 / 343,424 |
+| 129 | 43.814 | 8.525 | 332,194 / 454,578 |
+| 257 | 88.887 | 18.129 | 589,594 / 610,601 |
+
+The frozen timing gates passed. Larger retained scratch increases allocated
+bytes for some shapes even as forwarding and dispatch overhead fall. All raw
+samples and source hashes are in
+[the receipt](validation/performance/prompt-prefill-20261030.json) and
+[raw output](validation/performance/prompt-prefill-20261030.txt).
+The optional `scripts/compare_prompt_prefill.py --model PATH --output RUN_DIR`
+builds baseline68ee4d8 and the current runtime with an identical real-model
+first-token probe, checks original source files before/after, and uses ABBA
+process order with reversed case order in the second pair. It writes its fixed
+protocol before measurement. Model loading is outside the Generate interval;
+encoding and sampling are included. No pretrained-model speed claim is made
+from the native measurements above.
+
+## Pinned Mistral 7B first-token result
+
+The [ABBA receipt](validation/performance/mistral-prompt-prefill-20261030.json)
+records Q4-mixed Mistral-7B-Instruct-v0.3, context1024, four threads, identical
+harnesses, pinned original file hashes, and every trial. For a 275-token prompt,
+median Generate time to its first output token fell from144.142s to111.181s
+(22.9% shorter). The four-token control fell from2.073s to1.506s (27.3%).
+Completions matched exactly in all processes. Both frozen timing gates passed.
+
+Model loading is excluded; prompt encoding and sampling are included. There
+are two long trials and six short trials per variant, without warmups. The
+second process pair reverses short/long order. This is one host-specific
+first-token result, not a full-response, quality, or concurrent-serving claim.
+
+Measured production source is commit37ca7df. The subsequent comparison-driver
+fix resolves the installed Go through scripts/go.sh instead of requiring the
+optional .tools layout; it does not change production arithmetic or the measured
+binaries. Native and full-model measurements keep their separate scopes.

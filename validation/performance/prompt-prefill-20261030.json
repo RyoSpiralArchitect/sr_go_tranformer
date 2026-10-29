@@ -1,0 +1,539 @@
+{
+  "format": "monolith-prompt-prefill-benchmark-v1",
+  "protocol": {
+    "format": "monolith-prompt-prefill-protocol-v1",
+    "date": "2026-10-30",
+    "baseline": "68ee4d8406b907c6bf6c77fdd364146da4aac7cf",
+    "proposal": "Direct generation: group prompt rows in bounded chunks, reusing the same executor and workspace; tokenwise generated-token decoding unchanged.",
+    "micro": {
+      "model": "Native Dim256 Hidden704 Layers1 Heads4 KVHeads2 Context512 Vocab258 seed19",
+      "prompt_tokens": [
+        3,
+        33,
+        129,
+        257
+      ],
+      "generated_ids": 1,
+      "temperature": 0,
+      "repeat_penalty": 1,
+      "threads": 4,
+      "samples_per_order": 3,
+      "orders": [
+        "before,after",
+        "after,before"
+      ],
+      "benchtime": "250ms",
+      "baseline": "frozen request-owned tokenwise generation from68ee4d8; identical model/sampling"
+    },
+    "acceptance": {
+      "exact_completion_and_kv": true,
+      "prompt129_time_ratio_max": 0.95,
+      "prompt257_time_ratio_max": 0.95,
+      "short3_time_ratio_max": 1.05,
+      "chunk_rows_max": 16,
+      "prompt_scratch_soft_target_bytes": 16777216
+    },
+    "limits": "No speculative 7B gain from native microbenchmarks. Retain all samples and failures. Allocation/RSS may grow with chunk workspace; do not claim memory improvement. No concurrent heavy work during performance probes."
+  },
+  "samples": [
+    {
+      "prefix": 3,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 307,
+      "ns": 929303.0,
+      "bytes": 78993.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 322,
+      "ns": 924104.0,
+      "bytes": 78999.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 322,
+      "ns": 934507.0,
+      "bytes": 78988.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 296,
+      "ns": 987524.0,
+      "bytes": 78979.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 307,
+      "ns": 977518.0,
+      "bytes": 78991.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 316,
+      "ns": 943696.0,
+      "bytes": 78997.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 321,
+      "ns": 940260.0,
+      "bytes": 78984.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 318,
+      "ns": 939464.0,
+      "bytes": 78991.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 316,
+      "ns": 950752.0,
+      "bytes": 78993.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 318,
+      "ns": 938266.0,
+      "bytes": 78999.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 319,
+      "ns": 953394.0,
+      "bytes": 78979.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 3,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 316,
+      "ns": 1039929.0,
+      "bytes": 79000.0,
+      "allocs": 320.0
+    },
+    {
+      "prefix": 33,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 24,
+      "ns": 13056455.0,
+      "bytes": 140600.0,
+      "allocs": 593.0
+    },
+    {
+      "prefix": 33,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 27,
+      "ns": 10150656.0,
+      "bytes": 140600.0,
+      "allocs": 593.0
+    },
+    {
+      "prefix": 33,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 30,
+      "ns": 10195468.0,
+      "bytes": 140600.0,
+      "allocs": 593.0
+    },
+    {
+      "prefix": 33,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 136,
+      "ns": 2275491.0,
+      "bytes": 343421.0,
+      "allocs": 323.0
+    },
+    {
+      "prefix": 33,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 124,
+      "ns": 2306097.0,
+      "bytes": 343416.0,
+      "allocs": 323.0
+    },
+    {
+      "prefix": 33,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 128,
+      "ns": 2331493.0,
+      "bytes": 343427.0,
+      "allocs": 323.0
+    },
+    {
+      "prefix": 33,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 120,
+      "ns": 2337530.0,
+      "bytes": 343444.0,
+      "allocs": 323.0
+    },
+    {
+      "prefix": 33,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 136,
+      "ns": 2219881.0,
+      "bytes": 343433.0,
+      "allocs": 323.0
+    },
+    {
+      "prefix": 33,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 100,
+      "ns": 2533375.0,
+      "bytes": 343419.0,
+      "allocs": 323.0
+    },
+    {
+      "prefix": 33,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 27,
+      "ns": 10791409.0,
+      "bytes": 140639.0,
+      "allocs": 593.0
+    },
+    {
+      "prefix": 33,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 26,
+      "ns": 11257732.0,
+      "bytes": 140600.0,
+      "allocs": 593.0
+    },
+    {
+      "prefix": 33,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 27,
+      "ns": 10441829.0,
+      "bytes": 140600.0,
+      "allocs": 593.0
+    },
+    {
+      "prefix": 129,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 6,
+      "ns": 59937208.0,
+      "bytes": 332194.0,
+      "allocs": 1468.0
+    },
+    {
+      "prefix": 129,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 6,
+      "ns": 43757076.0,
+      "bytes": 332194.0,
+      "allocs": 1468.0
+    },
+    {
+      "prefix": 129,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 6,
+      "ns": 43870785.0,
+      "bytes": 332194.0,
+      "allocs": 1468.0
+    },
+    {
+      "prefix": 129,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 33,
+      "ns": 8778182.0,
+      "bytes": 454570.0,
+      "allocs": 388.0
+    },
+    {
+      "prefix": 129,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 32,
+      "ns": 9187974.0,
+      "bytes": 454589.0,
+      "allocs": 388.0
+    },
+    {
+      "prefix": 129,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 33,
+      "ns": 8271628.0,
+      "bytes": 454560.0,
+      "allocs": 388.0
+    },
+    {
+      "prefix": 129,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 34,
+      "ns": 8167467.0,
+      "bytes": 454590.0,
+      "allocs": 388.0
+    },
+    {
+      "prefix": 129,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 33,
+      "ns": 8817596.0,
+      "bytes": 454560.0,
+      "allocs": 388.0
+    },
+    {
+      "prefix": 129,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 34,
+      "ns": 8199953.0,
+      "bytes": 454586.0,
+      "allocs": 388.0
+    },
+    {
+      "prefix": 129,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 7,
+      "ns": 44524095.0,
+      "bytes": 332194.0,
+      "allocs": 1468.0
+    },
+    {
+      "prefix": 129,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 6,
+      "ns": 42844264.0,
+      "bytes": 332194.0,
+      "allocs": 1468.0
+    },
+    {
+      "prefix": 129,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 7,
+      "ns": 43472030.0,
+      "bytes": 332194.0,
+      "allocs": 1468.0
+    },
+    {
+      "prefix": 257,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 3,
+      "ns": 94867431.0,
+      "bytes": 589445.0,
+      "allocs": 2633.0
+    },
+    {
+      "prefix": 257,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 3,
+      "ns": 86793653.0,
+      "bytes": 589445.0,
+      "allocs": 2633.0
+    },
+    {
+      "prefix": 257,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 3,
+      "ns": 90025667.0,
+      "bytes": 589744.0,
+      "allocs": 2635.0
+    },
+    {
+      "prefix": 257,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 16,
+      "ns": 22203354.0,
+      "bytes": 610597.0,
+      "allocs": 473.0
+    },
+    {
+      "prefix": 257,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 16,
+      "ns": 17796284.0,
+      "bytes": 610673.0,
+      "allocs": 474.0
+    },
+    {
+      "prefix": 257,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 15,
+      "ns": 18116358.0,
+      "bytes": 610583.0,
+      "allocs": 473.0
+    },
+    {
+      "prefix": 257,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 15,
+      "ns": 18142556.0,
+      "bytes": 610605.0,
+      "allocs": 473.0
+    },
+    {
+      "prefix": 257,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 15,
+      "ns": 17664364.0,
+      "bytes": 610650.0,
+      "allocs": 473.0
+    },
+    {
+      "prefix": 257,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 14,
+      "ns": 19024905.0,
+      "bytes": 610569.0,
+      "allocs": 473.0
+    },
+    {
+      "prefix": 257,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 3,
+      "ns": 96899125.0,
+      "bytes": 589706.0,
+      "allocs": 2635.0
+    },
+    {
+      "prefix": 257,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 3,
+      "ns": 87749194.0,
+      "bytes": 589594.0,
+      "allocs": 2634.0
+    },
+    {
+      "prefix": 257,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 3,
+      "ns": 85258472.0,
+      "bytes": 589594.0,
+      "allocs": 2634.0
+    }
+  ],
+  "summary": {
+    "3": {
+      "before": {
+        "ns": 936386.5,
+        "bytes": 78996.0,
+        "allocs": 320.0
+      },
+      "after": {
+        "ns": 947224.0,
+        "bytes": 78991.0,
+        "allocs": 320.0
+      },
+      "time_ratio": 1.0115737465245387
+    },
+    "33": {
+      "before": {
+        "ns": 10616619.0,
+        "bytes": 140600.0,
+        "allocs": 593.0
+      },
+      "after": {
+        "ns": 2318795.0,
+        "bytes": 343424.0,
+        "allocs": 323.0
+      },
+      "time_ratio": 0.2184118126495827
+    },
+    "129": {
+      "before": {
+        "ns": 43813930.5,
+        "bytes": 332194.0,
+        "allocs": 1468.0
+      },
+      "after": {
+        "ns": 8524905.0,
+        "bytes": 454578.0,
+        "allocs": 388.0
+      },
+      "time_ratio": 0.19457065145068417
+    },
+    "257": {
+      "before": {
+        "ns": 88887430.5,
+        "bytes": 589594.0,
+        "allocs": 2634.0
+      },
+      "after": {
+        "ns": 18129457.0,
+        "bytes": 610601.0,
+        "allocs": 473.0
+      },
+      "time_ratio": 0.2039597375919197
+    }
+  },
+  "checks": {
+    "3": true,
+    "129": true,
+    "257": true
+  },
+  "accepted": true,
+  "raw_sha256": "0f7250ac8395fea4f4dad1534f665e2f7562d80a6895765fae35c45c64f8404b",
+  "source_sha256": {
+    "monolith.go": "5a0bdd4d2304c7bc33a3366d567a45209cf34e7ba834afedc27c2b260c2712d9",
+    "prompt_prefill_test.go": "0f051666be28e0f3a21b1e96ed279bc9db41587e56970062086e3ba6f25ba3b3",
+    "go.mod": "8fd924c4124c93ce607d506cf677a5462ef233b3a776d0ba26d2a6fb3f498adf",
+    "go.sum": "8a0467c34198969fd6b4a4f0f41acfdaf433dc2a393db612c4d8121a60d1f66f"
+  }
+}
