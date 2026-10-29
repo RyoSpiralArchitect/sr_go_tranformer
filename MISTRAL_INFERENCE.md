@@ -6,12 +6,32 @@ the v3 Metaspace/ByteFallback tokenizer used by
 It provides raw text, plain system/user/assistant chat, HTTP/SSE, automatic HF
 caching and `HF_HUB_OFFLINE=1` reuse. Native Go training remains a separate path.
 
-Numerical tests use small synthetic models. The official tokenizer has been
-checked locally, but the complete 7B weights could not be obtained during this
-validation run. Real 7B generation, quality, throughput and peak RSS are therefore
-**not yet validated**. See [the recorded boundary](validation/hf/mistral-v03-validation.json).
+Numerical parity tests use small synthetic models and an official tokenizer
+reference. The complete pinned 7B files have now also been verified locally and
+used for bounded Q8/Q4-mixed generation and memory probes. Q4-mixed CLI, HTTP
+and concurrent SSE agree, with cancellation and resource release checked.
+These short probes do not establish general language quality or long-context
+performance. See [local validation](validation/hf/mistral-v03-local-20261029.json)
+and the [earlier incomplete-download record](validation/hf/mistral-v03-validation.json).
 
 ## Run locally
+
+If the model already exists on disk, point directly at its folder or index.
+This reads the original files in place without copying or downloading them:
+
+```sh
+HF_HUB_OFFLINE=1 ./scripts/go.sh run . infer local \
+  -path "$HOME/models/mistral7b-instruct-v0.3" \
+  -context 128 -weight-format q4-mixed -weight-mib 6144 \
+  generate -chat -prompt 'Write one short sentence about cats.' \
+  -max-tokens 16 -temperature 0 -threads 4
+```
+
+`-path` also accepts `config.json`, `model.safetensors.index.json` or a shard
+listed by that index. All three original BF16 shards must be present. Use
+`check -chat` as the action to inspect compatibility without loading weights.
+These are original source weights quantized by Go during loading; prequantized
+GGUF/GPTQ/AWQ/MLX formats remain unsupported.
 
 This downloads about 14.5 GB of original BF16 Safetensors on the first run.
 `q4-mixed` reduces resident weight storage, not download size. Set a small context
@@ -120,6 +140,33 @@ MONOLITH_HF_TOKENIZER_REFERENCE=runs/mistral-tokenizer.json \
 The real oracle additionally needs the official `tokenizer.model`, whose hash
 is recorded in `validation/hf/model-profiles.json`. The Go runtime only needs
 `tokenizer.json` and `tokenizer_config.json`; it does not depend on Python or
-SentencePiece. Once all pinned weights are available, run
+SentencePiece. To repeat the pinned local-model checks, run
 `scripts/hf_large_model_smoke.py --id mistral-7b-v03` for bounded real CLI,
 HTTP, concurrent SSE, cancellation and resource-release checks.
+
+## Bounded real 7B results
+
+On 2026-10-29, Apple M4 / 24 GiB / Go 1.27.1, all three local shards matched
+the pinned source hashes. The existing quality corpus supplied three passages
+and eight teacher-forced positions per passage (24 scored tokens), plus two
+eight-token greedy raw-text continuations. Context was 128 with four workers;
+each format ran in a separate process, one resident model at a time.
+
+| Format | Weight payload, GiB | Process peak RSS, GiB | Mean KL from Q8 | Next-token matches with Q8 |
+| --- | ---: | ---: | ---: | ---: |
+| Q8 | 7.173 | 7.108 | 0 | 24/24 |
+| Q4-mixed | 3.923 | 4.025 | 0.03043 | 20/24 |
+
+The mixed payload is 45.3% smaller. Both short greedy continuations happened
+to match, despite the distribution and argmax differences. Q8 is the reference
+here, not FP32 or Transformers; FP32 payload alone exceeds this host's RAM.
+The 24-token NLL values (3.88580 / 3.87494) are diagnostic, not a ranking of
+general quality. Peak RSS uses each child's `wait4` lifetime maximum, including
+load and probing. Host activity and file caches were uncontrolled; reported
+timings are not an optimization comparison.
+
+[Quality receipt](validation/quality/mistral7b-v03-q8-q4mixed-20261029.json) and
+[serving receipt](validation/hf/mistral-v03-local-serving-20261029.json) retain
+source/build identities, outcomes and measurements. The serving trial uses
+`infer local -path` with `HF_HUB_OFFLINE=1`, Q4-mixed, raw text and chat, two
+concurrent streams, one canceled request, drained reservations and clean shutdown.

@@ -9772,6 +9772,80 @@ func runLearn(ctx context.Context, args []string) error {
 		return errors.New("unknown learn command; use learn -h")
 	}
 }
+
+// Resolve an explicitly local source without downloading, copying or importing
+// executable repository code. File selection must identify the same HF archive
+// the directory loader will open; an arbitrary neighboring shard is not enough.
+func localModelPath(value string) (dir, checkpoint string, err error) {
+	if value == "~" || strings.HasPrefix(value, "~/") {
+		userHome, e := os.UserHomeDir()
+		if e != nil {
+			return "", "", e
+		}
+		if value == "~" {
+			value = userHome
+		} else {
+			value = filepath.Join(userHome, value[2:])
+		}
+	}
+	if strings.Contains(value, "://") {
+		return "", "", errors.New("-path requires a local filesystem path; use -repo for HF downloads")
+	}
+	path, err := filepath.Abs(value)
+	if err != nil {
+		return "", "", err
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		return "", "", err
+	}
+	if st.IsDir() {
+		return path, "", nil
+	}
+	if !st.Mode().IsRegular() {
+		return "", "", errors.New("model path must be a directory or regular file")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", "", err
+	}
+	var magic [8]byte
+	_, readErr := io.ReadFull(f, magic[:])
+	closeErr := f.Close()
+	if readErr != nil && !errors.Is(readErr, io.EOF) && !errors.Is(readErr, io.ErrUnexpectedEOF) {
+		return "", "", readErr
+	}
+	if closeErr != nil {
+		return "", "", closeErr
+	}
+	if string(magic[:]) == checkpointMagic {
+		return "", path, nil
+	}
+	parent, name := filepath.Dir(path), filepath.Base(path)
+	if name == "config.json" || name == "model.safetensors.index.json" {
+		return parent, "", nil
+	}
+	if strings.HasSuffix(name, ".safetensors") {
+		var index struct {
+			WeightMap map[string]string `json:"weight_map"`
+		}
+		err := readBoundedJSON(filepath.Join(parent, "model.safetensors.index.json"), 4<<20, &index)
+		if os.IsNotExist(err) && name == "model.safetensors" {
+			return parent, "", nil
+		}
+		if err != nil {
+			return "", "", fmt.Errorf("selected Safetensors file requires its model index: %w", err)
+		}
+		for _, shard := range index.WeightMap {
+			if shard == name {
+				return parent, "", nil
+			}
+		}
+		return "", "", errors.New("selected Safetensors file is not referenced by the model index")
+	}
+	return "", "", errors.New("unsupported model path: select an HF Safetensors directory, config/index/shard, or native checkpoint; GGUF and prequantized exports are not imported")
+}
+
 func runInferLocal(ctx context.Context, args []string) error {
 	f := flags("infer local")
 	repo := f.String("repo", "", "HF namespace/model to fetch automatically")
@@ -9781,6 +9855,7 @@ func runInferLocal(ctx context.Context, args []string) error {
 	download := f.Int64("download-mib", 2048, "maximum source files in MiB")
 	downloadTimeout := f.Duration("download-timeout", 15*time.Minute, "per-request download deadline (1s..24h), including body transfer")
 	dir := f.String("dir", "", "existing local HF model directory")
+	modelPath := f.String("path", "", "existing HF directory/config/index/shard or native checkpoint; never downloads")
 	checkpoint := f.String("checkpoint", "", "native .mglm checkpoint")
 	limit := f.Int("context", 0, "HF context cap; 0 selects at most 2048")
 	weight := f.Int64("weight-mib", 2048, "maximum resident HF weight payload in MiB, not RSS")
@@ -9815,13 +9890,13 @@ func runInferLocal(ctx context.Context, args []string) error {
 		return run(ctx, []string{action, "-h"})
 	}
 	sources := 0
-	for _, s := range []string{*repo, *dir, *checkpoint} {
+	for _, s := range []string{*repo, *dir, *checkpoint, *modelPath} {
 		if s != "" {
 			sources++
 		}
 	}
 	if sources != 1 {
-		return errors.New("infer local requires exactly one of -repo, -dir or -checkpoint")
+		return errors.New("infer local requires exactly one of -repo, -dir, -path or -checkpoint")
 	}
 	if err := validateInferenceFlags(f); err != nil {
 		return err
@@ -9831,6 +9906,16 @@ func runInferLocal(ctx context.Context, args []string) error {
 	}
 	if action != "fetch" {
 		if err := runInferenceAction(ctx, action, rest[1:], true); err != nil {
+			return err
+		}
+	}
+	if *modelPath != "" {
+		if *offline || flagSet(f, "revision") || flagSet(f, "cache-dir") || flagSet(f, "download-mib") || flagSet(f, "download-timeout") {
+			return errors.New("cache/download flags require -repo; -path is always local")
+		}
+		var err error
+		*dir, *checkpoint, err = localModelPath(*modelPath)
+		if err != nil {
 			return err
 		}
 	}
@@ -10478,7 +10563,7 @@ func runInfer(ctx context.Context, args []string) error {
 			{"Qwen2 / Qwen2.5", "restricted Qwen2 profile; tested Qwen2.5 0.5B/1.5B and 7B (Q8/Q4/mixed weights)", "HF chat API; provider or dedicated endpoint required"},
 			{"GPT-2", "tied GPT2LMHeadModel, absolute positions and gelu_new; raw text", "dedicated HF text-generation endpoint"},
 			{"gpt-oss", "not supported (MoE)", "HF chat API; provider or dedicated endpoint required"},
-			{"Mistral", "full-attention v0.3 text/chat; 7B weights not yet validated", "HF chat API; provider or dedicated endpoint required"},
+			{"Mistral", "full-attention v0.3 text/chat; bounded 7B Q8/Q4-mixed local validation", "HF chat API; provider or dedicated endpoint required"},
 			{"Gemma", "not supported", "HF chat API; provider or dedicated endpoint required"},
 		}
 		if *asJSON {
