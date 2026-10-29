@@ -1,0 +1,35 @@
+{
+  "format": "monolith-prompt-prefill-protocol-v1",
+  "date": "2026-10-30",
+  "baseline": "68ee4d8406b907c6bf6c77fdd364146da4aac7cf",
+  "proposal": "Direct generation: group prompt rows in bounded chunks, reusing the same executor and workspace; tokenwise generated-token decoding unchanged.",
+  "micro": {
+    "model": "Native Dim256 Hidden704 Layers1 Heads4 KVHeads2 Context512 Vocab258 seed19",
+    "prompt_tokens": [
+      3,
+      33,
+      129,
+      257
+    ],
+    "generated_ids": 1,
+    "temperature": 0,
+    "repeat_penalty": 1,
+    "threads": 4,
+    "samples_per_order": 3,
+    "orders": [
+      "before,after",
+      "after,before"
+    ],
+    "benchtime": "250ms",
+    "baseline": "frozen request-owned tokenwise generation from68ee4d8; identical model/sampling"
+  },
+  "acceptance": {
+    "exact_completion_and_kv": true,
+    "prompt129_time_ratio_max": 0.95,
+    "prompt257_time_ratio_max": 0.95,
+    "short3_time_ratio_max": 1.05,
+    "chunk_rows_max": 16,
+    "prompt_scratch_soft_target_bytes": 16777216
+  },
+  "limits": "No speculative 7B gain from native microbenchmarks. Retain all samples and failures. Allocation/RSS may grow with chunk workspace; do not claim memory improvement. No concurrent heavy work during performance probes."
+}

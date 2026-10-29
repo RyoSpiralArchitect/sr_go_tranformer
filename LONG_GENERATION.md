@@ -158,8 +158,9 @@ threshold, the invocation runs inline without background workers. The final
 sampled token does not undergo another forward pass and is excluded from this
 bound. Kernels still choose inline execution when their individual work is
 small. Engine-based interactive chat and serving already own fixed workers;
-this second change applies to direct generation. Prompt forwarding remains
-one token at a time, preserving the existing arithmetic and sampling order.
+this second change applies to direct generation. The measurements below used
+one-token prompt forwarding. The subsequent [bounded prompt prefill](PROMPT_PREFILL.md)
+change groups prompt rows while retaining the per-output arithmetic and sampling order.
 
 Measurements use implementation commit `cfc64c8`; subsequent source comments
 clarify ownership without changing execution. A native 256-dimensional,
