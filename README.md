@@ -21,6 +21,7 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Bounded inspection and F32/F16/BF16 decoding of restricted Hugging Face Llama, Qwen2, full-attention Mistral and GPT-2 Safetensors profiles.
 - [Mistral v0.3 text/chat](MISTRAL_INFERENCE.md) with pinned Metaspace/ByteFallback semantics, automatic HF caching and offline reuse.
 - [Resumable HF downloads and `infer local ... fetch`](INFERENCE.md) to prepare verified models before offline generation or serving.
+- `infer local -path PATH` reads existing HF folders/configs/indexes/shards or native checkpoints in place, including Unicode paths.
 - GPT-2 absolute positions, affine LayerNorm and GELU, with streamed Conv1D conversion.
 - Token-ID inference with Transformers reference tests for logits, KV caches and tokenization.
 - SmolLM2, Qwen2.5 and Llama 3.2 text generation over CLI/HTTP/SSE, with recognized Instruct chat templates.

@@ -47,13 +47,13 @@ def main():
         for target, package in ((binary, '.'), (client, './tools/loadtest')):
             subprocess.run([str(root/'scripts/go.sh'), 'build', '-trimpath', '-o', str(target), package],
                            cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=300)
-    flags = ['-hf-model', str(model), '-context', '128', '-weight-format', args.format, '-weight-mib', '8192']
+    flags = ['infer', 'local', '-path', str(model), '-context', '128', '-weight-format', args.format, '-weight-mib', '8192']
     def run(action, extra):
-        return json.loads(subprocess.check_output([str(binary), action]+flags+extra, env=env, timeout=600))
-    plan = run('inspect-hf', [])
+        return json.loads(subprocess.check_output([str(binary)]+flags+[action]+extra, env=env, timeout=600))
+    plan = run('inspect', [])
     budget = math.ceil(plan['weight_bytes']/(1 << 20))
     flags[-1] = str(budget)
-    preflight = run('check-hf', ['-chat', '-json'])
+    preflight = run('check', ['-chat', '-json'])
     requests = [dict(prompt='The capital of France is'),
                 dict(messages=[dict(role='user', content='Write one short sentence about cats.')])]
     cases = []
@@ -67,7 +67,7 @@ def main():
     base = 'http://127.0.0.1:'+str(port)
     with (output/'server.log').open('w') as log:
         started = time.monotonic()
-        proc = subprocess.Popen([str(binary), 'serve']+flags+[
+        proc = subprocess.Popen([str(binary)]+flags+['serve',
             '-addr', '127.0.0.1:'+str(port), '-threads', '4', '-kernel-workers', '4',
             '-max-batch', '2', '-queue', '4', '-kv-mib', '32', '-prefill-chunk', '8',
             '-mixed-prefill-chunk', '4', '-token-budget', '16'], env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -124,7 +124,7 @@ def main():
         raise RuntimeError('Source changed during smoke')
     receipt = dict(format='monolith-large-model-smoke-v1', model=source['repo'], revision=source['revision'],
         files=source['files'], weight_format=args.format, weight_mib=budget, plan=plan, preflight=preflight,
-        hf_hub_offline=True, cases=cases, cli_http_concurrent_sse_match=True,
+        hf_hub_offline=True, entry_point='infer local -path', cases=cases, cli_http_concurrent_sse_match=True,
         cancellation_load=report, final_engine_stats=stats, clean_shutdown=True, startup_seconds=startup,
         post_smoke_rss_bytes=rss, rss_method='one post-smoke ps observation; not peak',
         binary_sha256=sha(binary), loadtest_sha256=sha(client), build_inputs_sha256=build_hashes,

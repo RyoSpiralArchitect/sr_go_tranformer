@@ -1,0 +1,739 @@
+{
+  "format": "monolith-quant-quality-suite-v1",
+  "model": "mistralai/Mistral-7B-Instruct-v0.3",
+  "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+  "files": {
+    "config.json": "affafc6478ec0fd07a32f0ca57aa2fc57743f4d17d6730f86a96ac24d1507f99",
+    "tokenizer.json": "e553af6fff7d7ad76e830608b218c5c0b0822998d5a1a96099a74cd3c1cb1a49",
+    "tokenizer_config.json": "0533dec9cfe319163801b6618d0f3ec9cfa126b6288e3df5deca6e32acb09cd2",
+    "model.safetensors.index.json": "e489ba553b87cde188d921b1a8283c2e0b9d33d635b88147d96ff0fcd6250016",
+    "model-00001-of-00003.safetensors": "ce6fb6f6f4d0183f4813cbf4ece24109da629a08d4210da46f77e1d8b0bd5c19",
+    "model-00002-of-00003.safetensors": "8c0e72f148366b6a3709e002a98706a33d31aec8515090c856c95b2044f92ae0",
+    "model-00003-of-00003.safetensors": "905dd405363e43d95779c1c1155a2dbfd36155914ae95dbd934e12e490cfb4ca"
+  },
+  "source_sha256": "9d24e89bbb77367ca517fd5b63be244ce7dfc21f3260c0984c0209bf90262c8d",
+  "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
+  "probe_sha256": "5d725570b37c2097d2138c4bf15cf7878a20e4d0293b18aa569418094b87011d",
+  "script_sha256": "321f26bc28a497e464404a67fa6954eaa9678de93f901f2092abf219f65e9e0e",
+  "build_inputs_sha256": {
+    "dataset_resume_test.go": "e167048ae26ef923ff4f13b4dc2f21278cd1d413b7838f48123f8a720c022883",
+    "dataset_test.go": "da14c8eeb107317a0f5daaa6a539c27dcc38787f278dee3f516bf1145b9b06f5",
+    "engine_workspace_bench_test.go": "7f785025341568ca0af84a0540fc6f3c4e87d6d6531cb7fb87b8121d07411ed0",
+    "eval_forward_boundary_test.go": "f3c03200a6afb8bc1ce1133227d36cdfc04771438660800a07afe0ad4d8864dc",
+    "eval_forward_cancellation_test.go": "2d725fad345a59c6d1d1146e34b053cc9fcc640fc48d811a66a74b087e724e41",
+    "eval_forward_exact_test.go": "da208e96782368b91d1d5156c69cf39225065b21b6051116b8606d4c7c9e3bbc",
+    "evaluation_test.go": "67cbf938ac0cbc2a85f3ed65083cd88339868e8326ecb1bf0f90173f6a0db909",
+    "hf_cli_test.go": "1572a42c1fac1a79a56eb9dbe6300ab65f69152249b665d588b69872f7bb595e",
+    "hf_download_resume_test.go": "542abf084f449f2a5952ea20ea44c08a22a294761b8e5ad5dfcf960edf097d6b",
+    "hf_fetch_test.go": "ebe3792b98cf313e7935f63a2b2c4160cd56b07702e6fbc5b07720894884d367",
+    "hf_gpt2_test.go": "88fe7eeea3950d03bfc98287dd71980cc469aa947ab05062ea00c447abdc08ce",
+    "hf_inference_test.go": "85cb8716bb7f4a2162ccd6513afd673a5bab22b2178b694d255d2c73fbcae68f",
+    "hf_llama3_chat_test.go": "b15acdf04a1565bf9239d281cec14679a6d9c4b2eb4a467869b089564dccff74",
+    "hf_llama3_test.go": "20b5709ea361239827b34c3a1c3a0f2616eeb8e944b89fbedc288d1451c2ca9d",
+    "hf_llama3_tokenizer_test.go": "4ef33bb362012f4846bf505354b02e0c7157c43c83e0bfd2923dc045c7476154",
+    "hf_loader_test.go": "f3d0ac1870a5fe7791e88dd3d11682bba587a69f6b0ed2ca3f8cb15d17c0fb2b",
+    "hf_mistral_test.go": "5986e3a865cb8eb602f6ea160eba627c431fb6b7f1728f6fc089bf3b40f7e37f",
+    "hf_mistral_tokenizer_test.go": "79068f64dcf6e2a247987fa12c90558bbf47b27759b3747f191aaba47241da4e",
+    "hf_network_test.go": "d8ce6468b0b7e6c8c21275576b09f37d87633afe2523354a5f1d3becbc3684af",
+    "hf_offline_test.go": "e8117b69af4e180b56df32ce24f35e9e8314b4fcb78a43df3cce291f127305a1",
+    "hf_profiles_test.go": "932fd0e494216b3edd8a1598e1e7f99176cccec92697fb000bf73f56b2e5be41",
+    "hf_serving_test.go": "a94c8cb06b98d2ca4ceb9b1ca6e374130e53993775a108dc8da0403cce502a02",
+    "hf_tokenizer_test.go": "a5f3f5a0cd2c897168a94d4b7bf8f8b3bd7e88c6a8574efc76f588a903a5bfd0",
+    "inference_perf_test.go": "abf4b5974a58ead81ea0390705510c5786ae520b081da065a26dacd895ea652e",
+    "inference_workers_test.go": "1eea46c49be2e903ee23bed534650d9c3cd7b2695f39b366980fc758c7ee6767",
+    "inference_workspace_test.go": "7326d505ece66e26b5c70aa0177ab29d7f847450a8ff22eacfc97a31932cb9f1",
+    "linear_backward_test.go": "a4b182071d01432b08c89638cbfb6499dace93258b9b05263bf7842dfbb0ee4c",
+    "memory_plan_test.go": "3810d72e03a1d9876014a06cb934849b6bb531ffaa8f68dac7608fb66fb432a8",
+    "monolith.go": "9d24e89bbb77367ca517fd5b63be244ce7dfc21f3260c0984c0209bf90262c8d",
+    "monolith_test.go": "746ecd6ffee1fc16f80e9dd55a1a2b232a0f9af872dab75c78a1c460a81cf4ae",
+    "prefetch_data_test.go": "fd57e6548e7820a9a93c8c861c2474ab38947c88675ff4f7ed21597a08e967eb",
+    "prefill_test.go": "37be39c92f72fa9d781b47e2f9aa37796c17ab53545490b585b70f2b9a9b7451",
+    "q4_block_control_test.go": "37ba88f1731480334b384a23de099e6a0a73f4d25cd4ff90c60e5574f6c280cd",
+    "q4_block_test.go": "40946c5bddad9043cd5d702fb00134f2d9734c8a79d022f50797d67fd5e9909b",
+    "q4_pair_block_test.go": "de0d33eece20b3dc871943d910807f0129b8eadad2ed63335123f8397fbb44d1",
+    "q4_test.go": "1734477a96c8ba9b546a8c50ab96eea77a00523b432db9ba3470b3d02a7487cd",
+    "q8_cli_test.go": "d4b17957eea7d13715c6f1cdc4ea9ad6d43a99cbda080d6bc85bbbb8b3ef5bf2",
+    "q8_test.go": "eb44381339169baaf05759ab7cd1a5eecb69de10b687557cc7e317b38f474443",
+    "quality_ablation_test.go": "2d1415546a446a3351565b76077195193112bea163daa0a17bee1c510211994f",
+    "quality_validation_test.go": "e4c08e7c511f113f5cf3f07dd997d3928da22d2c17df58dc49b8e0196fa4a104",
+    "quant_pair_test.go": "fc9c85b9e43e298bcd7e76d6a1ca36e1f5aa407df2a7b647039d0939ea46a2fa",
+    "sampling_test.go": "aa8c0ad3a0726fd7adc6a5205caea127c3be4264255e8e53cb40d6f5082a19bb",
+    "scheduler_test.go": "7b7c87e87d6982e835365fae79dceb51adafa1d7256c753f7ecc11800d17478d",
+    "serving_lifecycle_test.go": "fe377534d98024d3adf691a7138762584e6fe0fcbeafdef74b6d7fff6fe37be4",
+    "shutdown_test.go": "8a05a02123683292524295d589ba04e2df9e567e98123f45aaa7bbce8f4738f9",
+    "streaming_test.go": "5c7a837fb2575f9555b6831bcc3201e2e1f929e561569be22bdee93b7c74ff9f",
+    "telemetry_test.go": "e885ecd0842f9cc4f6f3e197105e86727ad1a57230bb83eb9968f8365a6bce6a",
+    "workspace_boundary_test.go": "611ed722449e76819495ec4eed42827a36508bc6bf51abfbcba1544a778d0b74",
+    "workspace_exact_test.go": "cffc0c32ec04f3c1b0c37eccc296e6f1c26c77f80c92e94f5d5eaebc5a5f400f",
+    "workspace_training_test.go": "37fbabd18005fba97628b3b9fa1872b5ee805975d7ed1eb994bb72b2c6ff2ee6",
+    "go.mod": "8fd924c4124c93ce607d506cf677a5462ef233b3a776d0ba26d2a6fb3f498adf",
+    "go.sum": "8a0467c34198969fd6b4a4f0f41acfdaf433dc2a393db612c4d8121a60d1f66f"
+  },
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "host": "Darwin/arm64",
+  "reference_sha256": "eb929a8505b902f29b0153b52e4962bfba9b85f37382d91fafbda3404cfaf1e1",
+  "hf_hub_offline": true,
+  "reference_format": "q8",
+  "steps": 8,
+  "documents": 3,
+  "weight_mib": 8192,
+  "external_token_inputs_sha256": null,
+  "note": "Original small corpus, held out from policy selection; no general quality or cross-model perplexity claim.",
+  "reports": {
+    "q8": {
+      "completions": [
+        {
+          "text": "Paris, but the capital of the French",
+          "token_ids": [
+            6233,
+            29493,
+            1330,
+            1040,
+            6333,
+            1070,
+            1040,
+            5717
+          ],
+          "prompt_tokens": 6,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        },
+        {
+          "text": "named Mittens lived in a co",
+          "token_ids": [
+            5928,
+            1119,
+            1553,
+            1364,
+            7030,
+            1065,
+            1032,
+            1769
+          ],
+          "prompt_tokens": 9,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        }
+      ],
+      "format": "monolith-quant-quality-v1",
+      "generation_prompts": [
+        "The capital of France is",
+        "Once upon a time, a small cat"
+      ],
+      "heap_alloc_bytes": 7823421384,
+      "kernel_workers": 4,
+      "load_seconds": 34.986916458,
+      "mean_kl": 0,
+      "mean_nll": 3.8857995162409824,
+      "perplexity": 48.70586802912477,
+      "plan": {
+        "format": "monolith-hf-plan-v1",
+        "model_type": "mistral",
+        "tied_embeddings": false,
+        "eos_token_ids": [
+          2
+        ],
+        "config": {
+          "vocab": 32768,
+          "dim": 4096,
+          "hidden": 14336,
+          "layers": 32,
+          "heads": 32,
+          "kv_heads": 8,
+          "context": 128,
+          "rope_theta": 1000000,
+          "norm_eps": 1e-05
+        },
+        "parameters": 7248023552,
+        "weight_bytes": 7701807104,
+        "weight_format": "q8",
+        "fp32_weight_bytes": 28992094208,
+        "quantized_parameters": 7247757312,
+        "q8_parameters": 7247757312,
+        "scale_bytes": 452984832,
+        "quantization_block": 64,
+        "quantization_buffer_bytes": 256,
+        "rope_bytes": 65536,
+        "kv_bytes_per_token": 262144,
+        "full_context_kv_bytes": 33554432,
+        "conversion_buffer_bytes": 65536,
+        "source_bytes": 14496080928,
+        "shards": 3,
+        "tensor_dtypes": {
+          "BF16": 291
+        }
+      },
+      "post_probe_rss_bytes": 7631060992,
+      "reference": {
+        "version": "monolith-quality-logits-v1",
+        "source": "mistralai/Mistral-7B-Instruct-v0.3@c170c708c41dac9275d15a8fff4eca08d52bab71",
+        "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
+        "tokens_sha256": "78f9577c2538a43ac8b52c49956e4c5a50cb77393c5a45199190ea988827ad1e",
+        "reference_format": "q8",
+        "vocab": 32768,
+        "rows": 24
+      },
+      "reference_vectors_sha256": "735827d655aaed835bcfdd8e35fc377751f2109cef9e21febc1ed4ba7d646d25",
+      "rows": [
+        {
+          "document": "library",
+          "position": 4,
+          "target_id": 10227,
+          "nll": 0.25138090980935424,
+          "kl_reference_candidate": 0,
+          "top1_id": 10227,
+          "reference_top1_id": 10227
+        },
+        {
+          "document": "garden",
+          "position": 4,
+          "target_id": 14338,
+          "nll": 9.090983436602341,
+          "kl_reference_candidate": 0,
+          "top1_id": 9449,
+          "reference_top1_id": 9449
+        },
+        {
+          "document": "bicycle",
+          "position": 4,
+          "target_id": 1040,
+          "nll": 1.9621064175422358,
+          "kl_reference_candidate": 0,
+          "top1_id": 1040,
+          "reference_top1_id": 1040
+        },
+        {
+          "document": "library",
+          "position": 5,
+          "target_id": 7606,
+          "nll": 7.979545953540995,
+          "kl_reference_candidate": 0,
+          "top1_id": 1206,
+          "reference_top1_id": 1206
+        },
+        {
+          "document": "garden",
+          "position": 5,
+          "target_id": 1040,
+          "nll": 0.5482117639164912,
+          "kl_reference_candidate": 0,
+          "top1_id": 1040,
+          "reference_top1_id": 1040
+        },
+        {
+          "document": "bicycle",
+          "position": 5,
+          "target_id": 7203,
+          "nll": 7.712684148694869,
+          "kl_reference_candidate": 0,
+          "top1_id": 6329,
+          "reference_top1_id": 6329
+        },
+        {
+          "document": "library",
+          "position": 6,
+          "target_id": 1032,
+          "nll": 0.9920233221578076,
+          "kl_reference_candidate": 0,
+          "top1_id": 1040,
+          "reference_top1_id": 1040
+        },
+        {
+          "document": "garden",
+          "position": 6,
+          "target_id": 9527,
+          "nll": 4.302425060667666,
+          "kl_reference_candidate": 0,
+          "top1_id": 1757,
+          "reference_top1_id": 1757
+        },
+        {
+          "document": "bicycle",
+          "position": 6,
+          "target_id": 29493,
+          "nll": 0.7177172040408681,
+          "kl_reference_candidate": 0,
+          "top1_id": 29493,
+          "reference_top1_id": 29493
+        },
+        {
+          "document": "library",
+          "position": 7,
+          "target_id": 2509,
+          "nll": 2.6754823894637827,
+          "kl_reference_candidate": 0,
+          "top1_id": 2588,
+          "reference_top1_id": 2588
+        },
+        {
+          "document": "garden",
+          "position": 7,
+          "target_id": 1546,
+          "nll": 2.472785567403191,
+          "kl_reference_candidate": 0,
+          "top1_id": 1245,
+          "reference_top1_id": 1245
+        },
+        {
+          "document": "bicycle",
+          "position": 7,
+          "target_id": 3014,
+          "nll": 8.12357223321884,
+          "kl_reference_candidate": 0,
+          "top1_id": 1083,
+          "reference_top1_id": 1083
+        },
+        {
+          "document": "library",
+          "position": 8,
+          "target_id": 6112,
+          "nll": 5.135946764035538,
+          "kl_reference_candidate": 0,
+          "top1_id": 2588,
+          "reference_top1_id": 2588
+        },
+        {
+          "document": "garden",
+          "position": 8,
+          "target_id": 1757,
+          "nll": 0.21362940022198273,
+          "kl_reference_candidate": 0,
+          "top1_id": 1757,
+          "reference_top1_id": 1757
+        },
+        {
+          "document": "bicycle",
+          "position": 8,
+          "target_id": 29476,
+          "nll": 0.6665333532630608,
+          "kl_reference_candidate": 0,
+          "top1_id": 29476,
+          "reference_top1_id": 29476
+        },
+        {
+          "document": "library",
+          "position": 9,
+          "target_id": 25355,
+          "nll": 5.444555657062592,
+          "kl_reference_candidate": 0,
+          "top1_id": 2588,
+          "reference_top1_id": 2588
+        },
+        {
+          "document": "garden",
+          "position": 9,
+          "target_id": 13226,
+          "nll": 2.2465211463064456,
+          "kl_reference_candidate": 0,
+          "top1_id": 29491,
+          "reference_top1_id": 29491
+        },
+        {
+          "document": "bicycle",
+          "position": 9,
+          "target_id": 10449,
+          "nll": 5.91340738183421,
+          "kl_reference_candidate": 0,
+          "top1_id": 1072,
+          "reference_top1_id": 1072
+        },
+        {
+          "document": "library",
+          "position": 10,
+          "target_id": 10207,
+          "nll": 6.748607400873588,
+          "kl_reference_candidate": 0,
+          "top1_id": 1124,
+          "reference_top1_id": 1124
+        },
+        {
+          "document": "garden",
+          "position": 10,
+          "target_id": 29491,
+          "nll": 0.4805291241607925,
+          "kl_reference_candidate": 0,
+          "top1_id": 29491,
+          "reference_top1_id": 29491
+        },
+        {
+          "document": "bicycle",
+          "position": 10,
+          "target_id": 2328,
+          "nll": 6.910522562250026,
+          "kl_reference_candidate": 0,
+          "top1_id": 1327,
+          "reference_top1_id": 1327
+        },
+        {
+          "document": "library",
+          "position": 11,
+          "target_id": 1040,
+          "nll": 1.0988436480385069,
+          "kl_reference_candidate": 0,
+          "top1_id": 1296,
+          "reference_top1_id": 1296
+        },
+        {
+          "document": "garden",
+          "position": 11,
+          "target_id": 3155,
+          "nll": 2.448453981492518,
+          "kl_reference_candidate": 0,
+          "top1_id": 1183,
+          "reference_top1_id": 1183
+        },
+        {
+          "document": "bicycle",
+          "position": 11,
+          "target_id": 26734,
+          "nll": 9.122719563185864,
+          "kl_reference_candidate": 0,
+          "top1_id": 1327,
+          "reference_top1_id": 1327
+        }
+      ],
+      "rss_method": "one ps observation after scoring/generation; not peak",
+      "score_seconds": 16.44014175,
+      "scored_tokens": 24,
+      "source": "mistralai/Mistral-7B-Instruct-v0.3@c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "source_sha256": "9d24e89bbb77367ca517fd5b63be244ce7dfc21f3260c0984c0209bf90262c8d",
+      "threads": 4,
+      "top1_matches": 24,
+      "process_resources": {
+        "peak_rss_bytes": 7631699968,
+        "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+        "elapsed_seconds": 67.922993792,
+        "user_cpu_seconds": 147.69809,
+        "system_cpu_seconds": 4.443419
+      }
+    },
+    "q4-mixed": {
+      "completions": [
+        {
+          "text": "Paris, but the capital of the French",
+          "token_ids": [
+            6233,
+            29493,
+            1330,
+            1040,
+            6333,
+            1070,
+            1040,
+            5717
+          ],
+          "prompt_tokens": 6,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        },
+        {
+          "text": "named Mittens lived in a co",
+          "token_ids": [
+            5928,
+            1119,
+            1553,
+            1364,
+            7030,
+            1065,
+            1032,
+            1769
+          ],
+          "prompt_tokens": 9,
+          "completion_tokens": 8,
+          "finish_reason": "length"
+        }
+      ],
+      "format": "monolith-quant-quality-v1",
+      "generation_prompts": [
+        "The capital of France is",
+        "Once upon a time, a small cat"
+      ],
+      "heap_alloc_bytes": 4334005192,
+      "kernel_workers": 4,
+      "load_seconds": 37.230989959,
+      "mean_kl": 0.03043415502921822,
+      "mean_nll": 3.8749401957396294,
+      "perplexity": 48.17981684662705,
+      "plan": {
+        "format": "monolith-hf-plan-v1",
+        "model_type": "mistral",
+        "tied_embeddings": false,
+        "eos_token_ids": [
+          2
+        ],
+        "config": {
+          "vocab": 32768,
+          "dim": 4096,
+          "hidden": 14336,
+          "layers": 32,
+          "heads": 32,
+          "kv_heads": 8,
+          "context": 128,
+          "rope_theta": 1000000,
+          "norm_eps": 1e-05
+        },
+        "parameters": 7248023552,
+        "weight_bytes": 4212146176,
+        "weight_format": "q4-mixed",
+        "fp32_weight_bytes": 28992094208,
+        "quantized_parameters": 7247757312,
+        "q8_parameters": 268435456,
+        "q4_parameters": 6979321856,
+        "scale_bytes": 452984832,
+        "quantization_block": 64,
+        "quantization_buffer_bytes": 256,
+        "rope_bytes": 65536,
+        "kv_bytes_per_token": 262144,
+        "full_context_kv_bytes": 33554432,
+        "conversion_buffer_bytes": 65536,
+        "source_bytes": 14496080928,
+        "shards": 3,
+        "tensor_dtypes": {
+          "BF16": 291
+        }
+      },
+      "post_probe_rss_bytes": 4321837056,
+      "reference": {
+        "version": "monolith-quality-logits-v1",
+        "source": "mistralai/Mistral-7B-Instruct-v0.3@c170c708c41dac9275d15a8fff4eca08d52bab71",
+        "corpus_sha256": "af7b705a420ffe50fd0c97622d0339d988f0656de4b0c104c4f09a095c9354bb",
+        "tokens_sha256": "78f9577c2538a43ac8b52c49956e4c5a50cb77393c5a45199190ea988827ad1e",
+        "reference_format": "q8",
+        "vocab": 32768,
+        "rows": 24
+      },
+      "reference_vectors_sha256": "735827d655aaed835bcfdd8e35fc377751f2109cef9e21febc1ed4ba7d646d25",
+      "rows": [
+        {
+          "document": "library",
+          "position": 4,
+          "target_id": 10227,
+          "nll": 0.19535012449291855,
+          "kl_reference_candidate": 0.009138448092451549,
+          "top1_id": 10227,
+          "reference_top1_id": 10227
+        },
+        {
+          "document": "garden",
+          "position": 4,
+          "target_id": 14338,
+          "nll": 8.486929692977649,
+          "kl_reference_candidate": 0.04106239914226152,
+          "top1_id": 9449,
+          "reference_top1_id": 9449
+        },
+        {
+          "document": "bicycle",
+          "position": 4,
+          "target_id": 1040,
+          "nll": 1.9857669420938606,
+          "kl_reference_candidate": 0.015653787998732367,
+          "top1_id": 1040,
+          "reference_top1_id": 1040
+        },
+        {
+          "document": "library",
+          "position": 5,
+          "target_id": 7606,
+          "nll": 7.67408978558373,
+          "kl_reference_candidate": 0.030025381146452063,
+          "top1_id": 1070,
+          "reference_top1_id": 1206
+        },
+        {
+          "document": "garden",
+          "position": 5,
+          "target_id": 1040,
+          "nll": 0.4725200824082556,
+          "kl_reference_candidate": 0.018996855914959376,
+          "top1_id": 1040,
+          "reference_top1_id": 1040
+        },
+        {
+          "document": "bicycle",
+          "position": 5,
+          "target_id": 7203,
+          "nll": 8.080779202176306,
+          "kl_reference_candidate": 0.03083570051097089,
+          "top1_id": 15168,
+          "reference_top1_id": 6329
+        },
+        {
+          "document": "library",
+          "position": 6,
+          "target_id": 1032,
+          "nll": 1.0956132978819149,
+          "kl_reference_candidate": 0.011094870236942913,
+          "top1_id": 1040,
+          "reference_top1_id": 1040
+        },
+        {
+          "document": "garden",
+          "position": 6,
+          "target_id": 9527,
+          "nll": 4.806616970521258,
+          "kl_reference_candidate": 0.05437169871343548,
+          "top1_id": 1757,
+          "reference_top1_id": 1757
+        },
+        {
+          "document": "bicycle",
+          "position": 6,
+          "target_id": 29493,
+          "nll": 0.7439711477701731,
+          "kl_reference_candidate": 0.012291117395166843,
+          "top1_id": 29493,
+          "reference_top1_id": 29493
+        },
+        {
+          "document": "library",
+          "position": 7,
+          "target_id": 2509,
+          "nll": 2.9602573932746115,
+          "kl_reference_candidate": 0.04044804817592726,
+          "top1_id": 2588,
+          "reference_top1_id": 2588
+        },
+        {
+          "document": "garden",
+          "position": 7,
+          "target_id": 1546,
+          "nll": 2.5646958539847535,
+          "kl_reference_candidate": 0.02601779363426015,
+          "top1_id": 1245,
+          "reference_top1_id": 1245
+        },
+        {
+          "document": "bicycle",
+          "position": 7,
+          "target_id": 3014,
+          "nll": 7.99298134199006,
+          "kl_reference_candidate": 0.03676956810575711,
+          "top1_id": 1083,
+          "reference_top1_id": 1083
+        },
+        {
+          "document": "library",
+          "position": 8,
+          "target_id": 6112,
+          "nll": 5.4563830868946805,
+          "kl_reference_candidate": 0.05777717981288109,
+          "top1_id": 29493,
+          "reference_top1_id": 2588
+        },
+        {
+          "document": "garden",
+          "position": 8,
+          "target_id": 1757,
+          "nll": 0.3398160112764508,
+          "kl_reference_candidate": 0.03624726260176005,
+          "top1_id": 1757,
+          "reference_top1_id": 1757
+        },
+        {
+          "document": "bicycle",
+          "position": 8,
+          "target_id": 29476,
+          "nll": 0.6345716269053447,
+          "kl_reference_candidate": 0.0426204893684834,
+          "top1_id": 29476,
+          "reference_top1_id": 29476
+        },
+        {
+          "document": "library",
+          "position": 9,
+          "target_id": 25355,
+          "nll": 4.7826731989222235,
+          "kl_reference_candidate": 0.1153137290732767,
+          "top1_id": 2588,
+          "reference_top1_id": 2588
+        },
+        {
+          "document": "garden",
+          "position": 9,
+          "target_id": 13226,
+          "nll": 2.3778736926705157,
+          "kl_reference_candidate": 0.024473743251570486,
+          "top1_id": 29491,
+          "reference_top1_id": 29491
+        },
+        {
+          "document": "bicycle",
+          "position": 9,
+          "target_id": 10449,
+          "nll": 5.787000126122429,
+          "kl_reference_candidate": 0.023335819466944647,
+          "top1_id": 1072,
+          "reference_top1_id": 1072
+        },
+        {
+          "document": "library",
+          "position": 10,
+          "target_id": 10207,
+          "nll": 6.564172832405177,
+          "kl_reference_candidate": 0.01683244144854776,
+          "top1_id": 1124,
+          "reference_top1_id": 1124
+        },
+        {
+          "document": "garden",
+          "position": 10,
+          "target_id": 29491,
+          "nll": 0.46317112823525264,
+          "kl_reference_candidate": 0.007938760381071943,
+          "top1_id": 29491,
+          "reference_top1_id": 29491
+        },
+        {
+          "document": "bicycle",
+          "position": 10,
+          "target_id": 2328,
+          "nll": 6.856084843911631,
+          "kl_reference_candidate": 0.01273139984641672,
+          "top1_id": 1040,
+          "reference_top1_id": 1327
+        },
+        {
+          "document": "library",
+          "position": 11,
+          "target_id": 1040,
+          "nll": 1.095599862399128,
+          "kl_reference_candidate": 0.012210071253566043,
+          "top1_id": 1296,
+          "reference_top1_id": 1296
+        },
+        {
+          "document": "garden",
+          "position": 11,
+          "target_id": 3155,
+          "nll": 2.6566696354252457,
+          "kl_reference_candidate": 0.02193261674430871,
+          "top1_id": 1183,
+          "reference_top1_id": 1183
+        },
+        {
+          "document": "bicycle",
+          "position": 11,
+          "target_id": 26734,
+          "nll": 8.924976817427536,
+          "kl_reference_candidate": 0.032300538385092274,
+          "top1_id": 1327,
+          "reference_top1_id": 1327
+        }
+      ],
+      "rss_method": "one ps observation after scoring/generation; not peak",
+      "score_seconds": 10.605827125,
+      "scored_tokens": 24,
+      "source": "mistralai/Mistral-7B-Instruct-v0.3@c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "source_sha256": "9d24e89bbb77367ca517fd5b63be244ce7dfc21f3260c0984c0209bf90262c8d",
+      "threads": 4,
+      "top1_matches": 20,
+      "process_resources": {
+        "peak_rss_bytes": 4322295808,
+        "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+        "elapsed_seconds": 60.305875042,
+        "user_cpu_seconds": 116.292209,
+        "system_cpu_seconds": 2.707761
+      }
+    }
+  }
+}

@@ -12,6 +12,38 @@ Backends never switch automatically. HF imports remain inference-only; they
 cannot be trained or saved as native checkpoints. Existing direct commands
 remain aliases for compatibility.
 
+## Use an existing local model
+
+`-path` selects an HF Safetensors folder, its `config.json`, its
+`model.safetensors.index.json`, or a weight file belonging to that archive.
+It also recognizes native checkpoints by their file header. No cache copy,
+download or Python runtime is needed. Relative paths, spaces, Unicode paths,
+directory symlinks and a quoted `~/` prefix are supported.
+
+```sh
+./monolith infer local -path "$HOME/models/mistral7b-instruct-v0.3" \
+  -context 128 -weight-format q4-mixed -weight-mib 6144 check -chat
+HF_HUB_OFFLINE=1 ./monolith infer local \
+  -path "$HOME/models/mistral7b-instruct-v0.3/model.safetensors.index.json" \
+  -context 128 -weight-format q4-mixed -weight-mib 6144 \
+  generate -chat -prompt 'Write one short sentence about cats.' \
+  -max-tokens 16 -temperature 0
+./monolith infer local -path runs/demo.mglm generate -prompt 'the spiral'
+```
+
+Use exactly one of `-path`, `-dir`, `-checkpoint` or `-repo`. The existing
+`-dir` and `-checkpoint` forms continue to work. Cache/download flags and
+`fetch` belong to `-repo`; `-path` is always local, including when
+`HF_HUB_OFFLINE=1` is set. A selected shard must belong to the directory's
+index, and inference still requires every referenced shard. Model files are
+read in place and must remain unchanged while loading. Local headers and
+payloads are validated, but local paths do not assert a Hub revision or source
+hash. The validation scripts check pinned hashes separately.
+
+The selected `q8`/`q4`/`q4-mixed` format is applied during loading of supported
+F32/F16/BF16 source weights. GGUF, GPTQ, AWQ and MLX prequantized exports are not
+imported by this option. For Mistral, see [compatibility and measurements](MISTRAL_INFERENCE.md).
+
 ## Local execution with automatic download
 
 Put source and memory flags **before** the action, and generation flags after:
