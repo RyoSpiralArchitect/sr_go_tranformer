@@ -7166,6 +7166,44 @@ func generationWorkerCount(c Config, promptTokens, maxTokens int) int {
 	return min(runtime.GOMAXPROCS(0), 256)
 }
 
+// Prompt forwarding shares each weight read across a bounded group of rows.
+// The soft 16 MiB scratch target limits retained prompt workspace; the existing
+// hard admission check still applies to every forward call. A one-row fallback
+// preserves requests that need more than the soft target even without batching.
+func generationPromptRows(m *Model, tokens, workers int, targetElements int64) int {
+	if tokens < 4 {
+		return 1
+	}
+	c := m.Config
+	rowElements := int64(5*c.Dim + 2*c.KVDim() + 3*c.Hidden)
+	if m.Position != nil {
+		rowElements -= int64(c.Hidden)
+	}
+	for rows := min(16, tokens); rows > 1; rows /= 2 {
+		plan := planInferenceAttention(&kernelExecutor{workers: workers}, c, rows, tokens)
+		// Logits plus the reserved public copy are session-sized, not row-sized.
+		elements := int64(rows)*rowElements + 2*int64(c.Vocab) + int64(plan.lanes)*int64(plan.stride)
+		if elements <= targetElements {
+			return rows
+		}
+	}
+	return 1
+}
+
+func planGenerationPrompt(m *Model, promptTokens, maxTokens int) (rows, workers int) {
+	available := min(runtime.GOMAXPROCS(0), 256)
+	rows = generationPromptRows(m, promptTokens, available, (16<<20)/4)
+	workers = generationWorkerCount(m.Config, promptTokens, maxTokens)
+	// Chunk projections and attention can exceed the parallel threshold even
+	// when every single-row decode call would stay inline. The output head
+	// remains one row because prefill returns only the final prompt logits.
+	c := m.Config
+	if c.Dim*rows*max(c.Dim, c.Hidden, promptTokens) >= 131072 {
+		workers = available
+	}
+	return rows, workers
+}
+
 func generateInput(ctx context.Context, m *Model, tok inferenceTokenizer, prompt string, s Sampling, framed bool) (Completion, error) {
 	ids, err := prepareInput(ctx, m, tok, prompt, s, framed)
 	if err != nil {
@@ -7182,16 +7220,17 @@ func generateInput(ctx context.Context, m *Model, tok inferenceTokenizer, prompt
 	defer cache.Close()
 	// One call owns its workers and scratch, including through sampling. Join
 	// workers before releasing KV; no mutable execution state lives on Model.
-	executor := newKernelExecutor(generationWorkerCount(m.Config, len(ids), s.MaxTokens))
+	promptRows, workers := planGenerationPrompt(m, len(ids), s.MaxTokens)
+	executor := newKernelExecutor(workers)
 	defer executor.close()
 	var workspace decodeWorkspace
 	caches, chunks := []*KVCache{cache}, make([][]int, 1)
 	var logits []float32
-	for i := range ids {
+	for i := 0; i < len(ids); i += promptRows {
 		if err = ctx.Err(); err != nil {
 			return Completion{}, err
 		}
-		chunks[0] = ids[i : i+1]
+		chunks[0] = ids[i:min(i+promptRows, len(ids))]
 		logits, err = m.prefillBorrowed(ctx, caches, chunks, executor, &workspace)
 		if err != nil {
 			return Completion{}, err
