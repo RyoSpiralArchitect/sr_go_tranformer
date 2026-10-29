@@ -88,3 +88,22 @@ process order with reversed case order in the second pair. It writes its fixed
 protocol before measurement. Model loading is outside the Generate interval;
 encoding and sampling are included. No pretrained-model speed claim is made
 from the native measurements above.
+
+## Pinned Mistral 7B first-token result
+
+The [ABBA receipt](validation/performance/mistral-prompt-prefill-20261030.json)
+records Q4-mixed Mistral-7B-Instruct-v0.3, context1024, four threads, identical
+harnesses, pinned original file hashes, and every trial. For a 275-token prompt,
+median Generate time to its first output token fell from144.142s to111.181s
+(22.9% shorter). The four-token control fell from2.073s to1.506s (27.3%).
+Completions matched exactly in all processes. Both frozen timing gates passed.
+
+Model loading is excluded; prompt encoding and sampling are included. There
+are two long trials and six short trials per variant, without warmups. The
+second process pair reverses short/long order. This is one host-specific
+first-token result, not a full-response, quality, or concurrent-serving claim.
+
+Measured production source is commit37ca7df. The subsequent comparison-driver
+fix resolves the installed Go through scripts/go.sh instead of requiring the
+optional .tools layout; it does not change production arithmetic or the measured
+binaries. Native and full-model measurements keep their separate scopes.

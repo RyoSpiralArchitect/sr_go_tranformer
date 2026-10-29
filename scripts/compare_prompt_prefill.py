@@ -8,7 +8,9 @@ root=a.root.resolve();a.harness=a.harness or root/'prompt_prefill_perf_test.go';
 sys.path.insert(0,str(root/'scripts'))
 from quant_quality import sha,run_measured
 from compare_inference import isolated_go_environment
-env=isolated_go_environment();go=str(root/'.tools/go/bin/go');baseline='68ee4d8406b907c6bf6c77fdd364146da4aac7cf'
+env=isolated_go_environment()
+goroot=subprocess.check_output([str(root/'scripts/go.sh'),'env','GOROOT'],cwd=root,env=env,text=True).strip()
+go=str(Path(goroot)/'bin/go');baseline='68ee4d8406b907c6bf6c77fdd364146da4aac7cf'
 protocol={'format':'monolith-prompt-first-token-protocol-v1','baseline':baseline,'order':['before','after','after','before'],'case_orders':['short,long','short,long','long,short','long,short'],'model':'mistral-7b-v03','context':1024,'weight_format':'q4-mixed','threads':4,'long_trials_per_process':1,'short_trials_per_process':3,'warmups':0,'gate':{'long_median_ratio_max':0.95,'short_median_ratio_max':1.05,'exact_completion':True},'scope':'Generate to first output token, excludes load, includes prompt encoding and sampling. Two long trials per variant, no confidence intervals. Retain all attempts.'}
 (out/'protocol.json').write_text(json.dumps(protocol,indent=2)+'\n')
 source=next(x for x in json.loads((root/'validation/hf/model-profiles.json').read_text())['models'] if x['id']=='mistral-7b-v03')
