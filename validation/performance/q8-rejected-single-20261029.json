@@ -1,0 +1,370 @@
+{
+  "format": "monolith-q8-attempt-v1",
+  "outcome": "rejected",
+  "reason": "Single-row median ratio exceeds frozen 0.90 threshold. Remove the single-row fast path; retain the pair candidate for a new, narrower protocol.",
+  "results": {
+    "1": {
+      "before_ns": 5385962.5,
+      "after_ns": 5177090.5,
+      "ratio": 0.9612191878424702,
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 5378387.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 5338016.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 5393991.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6873432.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5308631.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5393538.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 5150436.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 5180658.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 5143893.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5173523.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 7741601.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6534091.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ]
+      }
+    },
+    "2": {
+      "before_ns": 10510598.0,
+      "after_ns": 6173809.0,
+      "ratio": 0.5873889382887634,
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 10639019.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 10505329.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 10534659.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 10498424.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 10503557.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 10515867.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 6178453.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 6137233.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 6205595.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6093620.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6169165.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6259806.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ]
+      }
+    },
+    "3": {
+      "before_ns": 15715219.0,
+      "after_ns": 11233689.5,
+      "ratio": 0.7148286956739197,
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 15941590.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 15721162.0,
+            "bytes": 118,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 15709276.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 15814333.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 15494009.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 15704574.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 11295878.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 11141322.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 11174377.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 11300577.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 11195743.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 11271636.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ]
+      }
+    },
+    "4": {
+      "before_ns": 16739336.0,
+      "after_ns": 16811640.0,
+      "ratio": 1.0043194066957017,
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 16729005.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 16566255.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 16523250.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16910773.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16815225.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16749667.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 16639352.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 17105018.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 16427118.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16684344.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16938936.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 17039778.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ]
+      }
+    }
+  },
+  "files": {
+    "kernels.txt": "50d23f777829c3f6b1a7a1f48dd11354d92cfa14c5e3136c0d307924847f3f4f",
+    "exact-tests.log": "6d8050eff8d9ffdcf3410806df3cc37dce37a0a67ea0c146d6a960dd655221f4",
+    "monolith.go": "274b45a9bbca5f8b294a2f9dc40f2fd8a6f6d91b13e3dfca8c2c90a3de6e718f",
+    "q8_block_test.go": "014ddc65ed8473aa3f4bd19774e2b16efec8b582fcaedbc448e48fcda88f6e20",
+    "protocol.json": "edaf8c294d75f96e516656d4835b5e343220e50b3a8a03c6abbdb1ab62ab0920"
+  },
+  "protocol": {
+    "format": "monolith-q8-block-protocol-v1",
+    "date": "2026-10-29",
+    "baseline": "7704885 plus local-path-only changes; no arithmetic changes",
+    "proposal": "Use safe complete-block array views for single-row Q8 and share int8-to-float32 conversion across paired row remainders; preserve four accumulators per row and reduction order.",
+    "model": "mistralai/Mistral-7B-Instruct-v0.3",
+    "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+    "primary_format": "q8",
+    "control_format": "q4-mixed",
+    "threads": 4,
+    "workers": 4,
+    "microbenchmark": "paired before/after and reversed order; 4096 input columns, 14336 outputs; rows 1,2,3,4; 3 samples",
+    "full_model": "8 prompt tokens, 7 decode steps, 1/2 sessions, one warmup and 3 trials; ABBA processes with balanced session order; one resident model",
+    "acceptance": {
+      "exact_logits_kv_ids": true,
+      "unchanged_weight_plan_workspace": true,
+      "q8_kernel_single_and_pair_median_ratio_max": 0.9,
+      "q8_single_decode_ratio_max": 1.05,
+      "q8_pair_decode_ratio_max": 0.95,
+      "q4_mixed_single_and_pair_decode_ratio_max": 1.05
+    },
+    "limits": "Bounded host-specific engineering gate, not statistical significance or generic speed claim. Freeze sources during speed probes; no concurrent builds/profilers/heavy validation. Preserve failed experiments."
+  },
+  "retention": "Unshipped attempt: original source and raw log retained under runs/mistral-q8-20261029/attempt-1-single-pair; all timing samples and hashes are included here."
+}

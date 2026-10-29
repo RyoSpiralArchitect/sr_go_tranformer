@@ -1,0 +1,358 @@
+{
+  "format": "monolith-q8-pair-micro-v1",
+  "results": {
+    "1": {
+      "before_ns": 5371192.5,
+      "after_ns": 5396515.0,
+      "ratio": 1.0047145024126394,
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 5310980.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 5369898.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 5439077.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5372487.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5355690.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5372887.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 5386850.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 5387114.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 5305482.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5405916.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5571960.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5420364.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ]
+      }
+    },
+    "2": {
+      "before_ns": 9472850.0,
+      "after_ns": 6181975.5,
+      "ratio": 0.6525993233293043,
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 10555275.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 10521604.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 10525728.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 8424096.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 8364950.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 8331484.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 6168508.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 6238190.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 6155297.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6195443.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6269262.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5468670.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ]
+      }
+    },
+    "3": {
+      "before_ns": 15931116.5,
+      "after_ns": 11557803.0,
+      "ratio": 0.7254860637043236,
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 14481559.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 15681807.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 12507337.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16260414.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16180426.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16442553.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 10182827.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 11619020.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 11603686.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 11511920.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 11681641.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 11353183.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ]
+      }
+    },
+    "4": {
+      "before_ns": 16876147.0,
+      "after_ns": 16741644.5,
+      "ratio": 0.9920300232037562,
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 16339674.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 17078489.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 16799247.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16797595.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16953047.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16992150.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 16949396.0,
+            "bytes": 118,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 16698511.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 16747026.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16567539.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16964482.0,
+            "bytes": 112,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 16736263.0,
+            "bytes": 112,
+            "allocs": 1
+          }
+        ]
+      }
+    }
+  },
+  "inputs": {
+    "monolith.go": "dbd39762861b1e55979a7334c43804ff7dabe0c7e7c34a2c66f00d8f0724f1eb",
+    "q8_block_test.go": "014ddc65ed8473aa3f4bd19774e2b16efec8b582fcaedbc448e48fcda88f6e20"
+  },
+  "raw_sha256": "941de1d6b11b96be9e9769d789130943cfcc66dd170c213ec73478de2e93bef3",
+  "accepted": true,
+  "host": "Darwin/arm64",
+  "cpu": "Apple M4",
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "baseline_commit": "cfdca310947c9af668ec7e8814b37c2e15a4b2f4",
+  "threads": 4,
+  "workers": 4,
+  "benchmark": "BenchmarkQ8Blocks",
+  "samples_per_order": 3,
+  "benchtime": "250ms",
+  "ambient_runtime_environment": {
+    "GOGC": null,
+    "GOMEMLIMIT": null,
+    "GODEBUG": null
+  },
+  "note": "Same-binary synthetic projection timings; all samples retained. Each call retains the existing callback allocation. Model timing and build hashes are recorded separately."
+}
