@@ -141,3 +141,54 @@ Correctness checks include exact per-head fixtures, page-growth bounds,
 consecutive decode across the attention parallel threshold, cancellation,
 workspace admission, and race tests. No quantization policy or output quality
 tradeoff was introduced by this attention change.
+
+## Request-owned direct generation
+
+Direct `Generate`, `GenerateChat` and CLI `generate` now capture one bounded
+executor and one workspace for the entire invocation. The caller consumes
+borrowed logits synchronously before the next forward call. No callback,
+completion, model field or other request retains that scratch. Worker jobs
+join before sampling or reuse; the executor is closed and joined before KV
+release on success, EOS, cancellation and errors. Independent requests can
+share immutable model weights while keeping their mutable state separate.
+
+The worker count is captured from `min(GOMAXPROCS, 256)`. If all possible
+single-row projection and attention kernels remain below the existing work
+threshold, the invocation runs inline without background workers. The final
+sampled token does not undergo another forward pass and is excluded from this
+bound. Kernels still choose inline execution when their individual work is
+small. Engine-based interactive chat and serving already own fixed workers;
+this second change applies to direct generation. Prompt forwarding remains
+one token at a time, preserving the existing arithmetic and sampling order.
+
+A native 256-dimensional, 704-hidden, one-layer fixture with a 33-token prompt
+was measured with four threads. EOS is disabled only for this fixed-length
+benchmark. Both orders, three 250 ms samples each, include pool startup,
+teardown, sampling and KV cleanup. Exact completions are checked before timing.
+
+| Output tokens | Before, ms | Owned, ms | Allocated bytes before / after | Allocations before / after |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | 12.263 | 11.948 | 182,487 / 147,774 | 1,313 / 658 |
+| 128 | 51.517 | 50.449 | 611,390 / 364,108 | 4,447 / 1,755 |
+
+For 128 output tokens, allocated bytes fell 40.4% and allocation count fell
+60.5%; median time fell 2.1%. These are synthetic native-model measurements,
+not a 7B speed or process-memory claim. The
+[frozen gates](validation/performance/generate-workers-protocol-20261030.json),
+[all samples and acceptance checks](validation/performance/generate-workers-20261030.json)
+and [raw benchmark output](validation/performance/generate-workers-20261030.txt)
+retain the limits and source hashes. Both short and long timing gates passed.
+
+```sh
+GOENV=off GOTOOLCHAIN=local GOWORK=off GOFLAGS= GOEXPERIMENT= \
+  GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=4 \
+  ./scripts/go.sh test -run '^$' -bench '^BenchmarkOwnedGenerate$' \
+  -benchmem -benchtime=250ms -count=3 -cpu=4
+```
+
+Tests compare seeded sampling and greedy completions against the retained
+old direct-generation path, including native and HF chat tokenizers. They
+exercise above-threshold projections, the worker-selection boundary,
+cancellation after generation has begun, retry and six concurrent requests
+sharing one model under the race detector. Existing real-tokenizer EOS tests
+continue to check ordinary stopping semantics.

@@ -1,0 +1,335 @@
+{
+  "format": "monolith-generate-workers-benchmark-v1",
+  "date": "2026-10-30",
+  "host": "Apple M4 / 24 GiB / Go 1.27.1 / four threads",
+  "protocol": {
+    "format": "monolith-generate-workers-plan-v1",
+    "date": "2026-10-30",
+    "baseline": "a459cb4 attention-lane implementation",
+    "proposal": "Capture a bounded worker pool and workspace for one direct Generate/GenerateChat invocation; retain token-at-a-time prompt/decode arithmetic and sampling order; borrow logits only until the next forward call. Small geometries that keep every possible kernel below the existing inline threshold use no background workers.",
+    "acceptance": {
+      "exact_completions_and_error_semantics": true,
+      "shared_model_concurrency_and_cancel_retry": true,
+      "long_synthetic_allocated_bytes_ratio_max": 0.75,
+      "long_synthetic_time_ratio_max": 1.05,
+      "short_synthetic_time_ratio_max": 1.05
+    },
+    "micro": "Native 256-dim,704-hidden,1-layer,4-head/2-KV model with 512 context; 33-token prompt, 8/128 output tokens; both implementation orders, 3 samples,4 threads. Fixed-step tokenizer only in benchmark so EOS does not shorten workload. Includes worker startup/teardown and sampling.",
+    "limits": "No real-7B speed claim for this separate change. The first attention PR supplies core model evidence; direct CLI chat functionality is checked separately. No shared mutable executor on Model."
+  },
+  "samples": [
+    {
+      "tokens": 8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 24,
+      "ns": 12305944.0,
+      "bytes": 182891.0,
+      "allocs": 1313.0
+    },
+    {
+      "tokens": 8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 24,
+      "ns": 12280780.0,
+      "bytes": 182487.0,
+      "allocs": 1313.0
+    },
+    {
+      "tokens": 8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 24,
+      "ns": 12238661.0,
+      "bytes": 182491.0,
+      "allocs": 1313.0
+    },
+    {
+      "tokens": 8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 24,
+      "ns": 12001418.0,
+      "bytes": 148148.0,
+      "allocs": 659.0
+    },
+    {
+      "tokens": 8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 24,
+      "ns": 11949538.0,
+      "bytes": 147820.0,
+      "allocs": 658.0
+    },
+    {
+      "tokens": 8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 25,
+      "ns": 11879655.0,
+      "bytes": 147798.0,
+      "allocs": 658.0
+    },
+    {
+      "tokens": 8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 24,
+      "ns": 11997927.0,
+      "bytes": 147750.0,
+      "allocs": 658.0
+    },
+    {
+      "tokens": 8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 24,
+      "ns": 11945899.0,
+      "bytes": 147750.0,
+      "allocs": 658.0
+    },
+    {
+      "tokens": 8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 25,
+      "ns": 11925705.0,
+      "bytes": 147746.0,
+      "allocs": 658.0
+    },
+    {
+      "tokens": 8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 24,
+      "ns": 12257608.0,
+      "bytes": 182487.0,
+      "allocs": 1313.0
+    },
+    {
+      "tokens": 8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 24,
+      "ns": 12224167.0,
+      "bytes": 182486.0,
+      "allocs": 1313.0
+    },
+    {
+      "tokens": 8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 24,
+      "ns": 12267764.0,
+      "bytes": 182487.0,
+      "allocs": 1313.0
+    },
+    {
+      "tokens": 128,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 5,
+      "ns": 51268425.0,
+      "bytes": 611390.0,
+      "allocs": 4447.0
+    },
+    {
+      "tokens": 128,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 5,
+      "ns": 51514675.0,
+      "bytes": 611390.0,
+      "allocs": 4447.0
+    },
+    {
+      "tokens": 128,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 5,
+      "ns": 56193200.0,
+      "bytes": 611483.0,
+      "allocs": 4447.0
+    },
+    {
+      "tokens": 128,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 5,
+      "ns": 50445958.0,
+      "bytes": 364198.0,
+      "allocs": 1756.0
+    },
+    {
+      "tokens": 128,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 5,
+      "ns": 50227708.0,
+      "bytes": 364108.0,
+      "allocs": 1755.0
+    },
+    {
+      "tokens": 128,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 5,
+      "ns": 50514400.0,
+      "bytes": 364131.0,
+      "allocs": 1756.0
+    },
+    {
+      "tokens": 128,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 5,
+      "ns": 50550717.0,
+      "bytes": 364108.0,
+      "allocs": 1755.0
+    },
+    {
+      "tokens": 128,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 5,
+      "ns": 50452008.0,
+      "bytes": 364041.0,
+      "allocs": 1755.0
+    },
+    {
+      "tokens": 128,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 5,
+      "ns": 50317675.0,
+      "bytes": 364064.0,
+      "allocs": 1755.0
+    },
+    {
+      "tokens": 128,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 5,
+      "ns": 51359133.0,
+      "bytes": 611870.0,
+      "allocs": 4448.0
+    },
+    {
+      "tokens": 128,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 5,
+      "ns": 51520233.0,
+      "bytes": 611390.0,
+      "allocs": 4447.0
+    },
+    {
+      "tokens": 128,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 5,
+      "ns": 54283508.0,
+      "bytes": 611390.0,
+      "allocs": 4447.0
+    }
+  ],
+  "summary": {
+    "8": {
+      "before": {
+        "ns": {
+          "median": 12262686.0,
+          "minimum": 12224167.0,
+          "maximum": 12305944.0
+        },
+        "bytes": {
+          "median": 182487.0,
+          "minimum": 182486.0,
+          "maximum": 182891.0
+        },
+        "allocs": {
+          "median": 1313.0,
+          "minimum": 1313.0,
+          "maximum": 1313.0
+        }
+      },
+      "after": {
+        "ns": {
+          "median": 11947718.5,
+          "minimum": 11879655.0,
+          "maximum": 12001418.0
+        },
+        "bytes": {
+          "median": 147774.0,
+          "minimum": 147746.0,
+          "maximum": 148148.0
+        },
+        "allocs": {
+          "median": 658.0,
+          "minimum": 658.0,
+          "maximum": 659.0
+        }
+      },
+      "ratio": {
+        "ns": 0.9743149665578976,
+        "bytes": 0.8097782307780829,
+        "allocs": 0.5011424219345011
+      }
+    },
+    "128": {
+      "before": {
+        "ns": {
+          "median": 51517454.0,
+          "minimum": 51268425.0,
+          "maximum": 56193200.0
+        },
+        "bytes": {
+          "median": 611390.0,
+          "minimum": 611390.0,
+          "maximum": 611870.0
+        },
+        "allocs": {
+          "median": 4447.0,
+          "minimum": 4447.0,
+          "maximum": 4448.0
+        }
+      },
+      "after": {
+        "ns": {
+          "median": 50448983.0,
+          "minimum": 50227708.0,
+          "maximum": 50550717.0
+        },
+        "bytes": {
+          "median": 364108.0,
+          "minimum": 364041.0,
+          "maximum": 364198.0
+        },
+        "allocs": {
+          "median": 1755.0,
+          "minimum": 1755.0,
+          "maximum": 1756.0
+        }
+      },
+      "ratio": {
+        "ns": 0.9792600193324771,
+        "bytes": 0.5955413075123898,
+        "allocs": 0.3946480773555206
+      }
+    }
+  },
+  "checks": {
+    "long_allocated_bytes": true,
+    "long_time": true,
+    "short_time": true
+  },
+  "accepted": true,
+  "source_sha256": {
+    "monolith.go": "beb18e2164b2765df0edc9336b74eb102e28cb01bfa31da125c2491b86ca2516",
+    "generate_workers_test.go": "61fedea9fcf8c03ad5f2de87092c7ed7fe8ff0bf0dbad1350fd8f2b25bdc47ec",
+    "go.mod": "8fd924c4124c93ce607d506cf677a5462ef233b3a776d0ba26d2a6fb3f498adf",
+    "go.sum": "8a0467c34198969fd6b4a4f0f41acfdaf433dc2a393db612c4d8121a60d1f66f"
+  },
+  "raw_sha256": "411e39f4d660f9ceec5275a2e393347edf5de74f51cccadcf8e29508b845a30c"
+}

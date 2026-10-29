@@ -3629,7 +3629,8 @@ func parallel(n, work int, fn func(lo, hi int)) {
 	wg.Wait()
 }
 
-// A kernelExecutor belongs to one engine actor. Its fixed workers borrow one
+// A kernelExecutor belongs to one engine actor or direct generation call.
+// Its fixed workers borrow one
 // kernel's disjoint output ranges, then join before the actor advances. There
 // is no request backlog here: parallel and close must have a single caller,
 // and callbacks must not recursively dispatch work through this executor.
@@ -3645,7 +3646,7 @@ type kernelJob struct {
 	fn     func(lo, hi int)
 }
 
-// workers is validated by newEngine (1..256). One worker runs on the actor.
+// Callers bound workers to 1..256. One worker runs inline on the caller.
 func newKernelExecutor(workers int) *kernelExecutor {
 	e := &kernelExecutor{workers: workers}
 	if workers > 1 {
@@ -3689,7 +3690,7 @@ func (e *kernelExecutor) parallel(n, work int, fn func(lo, hi int)) {
 }
 
 // Called once by the actor after its final joined kernel. No worker outlives
-// Engine.Close, including engines that were closed without serving a request.
+// Engine.Close or a direct generation return, including early errors.
 func (e *kernelExecutor) close() {
 	if e.jobs != nil {
 		close(e.jobs)
@@ -7025,6 +7026,17 @@ func GenerateChat(ctx context.Context, m *Model, tok inferenceTokenizer, message
 	return generateInput(ctx, m, tok, prompt, s, true)
 }
 
+// Token-at-a-time generation needs no background workers when all possible
+// projections and attention calls stay below the inline threshold. The final
+// sampled token is returned without another forward call.
+func generationWorkerCount(c Config, promptTokens, maxTokens int) int {
+	lastPosition := promptTokens + maxTokens - 1
+	if c.Dim*max(c.Dim, c.Hidden, c.Vocab, lastPosition) < 131072 {
+		return 1
+	}
+	return min(runtime.GOMAXPROCS(0), 256)
+}
+
 func generateInput(ctx context.Context, m *Model, tok inferenceTokenizer, prompt string, s Sampling, framed bool) (Completion, error) {
 	ids, err := prepareInput(ctx, m, tok, prompt, s, framed)
 	if err != nil {
@@ -7032,12 +7044,19 @@ func generateInput(ctx context.Context, m *Model, tok inferenceTokenizer, prompt
 	}
 	cache := m.NewCache()
 	defer cache.Close()
+	// One call owns its workers and scratch, including through sampling. Join
+	// workers before releasing KV; no mutable execution state lives on Model.
+	executor := newKernelExecutor(generationWorkerCount(m.Config, len(ids), s.MaxTokens))
+	defer executor.close()
+	var workspace decodeWorkspace
+	caches, chunks := []*KVCache{cache}, make([][]int, 1)
 	var logits []float32
-	for _, id := range ids {
+	for i := range ids {
 		if err = ctx.Err(); err != nil {
 			return Completion{}, err
 		}
-		logits, err = m.DecodeBatch(ctx, []*KVCache{cache}, []int{id})
+		chunks[0] = ids[i : i+1]
+		logits, err = m.prefillBorrowed(ctx, caches, chunks, executor, &workspace)
 		if err != nil {
 			return Completion{}, err
 		}
@@ -7061,7 +7080,8 @@ func generateInput(ctx context.Context, m *Model, tok inferenceTokenizer, prompt
 			break
 		}
 		if i+1 < s.MaxTokens {
-			logits, err = m.DecodeBatch(ctx, []*KVCache{cache}, []int{id})
+			chunks[0] = out[len(out)-1:]
+			logits, err = m.prefillBorrowed(ctx, caches, chunks, executor, &workspace)
 			if err != nil {
 				return Completion{}, err
 			}

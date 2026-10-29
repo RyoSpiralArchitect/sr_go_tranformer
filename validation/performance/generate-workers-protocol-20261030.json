@@ -1,0 +1,15 @@
+{
+  "format": "monolith-generate-workers-plan-v1",
+  "date": "2026-10-30",
+  "baseline": "a459cb4 attention-lane implementation",
+  "proposal": "Capture a bounded worker pool and workspace for one direct Generate/GenerateChat invocation; retain token-at-a-time prompt/decode arithmetic and sampling order; borrow logits only until the next forward call. Small geometries that keep every possible kernel below the existing inline threshold use no background workers.",
+  "acceptance": {
+    "exact_completions_and_error_semantics": true,
+    "shared_model_concurrency_and_cancel_retry": true,
+    "long_synthetic_allocated_bytes_ratio_max": 0.75,
+    "long_synthetic_time_ratio_max": 1.05,
+    "short_synthetic_time_ratio_max": 1.05
+  },
+  "micro": "Native 256-dim,704-hidden,1-layer,4-head/2-KV model with 512 context; 33-token prompt, 8/128 output tokens; both implementation orders, 3 samples,4 threads. Fixed-step tokenizer only in benchmark so EOS does not shorten workload. Includes worker startup/teardown and sampling.",
+  "limits": "No real-7B speed claim for this separate change. The first attention PR supplies core model evidence; direct CLI chat functionality is checked separately. No shared mutable executor on Model."
+}
