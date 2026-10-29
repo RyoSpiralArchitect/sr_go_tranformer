@@ -1,0 +1,740 @@
+{
+  "format": "monolith-attention-lanes-micro-v1",
+  "results": {
+    "128/1": {
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 546077.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 545890.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 535018.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 548004.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 537795.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 542208.0,
+            "bytes": 176,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 171078.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 170678.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 166944.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 170163.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 171371.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 170457.0,
+            "bytes": 160,
+            "allocs": 1
+          }
+        ]
+      },
+      "ratio": 0.31351495913051947
+    },
+    "128/2": {
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 576577.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 572669.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 576601.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 587729.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 575282.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 570474.0,
+            "bytes": 176,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 332667.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 331125.0,
+            "bytes": 169,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 327816.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 323995.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 335069.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 327023.0,
+            "bytes": 160,
+            "allocs": 1
+          }
+        ]
+      },
+      "ratio": 0.5720674145012541
+    },
+    "128/16": {
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 2388460.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 2428559.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 2413598.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 2429883.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 2553147.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 2581390.0,
+            "bytes": 176,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 2357775.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 2450406.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 2433785.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 2444132.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 2424591.0,
+            "bytes": 161,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 2535305.0,
+            "bytes": 160,
+            "allocs": 1
+          }
+        ]
+      },
+      "ratio": 1.0040084866712415
+    },
+    "2048/1": {
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 11911446.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 10806814.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 11888352.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 13050521.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 11953542.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 13396202.0,
+            "bytes": 176,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 3453657.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 7218202.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 3803019.0,
+            "bytes": 162,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5390584.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 4749953.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 5281953.0,
+            "bytes": 160,
+            "allocs": 1
+          }
+        ]
+      },
+      "ratio": 0.42036082314392953
+    },
+    "2048/2": {
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 11257792.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 11831651.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 13761135.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 13810914.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 12765135.0,
+            "bytes": 185,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 11900433.0,
+            "bytes": 184,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 6845087.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 6318087.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 6527347.0,
+            "bytes": 164,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6273685.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6070821.0,
+            "bytes": 163,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 6883183.0,
+            "bytes": 163,
+            "allocs": 1
+          }
+        ]
+      },
+      "ratio": 0.52078403384021
+    },
+    "2048/16": {
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 52471153.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 51151750.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 49220469.0,
+            "bytes": 204,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 54686056.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 53163222.0,
+            "bytes": 213,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 53356472.0,
+            "bytes": 176,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 50229958.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 56873736.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 52592000.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 56136750.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 62291667.0,
+            "bytes": 197,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 52657656.0,
+            "bytes": 160,
+            "allocs": 1
+          }
+        ]
+      },
+      "ratio": 1.0299147980948435
+    },
+    "8192/1": {
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 85506625.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 88894167.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 86033416.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 87638270.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 101698542.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 89968604.0,
+            "bytes": 176,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 27921854.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 28464021.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 27532042.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 28801174.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 28708326.0,
+            "bytes": 178,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 28500292.0,
+            "bytes": 160,
+            "allocs": 1
+          }
+        ]
+      },
+      "ratio": 0.32268468032308417
+    },
+    "8192/2": {
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 91338625.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 92053938.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 95478875.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 103864604.0,
+            "bytes": 232,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 95130750.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 88302417.0,
+            "bytes": 176,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 58475000.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 63304167.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 57150097.0,
+            "bytes": 197,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 58917555.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 59942139.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 60590583.0,
+            "bytes": 160,
+            "allocs": 1
+          }
+        ]
+      },
+      "ratio": 0.6349862014354507
+    },
+    "8192/16": {
+      "samples": {
+        "before": [
+          {
+            "reverse": false,
+            "ns": 419942000.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 422717167.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": false,
+            "ns": 419282667.0,
+            "bytes": 176,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 420316292.0,
+            "bytes": 288,
+            "allocs": 2
+          },
+          {
+            "reverse": true,
+            "ns": 465198791.0,
+            "bytes": 288,
+            "allocs": 2
+          },
+          {
+            "reverse": true,
+            "ns": 437422292.0,
+            "bytes": 176,
+            "allocs": 1
+          }
+        ],
+        "after": [
+          {
+            "reverse": false,
+            "ns": 429478625.0,
+            "bytes": 272,
+            "allocs": 2
+          },
+          {
+            "reverse": false,
+            "ns": 446473125.0,
+            "bytes": 272,
+            "allocs": 2
+          },
+          {
+            "reverse": false,
+            "ns": 462472625.0,
+            "bytes": 272,
+            "allocs": 2
+          },
+          {
+            "reverse": true,
+            "ns": 429247208.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 420781292.0,
+            "bytes": 160,
+            "allocs": 1
+          },
+          {
+            "reverse": true,
+            "ns": 426302708.0,
+            "bytes": 160,
+            "allocs": 1
+          }
+        ]
+      },
+      "ratio": 1.0186141769730161
+    }
+  },
+  "inputs_sha256": {
+    "monolith.go": "bd5dfb1d0d5f5392602d8e4c26bf596639eba0ec6953194c012173f379f0a007",
+    "attention_lanes_test.go": "b7b778db54cf1e76de0387475debff6448e2e71f2a3a2603fe9abb7e650dbc9c"
+  },
+  "raw_sha256": "b83eac8c7042990bde333c835d2a5b766eff6cd85d7fb7f9082d5e59a3a32d7d",
+  "accepted": true
+}
