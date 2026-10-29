@@ -5712,6 +5712,57 @@ func (p *pagePool) acquire() *kvPage {
 	return &kvPage{make([]float32, p.PageElements)}
 }
 
+// A prefix snapshot is private to one engine actor. Its pages are immutable
+// while borrowed; the one-entry cache never creates a second live generation.
+type prefixSnapshot struct {
+	model     *Model
+	revision  uint64
+	ids       []int
+	pages     []*kvPage
+	borrowers int
+}
+
+func (p *prefixSnapshot) match(m *Model, ids []int) int {
+	if p.model != m || p.revision != m.Revision || len(ids) < 2 {
+		return 0
+	}
+	n := min(len(p.ids), len(ids)-1)
+	i := 0
+	for i < n && p.ids[i] == ids[i] {
+		i++
+	}
+	return i / pageTokens
+}
+func (p *prefixSnapshot) clear() {
+	p.ids = nil
+	p.model = nil
+	if p.borrowers == 0 {
+		p.pages = nil
+	}
+}
+
+// Retain only successful, committed full pages. The reserved prefix allowance
+// is separate from the mutable pool, so copying never consumes another request's
+// reservation. Reuse backing pages on replacement to avoid transient doubling.
+func (p *prefixSnapshot) capture(m *Model, c *KVCache, ids []int, limit int) {
+	if p.borrowers != 0 || c.Revision != m.Revision {
+		return
+	}
+	n := min(limit, c.Pos/pageTokens)
+	if n == 0 {
+		return
+	}
+	for len(p.pages) < n {
+		p.pages = append(p.pages, &kvPage{Data: make([]float32, 2*pageTokens*m.Config.KVDim()*m.Config.Layers)})
+	}
+	for i := 0; i < n; i++ {
+		copy(p.pages[i].Data, c.Pages[i].Data)
+	}
+	// Retained spare pages remain charged even when the new prefix is shorter.
+	p.ids = append(p.ids[:0], ids[:n*pageTokens]...)
+	p.model, p.revision = m, m.Revision
+}
+
 type KVCache struct {
 	Model       *Model
 	Revision    uint64
@@ -5720,6 +5771,8 @@ type KVCache struct {
 	pool        *pagePool
 	reserved    int
 	released    bool
+	shared      *prefixSnapshot
+	sharedPages int
 	budgetBytes int64 // Direct caches only; pooled caches use their pool reservation.
 }
 
@@ -5801,10 +5854,18 @@ func (c *KVCache) Close() {
 		return
 	}
 	if c.pool != nil {
-		c.pool.Free = append(c.pool.Free, c.Pages...)
+		c.pool.Free = append(c.pool.Free, c.Pages[c.sharedPages:]...)
 		c.pool.Reserved -= c.reserved
 	}
+	if c.shared != nil {
+		c.shared.borrowers--
+		if c.shared.borrowers == 0 && c.shared.model == nil {
+			c.shared.pages = nil
+		}
+		c.shared = nil
+	}
 	c.Pages = nil
+	c.sharedPages = 0
 	c.released = true
 }
 
@@ -5987,6 +6048,9 @@ func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [
 	for i, cache := range caches {
 		if cache == nil || cache.Model != m || cache.Revision != m.Revision || cache.released || seen[cache] {
 			return nil, errors.New("foreign, stale, released, or duplicate KV cache")
+		}
+		if cache.shared != nil && (cache.sharedPages < 1 || cache.sharedPages > len(cache.shared.pages) || cache.sharedPages > len(cache.Pages) || cache.Pos < cache.sharedPages*pageTokens) {
+			return nil, errors.New("invalid shared KV prefix")
 		}
 		chunk := chunks[i]
 		if len(chunk) < 1 || len(chunk) > 1024-n {
@@ -7275,7 +7339,8 @@ type EngineConfig struct {
 	MaxBatch, Queue                                            int
 	CacheBytes                                                 int64
 	StreamBuffer, PrefillChunk, MixedPrefillChunk, TokenBudget int
-	KernelWorkers                                              int // 0 captures min(GOMAXPROCS,256); 1 runs inline.
+	PrefixCacheBytes                                           int64 // Carved out of CacheBytes; 0 disables prefix retention.
+	KernelWorkers                                              int   // 0 captures min(GOMAXPROCS,256); 1 runs inline.
 }
 
 type TokenEvent struct {
@@ -7525,11 +7590,13 @@ type engineSession struct {
 	RNG             RNG
 	Text            incrementalText
 	LastToken       time.Time
+	PrefixEpoch     uint64
 }
 type engineCounters struct {
 	Submitted, Completed, Canceled, Failed, Rejected, Active, Reserved, Allocated atomic.Int64
 	InputTokens, GeneratedTokens, Ticks, SlowConsumers, PeakTickTokens            atomic.Int64
 	Released, Computing, KernelWorkers, WorkspaceFloatBytes                       atomic.Int64
+	PrefixHits, PrefixTokens, PrefixBytes                                         atomic.Int64
 }
 type EngineStats struct {
 	Submitted           int64 `json:"submitted"`
@@ -7551,6 +7618,9 @@ type EngineStats struct {
 	AdmissionUsed       int   `json:"admission_used"`
 	KernelWorkers       int64 `json:"kernel_workers"`
 	WorkspaceFloatBytes int64 `json:"workspace_float_bytes"`
+	PrefixHits          int64 `json:"prefix_hits"`
+	PrefixTokens        int64 `json:"prefix_tokens_reused"`
+	PrefixBytes         int64 `json:"prefix_bytes"`
 }
 
 var latencyBounds = [...]float64{.0001, .0005, .001, .005, .01, .05, .1, .5, 1, 5, 30, 120}
@@ -7591,6 +7661,10 @@ type Engine struct {
 	cancel                                     context.CancelFunc
 	done                                       chan struct{}
 	pool                                       pagePool
+	prefix                                     prefixSnapshot
+	prefixLimit                                int
+	prefixEpoch                                uint64
+	clearPrefix                                chan chan struct{}
 	stats                                      engineCounters
 	pieces                                     [][]byte
 	submitMu                                   sync.Mutex
@@ -7624,6 +7698,9 @@ func normalizeEngineConfig(c EngineConfig) (EngineConfig, error) {
 	if c.KernelWorkers == 0 {
 		c.KernelWorkers = min(runtime.GOMAXPROCS(0), 256)
 	}
+	if c.PrefixCacheBytes < 0 || c.PrefixCacheBytes >= c.CacheBytes {
+		return c, errors.New("prefix cache must be nonnegative and smaller than total KV budget")
+	}
 	if c.KernelWorkers < 1 || c.KernelWorkers > 256 {
 		return c, errors.New("invalid kernel worker count (1..256, or 0 for automatic)")
 	}
@@ -7650,19 +7727,46 @@ func newEngine(m *Model, tok inferenceTokenizer, c EngineConfig) (*Engine, error
 		return nil, errors.New("tokenizer/model mismatch")
 	}
 	elements := 2 * pageTokens * m.Config.KVDim() * m.Config.Layers
-	limit := int(c.CacheBytes / int64(elements*4))
+	prefixLimit := int(c.PrefixCacheBytes / int64(elements*4))
+	if c.PrefixCacheBytes != 0 && prefixLimit == 0 {
+		return nil, errors.New("prefix cache budget cannot hold one KV page")
+	}
+	limit := int((c.CacheBytes - c.PrefixCacheBytes) / int64(elements*4))
 	if limit < 1 {
 		return nil, errors.New("cache budget cannot hold one KV page")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	e := &Engine{Model: m, Tokenizer: tok, Config: c, queue: make(chan *engineRequest, c.Queue), admission: make(chan struct{}, c.Queue+c.MaxBatch), httpSlots: make(chan struct{}, c.Queue+c.MaxBatch), ctx: ctx, cancel: cancel, done: make(chan struct{}), pool: pagePool{PageElements: elements, Limit: limit}, pieces: tok.Pieces()}
+	e := &Engine{Model: m, Tokenizer: tok, Config: c, queue: make(chan *engineRequest, c.Queue), admission: make(chan struct{}, c.Queue+c.MaxBatch), httpSlots: make(chan struct{}, c.Queue+c.MaxBatch), ctx: ctx, cancel: cancel, done: make(chan struct{}), pool: pagePool{PageElements: elements, Limit: limit}, prefixLimit: prefixLimit, clearPrefix: make(chan chan struct{}), pieces: tok.Pieces()}
 	return e, nil
 }
 func (e *Engine) Stats() EngineStats {
 	s := &e.stats
-	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load(), Released: s.Released.Load(), Computing: s.Computing.Load(), AdmissionUsed: len(e.admission), KernelWorkers: s.KernelWorkers.Load(), WorkspaceFloatBytes: s.WorkspaceFloatBytes.Load()}
+	return EngineStats{Submitted: s.Submitted.Load(), Completed: s.Completed.Load(), Canceled: s.Canceled.Load(), Failed: s.Failed.Load(), Rejected: s.Rejected.Load(), Active: s.Active.Load(), Queue: len(e.queue), KVReservedBytes: s.Reserved.Load(), KVAllocatedBytes: s.Allocated.Load(), InputTokens: s.InputTokens.Load(), GeneratedTokens: s.GeneratedTokens.Load(), Ticks: s.Ticks.Load(), SlowConsumers: s.SlowConsumers.Load(), PeakTickTokens: s.PeakTickTokens.Load(), Released: s.Released.Load(), Computing: s.Computing.Load(), AdmissionUsed: len(e.admission), KernelWorkers: s.KernelWorkers.Load(), WorkspaceFloatBytes: s.WorkspaceFloatBytes.Load(), PrefixHits: s.PrefixHits.Load(), PrefixTokens: s.PrefixTokens.Load(), PrefixBytes: s.PrefixBytes.Load()}
 }
 func (e *Engine) Close() { e.cancel(); <-e.done }
+
+// ClearPrefix invalidates lookup immediately when the actor receives it. Pages
+// already borrowed remain read-only until their sessions release them. Results
+// from sessions admitted before the clear cannot republish the old history.
+func (e *Engine) ClearPrefix(ctx context.Context) error {
+	done := make(chan struct{})
+	select {
+	case e.clearPrefix <- done:
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-e.done:
+		return ErrClosed
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-e.done:
+		return ErrClosed
+	}
+}
+
 func (e *Engine) enqueue(ctx context.Context, prompt string, s Sampling, streaming, framed bool) (*engineRequest, error) {
 	started := time.Now()
 	if err := ctx.Err(); err != nil {
@@ -7822,9 +7926,18 @@ func (e *Engine) run() {
 	counts := make([]int, e.Config.MaxBatch)
 	rotation := 0
 	accounting := func() {
+		prefixBytes := int64(len(e.prefix.pages) * e.pool.PageElements * 4)
 		e.stats.Reserved.Store(int64(e.pool.Reserved * e.pool.PageElements * 4))
-		e.stats.Allocated.Store(int64(e.pool.Allocated * e.pool.PageElements * 4))
+		e.stats.Allocated.Store(int64(e.pool.Allocated*e.pool.PageElements*4) + prefixBytes)
+		e.stats.PrefixBytes.Store(prefixBytes)
 	}
+	clearPrefix := func(done chan struct{}) {
+		e.prefixEpoch++
+		e.prefix.clear()
+		accounting()
+		close(done)
+	}
+	defer func() { e.prefix.clear(); accounting() }()
 	finishRequest := func(r *engineRequest, out Completion, err error) {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrClosed) {
 			r.observeCancellation("actor")
@@ -7868,6 +7981,9 @@ func (e *Engine) run() {
 		close(r.Released)
 	}
 	finish := func(s *engineSession, out Completion, err error) {
+		if err == nil && s.PrefixEpoch == e.prefixEpoch && e.prefixLimit > 0 {
+			e.prefix.capture(e.Model, s.Cache, s.History, e.prefixLimit)
+		}
 		s.Cache.Close()
 		e.stats.Active.Add(-1)
 		accounting()
@@ -7889,6 +8005,11 @@ func (e *Engine) run() {
 				}
 			}
 		}
+		select {
+		case done := <-e.clearPrefix:
+			clearPrefix(done)
+		default:
+		}
 		alive := sessions[:0]
 		for _, s := range sessions {
 			if err := s.Request.Ctx.Err(); err != nil {
@@ -7905,6 +8026,9 @@ func (e *Engine) run() {
 			if len(sessions) == 0 {
 				select {
 				case r = <-e.queue:
+				case done := <-e.clearPrefix:
+					clearPrefix(done)
+					continue fill
 				case <-e.ctx.Done():
 					break fill
 				}
@@ -7927,7 +8051,16 @@ func (e *Engine) run() {
 			cache := e.Model.NewCache()
 			cache.pool, cache.reserved = &e.pool, pages
 			e.pool.Reserved += pages
-			sessions = append(sessions, &engineSession{Request: r, Cache: cache, History: append([]int(nil), r.IDs...), RNG: RNG{r.Sampling.Seed}, Text: newTextDecoder(e.Tokenizer)})
+			shared := e.prefix.match(e.Model, r.IDs)
+			if shared > 0 {
+				cache.shared, cache.sharedPages = &e.prefix, shared
+				cache.Pages = append(cache.Pages, e.prefix.pages[:shared]...)
+				cache.Pos = shared * pageTokens
+				e.prefix.borrowers++
+				e.stats.PrefixHits.Add(1)
+				e.stats.PrefixTokens.Add(int64(cache.Pos))
+			}
+			sessions = append(sessions, &engineSession{Request: r, Cache: cache, Cursor: cache.Pos, PrefixEpoch: e.prefixEpoch, History: append([]int(nil), r.IDs...), RNG: RNG{r.Sampling.Seed}, Text: newTextDecoder(e.Tokenizer)})
 			e.stats.Active.Add(1)
 			r.log("admitted")
 			e.queueLatency.observe(time.Since(r.Enqueued))
@@ -8169,6 +8302,7 @@ func (e *Engine) Handler() http.Handler {
 		fmt.Fprintf(w, "monolith_input_tokens_total %d\nmonolith_generated_tokens_total %d\nmonolith_ticks_total %d\nmonolith_slow_consumers_total %d\nmonolith_peak_tick_tokens %d\n", s.InputTokens, s.GeneratedTokens, s.Ticks, s.SlowConsumers, s.PeakTickTokens)
 		fmt.Fprintf(w, "monolith_released_total %d\nmonolith_computing_sessions %d\nmonolith_admission_used %d\n", s.Released, s.Computing, s.AdmissionUsed)
 		fmt.Fprintf(w, "monolith_kernel_workers %d\nmonolith_workspace_float_bytes %d\n", s.KernelWorkers, s.WorkspaceFloatBytes)
+		fmt.Fprintf(w, "monolith_prefix_hits_total %d\nmonolith_prefix_tokens_reused_total %d\nmonolith_prefix_bytes %d\n", s.PrefixHits, s.PrefixTokens, s.PrefixBytes)
 		e.queueLatency.write(w, "monolith_queue_wait_seconds")
 		e.firstTokenLatency.write(w, "monolith_first_token_seconds")
 		e.tokenGap.write(w, "monolith_token_gap_seconds")
@@ -8316,7 +8450,7 @@ func validateInferenceFlags(f *flag.FlagSet) error {
 	for _, bound := range []struct {
 		name   string
 		lo, hi int64
-	}{{"threads", 1, 1024}, {"context", 0, 32768}, {"weight-mib", 1, 1 << 20}, {"kv-mib", 1, 1 << 20}} {
+	}{{"threads", 1, 1024}, {"context", 0, 32768}, {"weight-mib", 1, 1 << 20}, {"kv-mib", 1, 1 << 20}, {"prefix-cache-mib", 0, 1 << 20}} {
 		if v := f.Lookup(bound.name); v != nil {
 			n, err := strconv.ParseInt(v.Value.String(), 10, 64)
 			if err != nil || n < bound.lo || n > bound.hi {
@@ -9204,6 +9338,9 @@ func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s
 		case "/exit", "/quit":
 			return nil
 		case "/reset":
+			if err := e.ClearPrefix(ctx); err != nil {
+				return err
+			}
 			history = append([]ChatMessage(nil), initial...)
 			if _, err := fmt.Fprintln(status, "History cleared."); err != nil {
 				return err
@@ -9254,6 +9391,12 @@ func chatLoop(ctx context.Context, e *Engine, tok *hfTokenizer, system string, s
 			return err
 		}
 		history = append(trial, ChatMessage{Role: "assistant", Content: result.Text})
+		if e.Config.PrefixCacheBytes > 0 {
+			stats := e.Stats()
+			if _, err := fmt.Fprintf(status, "Prefix cache: %d hits, %d input tokens reused, %d bytes retained.\n", stats.PrefixHits, stats.PrefixTokens, stats.PrefixBytes); err != nil {
+				return err
+			}
+		}
 	}
 }
 
@@ -9262,6 +9405,7 @@ func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	dir, limit, budget, format := hfFlags(f)
 	system := f.String("system", "", "system message; empty uses the model template default")
 	memory := f.Int64("kv-mib", 256, "KV cache budget in MiB")
+	prefixMemory := f.Int64("prefix-cache-mib", 0, "immutable prefix cache allowance within -kv-mib; 0 disables")
 	workers := f.Int("kernel-workers", 0, "fixed kernel workers; 0 selects automatically")
 	threads := threadFlag(f)
 	s := defaultSampling()
@@ -9272,7 +9416,7 @@ func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	if err := s.Validate(Config{Context: 32768}); err != nil {
 		return err
 	}
-	if _, err := normalizeEngineConfig(EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: *memory << 20, KernelWorkers: *workers}); err != nil {
+	if _, err := normalizeEngineConfig(EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: *memory << 20, PrefixCacheBytes: *prefixMemory << 20, KernelWorkers: *workers}); err != nil {
 		return err
 	}
 	if validateOnly {
@@ -9298,7 +9442,7 @@ func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	if err != nil {
 		return err
 	}
-	e, err := NewEngine(m, tok, EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: *memory << 20, KernelWorkers: *workers})
+	e, err := NewEngine(m, tok, EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: *memory << 20, PrefixCacheBytes: *prefixMemory << 20, KernelWorkers: *workers})
 	if err != nil {
 		return err
 	}
@@ -9520,13 +9664,14 @@ func runServe(ctx context.Context, args []string, validateOnly bool) (err error)
 	buffer := f.Int("stream-buffer", 32, "buffered token events per stream before slow-consumer termination")
 	queue := f.Int("queue", 32, "bounded request queue capacity")
 	memory := f.Int64("kv-mib", 256, "hard KV page budget in MiB")
+	prefixMemory := f.Int64("prefix-cache-mib", 0, "immutable prefix cache allowance within -kv-mib; 0 disables")
 	tracePath := f.String("trace", "", "new Go execution trace file for this serve invocation (process-wide)")
 	workers := f.Int("kernel-workers", 0, "reusable compute workers per engine (1..256); 0 captures min(threads,256), 1 runs inline")
 	threads := threadFlag(f)
 	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
 	}
-	engineConfig := EngineConfig{MaxBatch: *batch, Queue: *queue, CacheBytes: *memory << 20, PrefillChunk: *chunk, MixedPrefillChunk: *mixedChunk, TokenBudget: *budget, StreamBuffer: *buffer, KernelWorkers: *workers}
+	engineConfig := EngineConfig{MaxBatch: *batch, Queue: *queue, CacheBytes: *memory << 20, PrefixCacheBytes: *prefixMemory << 20, PrefillChunk: *chunk, MixedPrefillChunk: *mixedChunk, TokenBudget: *budget, StreamBuffer: *buffer, KernelWorkers: *workers}
 	if _, err := normalizeEngineConfig(engineConfig); err != nil {
 		return err
 	}
