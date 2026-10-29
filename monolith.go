@@ -85,6 +85,18 @@ func (c Config) Validate() error {
 	return c.validateLimits(65536, maxParameters)
 }
 func (c Config) validateLimits(vocab int, parameters int64) error {
+	if err := c.validateShapeLimits(vocab, parameters); err != nil {
+		return err
+	}
+	if int64(c.Context)*int64(c.KVDim())*int64(c.Layers)*2 > maxActivationElements {
+		return errors.New("KV cache exceeds allocation limit")
+	}
+	return nil
+}
+
+// HF metadata validity is independent of runtime KV admission. Native models
+// retain their original allocation guard through validateLimits.
+func (c Config) validateShapeLimits(vocab int, parameters int64) error {
 	if c.Vocab < baseVocab || c.Vocab > vocab || c.Dim < 2 || c.Dim > 8192 || c.Hidden < 1 || c.Hidden > 32768 || c.Layers < 1 || c.Layers > 128 || c.Heads < 1 || c.Heads > c.Dim || c.KVHeads < 1 || c.KVHeads > c.Heads || c.Context < 1 || c.Context > 32768 {
 		return errors.New("invalid model dimensions (see README limits)")
 	}
@@ -96,9 +108,6 @@ func (c Config) validateLimits(vocab int, parameters int64) error {
 	}
 	if c.ParameterCount() > parameters {
 		return fmt.Errorf("model exceeds %d parameter allocation limit", parameters)
-	}
-	if int64(c.Context)*int64(c.KVDim())*int64(c.Layers)*2 > maxActivationElements {
-		return errors.New("KV cache exceeds allocation limit")
 	}
 	return nil
 }
@@ -365,7 +374,7 @@ func readHFConfig(dir string, contextLimit int) (hfConfig, Config, error) {
 	} else {
 		c.Context = min(h.Context, 2048)
 	}
-	if err := c.validateLimits(maxHFVocab, maxHFParameters); err != nil {
+	if err := c.validateShapeLimits(maxHFVocab, maxHFParameters); err != nil {
 		return h, c, err
 	}
 	if hfParameterCount(c, h) > maxHFParameters {
@@ -491,9 +500,9 @@ func readGPT2Config(raw map[string]json.RawMessage, limit int) (hfConfig, Config
 	} else {
 		c.Context = min(h.Context, 2048)
 	}
-	// Reuse dimension/KV guards; the exact GPT-2 storage check below replaces
+	// Reuse dimension guards; the exact GPT-2 storage check below replaces
 	// the native three-projection MLP parameter estimate.
-	if err := c.validateLimits(maxHFVocab, math.MaxInt64); err != nil {
+	if err := c.validateShapeLimits(maxHFVocab, math.MaxInt64); err != nil {
 		return h, c, err
 	}
 	if hfParameterCount(c, h) > maxHFParameters {
@@ -945,14 +954,15 @@ func runInspectHF(args []string, validateOnly bool) error {
 }
 
 type hfCheck struct {
-	Format              string `json:"format"`
-	Weights             HFPlan `json:"weights"`
-	TokenizerProfile    string `json:"tokenizer_profile"`
-	ChatSupported       bool   `json:"chat_supported"`
-	ModelContext        int    `json:"model_context"`
-	WeightBudgetBytes   int64  `json:"weight_budget_bytes"`
-	KVPageAlignedBytes  int64  `json:"kv_page_aligned_bytes_per_session"`
-	WeightValuesChecked bool   `json:"weight_values_checked"`
+	Format              string        `json:"format"`
+	Weights             HFPlan        `json:"weights"`
+	TokenizerProfile    string        `json:"tokenizer_profile"`
+	ChatSupported       bool          `json:"chat_supported"`
+	ModelContext        int           `json:"model_context"`
+	WeightBudgetBytes   int64         `json:"weight_budget_bytes"`
+	KVPageAlignedBytes  int64         `json:"kv_page_aligned_bytes_per_session"`
+	KVPlan              *KVMemoryPlan `json:"kv_plan,omitempty"`
+	WeightValuesChecked bool          `json:"weight_values_checked"`
 }
 
 func checkHF(dir string, limit int, budget int64, requireChat bool) (hfCheck, error) {
@@ -992,6 +1002,7 @@ func checkHFFormat(dir string, limit int, budget int64, requireChat bool, format
 func runCheckHF(args []string, validateOnly bool) error {
 	f := flags("check-hf")
 	dir, limit, budget, format := hfFlags(f)
+	kvMiB := f.Int64("kv-mib", 512, "direct KV page budget in MiB; selected context must fit")
 	asJSON := f.Bool("json", false, "emit machine-readable preflight report")
 	chat := f.Bool("chat", false, "require a supported chat template")
 	if err := parseInferenceAction(f, args, validateOnly); err != nil {
@@ -1004,6 +1015,14 @@ func runCheckHF(args []string, validateOnly bool) error {
 	if err != nil {
 		return err
 	}
+	kvPlan, err := planInferenceKV(report.Weights.Config, report.Weights.Config.Context, *kvMiB<<20)
+	if err != nil {
+		return err
+	}
+	report.KVPlan = &kvPlan
+	if !kvPlan.FitsBudget {
+		return kvPlan.budgetError()
+	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -1012,6 +1031,7 @@ func runCheckHF(args []string, validateOnly bool) error {
 	fmt.Printf("Compatible metadata: %s / %s\n", report.Weights.ModelType, report.TokenizerProfile)
 	fmt.Printf("Context: %d (model maximum %d); chat supported: %t\n", report.Weights.Config.Context, report.ModelContext, report.ChatSupported)
 	fmt.Printf("%s weights: %.1f MiB / %d MiB budget; paged KV per full session: %.1f MiB\n", report.Weights.WeightFormat, float64(report.Weights.WeightBytes)/(1<<20), *budget, float64(report.KVPageAlignedBytes)/(1<<20))
+	fmt.Printf("KV budget: %.1f MiB; selected context fits: %t\n", float64(kvPlan.BudgetBytes)/(1<<20), kvPlan.FitsBudget)
 	fmt.Println("Weights are not loaded; payload values are checked at load time. Scratch, tokenizer and Go runtime memory are additional.")
 	return nil
 }
@@ -1171,10 +1191,16 @@ func inferHFIDs(ctx context.Context, m *Model, ids []int, count, chunk int, logi
 			return out, errors.New("HF token ID outside vocabulary")
 		}
 	}
+	plan, err := planInferenceKV(m.Config, len(ids)+count, m.directKVBudget())
+	if err != nil {
+		return out, err
+	}
+	if !plan.FitsBudget {
+		return out, plan.budgetError()
+	}
 	cache := m.NewCache()
 	defer cache.Close()
 	var next []float32
-	var err error
 	for lo := 0; lo < len(ids); lo += chunk {
 		next, err = m.PrefillBatch(ctx, []*KVCache{cache}, [][]int{ids[lo:min(lo+chunk, len(ids))]})
 		if err != nil {
@@ -1214,6 +1240,7 @@ func inferHFIDs(ctx context.Context, m *Model, ids []int, count, chunk int, logi
 func runInferHF(ctx context.Context, args []string, validateOnly bool) error {
 	f := flags("infer-hf")
 	dir, limit, budget, format := hfFlags(f)
+	kvMiB := f.Int64("kv-mib", 512, "direct KV page budget in MiB; selected context must fit")
 	input := f.String("ids", "", "comma-separated token IDs, already framed")
 	count := f.Int("max-tokens", 8, "greedy outputs (1..256)")
 	chunk := f.Int("prefill-chunk", 16, "prompt tokens per call (1..1024)")
@@ -1245,7 +1272,7 @@ func runInferHF(ctx context.Context, args []string, validateOnly bool) error {
 	if err := setThreads(*threads); err != nil {
 		return err
 	}
-	m, _, err := loadHFModelFormat(ctx, *dir, *limit, *budget, *format)
+	m, _, err := loadHFModelFormatKV(ctx, *dir, *limit, *budget, *format, *kvMiB<<20, true)
 	if err != nil {
 		return err
 	}
@@ -1266,6 +1293,14 @@ func flagSet(f *flag.FlagSet, name string) bool {
 	return set
 }
 func loadInference(ctx context.Context, f *flag.FlagSet, model, dir string, limit int, budget int64, format string) (*Model, inferenceTokenizer, error) {
+	kvBytes := defaultInferenceKVBytes
+	if v := f.Lookup("kv-mib"); v != nil {
+		mib, err := strconv.ParseInt(v.Value.String(), 10, 64)
+		if err != nil || mib < 1 || mib > 1<<20 {
+			return nil, nil, errors.New("invalid -kv-mib")
+		}
+		kvBytes = mib << 20
+	}
 	if dir != "" {
 		if flagSet(f, "model") {
 			return nil, nil, errors.New("-model and -hf-model are mutually exclusive")
@@ -1278,7 +1313,7 @@ func loadInference(ctx context.Context, f *flag.FlagSet, model, dir string, limi
 		if err != nil {
 			return nil, nil, err
 		}
-		m, _, err := loadHFModelFormat(ctx, dir, limit, budget, format)
+		m, _, err := loadHFModelFormatKV(ctx, dir, limit, budget, format, kvBytes, f.Name() != "chat" && f.Name() != "serve")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1291,6 +1326,9 @@ func loadInference(ctx context.Context, f *flag.FlagSet, model, dir string, limi
 		return nil, nil, errors.New("-context/-weight-mib/-weight-format require -hf-model")
 	}
 	m, tok, _, err := LoadCheckpoint(model)
+	if m != nil {
+		m.directKVBytes = kvBytes
+	}
 	return m, tok, err
 }
 func chatFlags(f *flag.FlagSet) (*bool, *string) {
@@ -4779,6 +4817,7 @@ type Model struct {
 	Params              []*Param
 	Cos, Sin            []float32
 	Revision            uint64
+	directKVBytes       int64 // Immutable after load; zero selects the 512 MiB default.
 	decodePool          sync.Pool
 	hf                  *hfConfig // Non-nil marks imported, inference-only model semantics.
 }
@@ -4815,20 +4854,44 @@ func hfInverseFrequency(theta float64, headDim, index int, scaling *hfLlama3RoPE
 }
 
 func loadHFModelFormat(ctx context.Context, dir string, limit int, mib int64, format string) (*Model, HFPlan, error) {
+	return loadHFModelFormatKV(ctx, dir, limit, mib, format, defaultInferenceKVBytes, true)
+}
+
+// Direct loaders reserve the full selected context before reading weights.
+// Engine loaders use their existing request/page-pool reservations instead.
+func loadHFModelFormatKV(ctx context.Context, dir string, limit int, mib int64, format string, kvBytes int64, fullContext bool) (*Model, HFPlan, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, HFPlan{}, err
+	}
+	_, config, err := readHFConfig(dir, limit)
+	if err != nil {
+		return nil, HFPlan{}, err
+	}
+	plan, err := planInferenceKV(config, config.Context, kvBytes)
+	if err != nil {
+		return nil, HFPlan{}, err
+	}
+	if fullContext && !plan.FitsBudget {
+		return nil, HFPlan{}, plan.budgetError()
 	}
 	a, err := openHFFlagsFormat(dir, limit, mib, format)
 	if err != nil {
 		return nil, HFPlan{}, err
 	}
 	defer a.Close()
+	if a.Plan.Config != config {
+		return nil, a.Plan, errors.New("HF configuration changed during KV admission")
+	}
 	if a.Config.ModelType == "gpt2" {
 		m, err := loadGPT2(ctx, a)
+		if m != nil {
+			m.directKVBytes = kvBytes
+		}
 		return m, a.Plan, err
 	}
 	m := allocateModelStorageFormat(a.Plan.Config, nil, format)
 	m.hf = &a.Config
+	m.directKVBytes = kvBytes
 	makeExtra := func(name string, rows, cols int) *Param {
 		p := newInferenceParamFormat(name, rows, cols, name == "output", format)
 		m.Params = append(m.Params, p)
@@ -5710,9 +5773,62 @@ type KVCache struct {
 	released    bool
 	shared      *prefixSnapshot
 	sharedPages int
+	budgetBytes int64 // Direct caches only; pooled caches use their pool reservation.
 }
 
-func (m *Model) NewCache() *KVCache { return &KVCache{Model: m, Revision: m.Revision} }
+const defaultInferenceKVBytes int64 = 512 << 20
+const maxInferenceKVBytes int64 = 1 << 40
+
+type KVMemoryPlan struct {
+	Positions     int   `json:"positions"`
+	Pages         int   `json:"pages"`
+	PageBytes     int64 `json:"page_bytes"`
+	RequiredBytes int64 `json:"required_bytes"`
+	BudgetBytes   int64 `json:"budget_bytes"`
+	FitsBudget    bool  `json:"fits_budget"`
+}
+
+func planInferenceKV(c Config, positions int, budget int64) (KVMemoryPlan, error) {
+	p := KVMemoryPlan{Positions: positions, BudgetBytes: budget}
+	if err := c.validateShapeLimits(maxHFVocab, math.MaxInt64); err != nil {
+		return p, err
+	}
+	if positions < 1 || positions > c.Context || budget < 1 || budget > maxInferenceKVBytes {
+		return p, errors.New("invalid KV positions or byte budget")
+	}
+	p.Pages = (positions + pageTokens - 1) / pageTokens
+	p.PageBytes = int64(2*pageTokens) * int64(c.KVDim()) * int64(c.Layers) * 4
+	p.RequiredBytes = int64(p.Pages) * p.PageBytes
+	p.FitsBudget = p.RequiredBytes <= budget
+	return p, nil
+}
+func (p KVMemoryPlan) budgetError() error {
+	return fmt.Errorf("KV budget exceeded: %d page-rounded bytes required for %d positions; budget %d bytes (set -kv-mib or reduce -context)", p.RequiredBytes, p.Positions, p.BudgetBytes)
+}
+func (m *Model) directKVBudget() int64 {
+	if m.directKVBytes == 0 {
+		return defaultInferenceKVBytes
+	}
+	return m.directKVBytes
+}
+func (m *Model) NewCache() *KVCache {
+	return &KVCache{Model: m, Revision: m.Revision, budgetBytes: m.directKVBudget()}
+}
+
+// Explicit full-context admission for callers that own a direct KV cache.
+func (m *Model) NewCacheWithBudget(bytes int64) (*KVCache, error) {
+	if m == nil {
+		return nil, errors.New("nil cache model")
+	}
+	p, err := planInferenceKV(m.Config, m.Config.Context, bytes)
+	if err != nil {
+		return nil, err
+	}
+	if !p.FitsBudget {
+		return nil, p.budgetError()
+	}
+	return &KVCache{Model: m, Revision: m.Revision, budgetBytes: bytes}, nil
+}
 func (c *KVCache) ensurePage() {
 	c.ensurePages(c.Pos + 1)
 }
@@ -5950,6 +6066,19 @@ func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [
 		}
 		end := cache.Pos + len(chunk)
 		pages := (end + pageTokens - 1) / pageTokens
+		if cache.pool == nil {
+			budget := cache.budgetBytes
+			if budget == 0 {
+				budget = m.directKVBudget()
+			}
+			plan, err := planInferenceKV(c, end, budget)
+			if err != nil {
+				return nil, err
+			}
+			if !plan.FitsBudget {
+				return nil, plan.budgetError()
+			}
+		}
 		if len(cache.Pages) < (cache.Pos+pageTokens-1)/pageTokens || len(cache.Pages) > (c.Context+pageTokens-1)/pageTokens {
 			return nil, errors.New("invalid KV page coverage")
 		}
@@ -7101,25 +7230,71 @@ func generationWorkerCount(c Config, promptTokens, maxTokens int) int {
 	return min(runtime.GOMAXPROCS(0), 256)
 }
 
+// Prompt forwarding shares each weight read across a bounded group of rows.
+// The soft 16 MiB scratch target limits retained prompt workspace; the existing
+// hard admission check still applies to every forward call. A one-row fallback
+// preserves requests that need more than the soft target even without batching.
+func generationPromptRows(m *Model, tokens, workers int, targetElements int64) int {
+	if tokens < 4 {
+		return 1
+	}
+	c := m.Config
+	rowElements := int64(5*c.Dim + 2*c.KVDim() + 3*c.Hidden)
+	if m.Position != nil {
+		rowElements -= int64(c.Hidden)
+	}
+	for rows := min(16, tokens); rows > 1; rows /= 2 {
+		plan := planInferenceAttention(&kernelExecutor{workers: workers}, c, rows, tokens)
+		// Logits plus the reserved public copy are session-sized, not row-sized.
+		elements := int64(rows)*rowElements + 2*int64(c.Vocab) + int64(plan.lanes)*int64(plan.stride)
+		if elements <= targetElements {
+			return rows
+		}
+	}
+	return 1
+}
+
+func planGenerationPrompt(m *Model, promptTokens, maxTokens int) (rows, workers int) {
+	available := min(runtime.GOMAXPROCS(0), 256)
+	rows = generationPromptRows(m, promptTokens, available, (16<<20)/4)
+	workers = generationWorkerCount(m.Config, promptTokens, maxTokens)
+	// Chunk projections and attention can exceed the parallel threshold even
+	// when every single-row decode call would stay inline. The output head
+	// remains one row because prefill returns only the final prompt logits.
+	c := m.Config
+	if c.Dim*rows*max(c.Dim, c.Hidden, promptTokens) >= 131072 {
+		workers = available
+	}
+	return rows, workers
+}
+
 func generateInput(ctx context.Context, m *Model, tok inferenceTokenizer, prompt string, s Sampling, framed bool) (Completion, error) {
 	ids, err := prepareInput(ctx, m, tok, prompt, s, framed)
 	if err != nil {
 		return Completion{}, err
 	}
+	plan, err := planInferenceKV(m.Config, len(ids)+s.MaxTokens, m.directKVBudget())
+	if err != nil {
+		return Completion{}, err
+	}
+	if !plan.FitsBudget {
+		return Completion{}, plan.budgetError()
+	}
 	cache := m.NewCache()
 	defer cache.Close()
 	// One call owns its workers and scratch, including through sampling. Join
 	// workers before releasing KV; no mutable execution state lives on Model.
-	executor := newKernelExecutor(generationWorkerCount(m.Config, len(ids), s.MaxTokens))
+	promptRows, workers := planGenerationPrompt(m, len(ids), s.MaxTokens)
+	executor := newKernelExecutor(workers)
 	defer executor.close()
 	var workspace decodeWorkspace
 	caches, chunks := []*KVCache{cache}, make([][]int, 1)
 	var logits []float32
-	for i := range ids {
+	for i := 0; i < len(ids); i += promptRows {
 		if err = ctx.Err(); err != nil {
 			return Completion{}, err
 		}
-		chunks[0] = ids[i : i+1]
+		chunks[0] = ids[i:min(i+promptRows, len(ids))]
 		logits, err = m.prefillBorrowed(ctx, caches, chunks, executor, &workspace)
 		if err != nil {
 			return Completion{}, err
@@ -9079,6 +9254,7 @@ func runGenerate(ctx context.Context, args []string, validateOnly bool) error {
 	f := flags("generate")
 	model := f.String("model", "runs/model.mglm", "checkpoint")
 	dir, limit, budget, format := hfFlags(f)
+	f.Int64("kv-mib", 512, "direct KV page budget in MiB; selected context must fit")
 	chat, messages := chatFlags(f)
 	prompt := f.String("prompt", "", "text prompt")
 	f.String("prompt-file", "", "prompt file; - reads stdin (at most 1 MiB)")
