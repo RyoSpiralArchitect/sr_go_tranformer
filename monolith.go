@@ -5717,6 +5717,45 @@ func (w *decodeWorkspace) floatBytes() int64 {
 	return elements * 4
 }
 
+// A lane owns one score slice while processing independent heads. The actor
+// joins every lane before changing KV or reusing scratch; no new workers are
+// created by the engine. Rounding to KV pages avoids per-token reallocation.
+type inferenceAttentionPlan struct{ lanes, stride, work int }
+
+func planInferenceAttention(e *kernelExecutor, c Config, rows, maxPos int) inferenceAttentionPlan {
+	workers := runtime.GOMAXPROCS(0)
+	if e != nil {
+		workers = e.workers
+	}
+	work := rows * c.Dim * maxPos
+	lanes := min(max(1, workers), rows*c.Heads, 256)
+	if work < 131072 {
+		lanes = 1
+	}
+	stride := min(c.Context, ((maxPos+pageTokens-1)/pageTokens)*pageTokens)
+	return inferenceAttentionPlan{lanes: lanes, stride: stride, work: work}
+}
+
+func (w *decodeWorkspace) attend(e *kernelExecutor, c Config, layer, rows int, plan inferenceAttentionPlan) {
+	d, hd, group := c.Dim, c.Dim/c.Heads, c.Heads/c.KVHeads
+	tasks := rows * c.Heads
+	e.parallel(plan.lanes, plan.work, func(lo, hi int) {
+		for lane := lo; lane < hi; lane++ {
+			scores := w.Scores[lane*plan.stride : (lane+1)*plan.stride]
+			for task := tasks * lane / plan.lanes; task < tasks*(lane+1)/plan.lanes; task++ {
+				i, h := task/c.Heads, task%c.Heads
+				cache := w.rowCaches[i]
+				kh, qi := h/group, i*d+h*hd
+				kv := func(pos int) ([]float32, []float32) {
+					k, v := cache.row(layer, pos)
+					return k[kh*hd : (kh+1)*hd], v[kh*hd : (kh+1)*hd]
+				}
+				attend(w.Q[qi:qi+hd], w.A[qi:qi+hd], scores, w.positions[i]+1, kv)
+			}
+		}
+	})
+}
+
 type inferenceArray struct {
 	x *[]float32
 	n int
@@ -5879,7 +5918,7 @@ func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [
 			}
 		}
 	}
-	d, kd, hd := c.Dim, c.KVDim(), c.Dim/c.Heads
+	d, kd := c.Dim, c.KVDim()
 	upElements := n * c.Hidden
 	if m.Position != nil {
 		upElements = 0
@@ -5887,7 +5926,7 @@ func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	group := c.Heads / c.KVHeads
+	attention := planInferenceAttention(executor, c, n, maxPos)
 	// Reserve the public result copy in both paths to keep admission limits
 	// unchanged. Metadata is separately bounded by 256 sessions / 1024 rows.
 	arrays := []inferenceArray{
@@ -5895,7 +5934,7 @@ func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [
 		{&w.K, n * kd}, {&w.V, n * kd}, {&w.A, n * d},
 		{&w.Tmp, n * d}, {&w.G, n * c.Hidden},
 		{&w.U, upElements}, {&w.H, n * c.Hidden},
-		{&w.Logits, sessions * c.Vocab}, {&w.Scores, n * maxPos},
+		{&w.Logits, sessions * c.Vocab}, {&w.Scores, attention.lanes * attention.stride},
 	}
 	if err := resizeInferenceArrays(arrays, int64(sessions)*int64(c.Vocab), maxActivationElements); err != nil {
 		return nil, err
@@ -5936,21 +5975,7 @@ func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [
 			copy(k, w.K[i*kd:(i+1)*kd])
 			copy(v, w.V[i*kd:(i+1)*kd])
 		}
-		executor.parallel(n, n*c.Heads*maxPos*hd, func(lo, hi int) {
-			for i := lo; i < hi; i++ {
-				cache := rowCaches[i]
-				scores := w.Scores[i*maxPos : (i+1)*maxPos]
-				for h := 0; h < c.Heads; h++ {
-					kh := h / group
-					qi := i*d + h*hd
-					kv := func(pos int) ([]float32, []float32) {
-						k, v := cache.row(l, pos)
-						return k[kh*hd : (kh+1)*hd], v[kh*hd : (kh+1)*hd]
-					}
-					attend(w.Q[qi:qi+hd], w.A[qi:qi+hd], scores, positions[i]+1, kv)
-				}
-			}
-		})
+		w.attend(executor, c, l, n, attention)
 		linearIntoWithExecutor(executor, w.Tmp, w.A, b.O, n)
 		addBias(w.Tmp, b.OB)
 		addInPlace(w.X, w.Tmp)

@@ -279,23 +279,26 @@ func TestPrefillReservationValidationAndRelease(t *testing.T) {
 }
 
 func TestPrefillWorkspaceBoundBeforeAllocation(t *testing.T) {
-	// Valid model geometry but no weights are needed: workspace rejection must
-	// happen before allocation, model reads, or any change to the cache.
-	c := Config{Vocab: baseVocab, Dim: 512, Hidden: 32768, Layers: 1, Heads: 256, KVHeads: 1, Context: 32768, RopeTheta: 10000, NormEps: 1e-5}
+	// Valid geometry, no weights: the MLP buffers plus public/buffered logits
+	// exceed the budget even when attention scratch is bounded by worker lanes.
+	c := Config{Vocab: 65536, Dim: 512, Hidden: 32768, Layers: 1, Heads: 256, KVHeads: 1, Context: 32, RopeTheta: 10000, NormEps: 1e-5}
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
 	m := &Model{Config: c}
-	cache := m.NewCache()
-	defer cache.Close()
-	cache.Pos = c.Context - 1024
-	cache.ensurePages(cache.Pos)
-	pages := len(cache.Pages)
-	if _, err := m.PrefillBatch(context.Background(), []*KVCache{cache}, [][]int{make([]int, 1024)}); err == nil {
+	caches, chunks := make([]*KVCache, 256), make([][]int, 256)
+	for i := range caches {
+		caches[i] = m.NewCache()
+		chunks[i] = make([]int, 4)
+		defer caches[i].Close()
+	}
+	if _, err := m.PrefillBatch(context.Background(), caches, chunks); err == nil {
 		t.Fatal("accepted workspace beyond allocation budget")
 	}
-	if cache.Pos != c.Context-1024 || len(cache.Pages) != pages {
-		t.Fatal("workspace rejection changed cache")
+	for _, cache := range caches {
+		if cache.Pos != 0 || len(cache.Pages) != 0 {
+			t.Fatal("workspace rejection changed cache")
+		}
 	}
 }
 
