@@ -3964,7 +3964,43 @@ func linearQ8Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 					y[r*out+o], y[(r+1)*out+o] = s0, s1
 					y[(r+2)*out+o], y[(r+3)*out+o] = s2, s3
 				} else {
-					for row := r; row < min(r+4, n); row++ {
+					row := r
+					if row+2 <= n {
+						x0, x1 := x[row*in:(row+1)*in], x[(row+1)*in:(row+2)*in]
+						var s0, s1 float32
+						for g, scale := range scales {
+							j, end := g*q8Block, min((g+1)*q8Block, in)
+							if end-j == 64 {
+								p0, p1 := dotQ8PairBlock64((*[64]float32)(x0[j:end]), (*[64]float32)(x1[j:end]), (*[64]int8)(wr[j:end]))
+								s0 += p0 * scale
+								s1 += p1 * scale
+								continue
+							}
+							var a0, b0, c0, d0, a1, b1, c1, d1 float32
+							for ; j+4 <= end; j += 4 {
+								v0, v1, v2, v3 := float32(wr[j]), float32(wr[j+1]), float32(wr[j+2]), float32(wr[j+3])
+								a0 += x0[j] * v0
+								b0 += x0[j+1] * v1
+								c0 += x0[j+2] * v2
+								d0 += x0[j+3] * v3
+								a1 += x1[j] * v0
+								b1 += x1[j+1] * v1
+								c1 += x1[j+2] * v2
+								d1 += x1[j+3] * v3
+							}
+							p0, p1 := (a0+b0)+(c0+d0), (a1+b1)+(c1+d1)
+							for ; j < end; j++ {
+								v := float32(wr[j])
+								p0 += x0[j] * v
+								p1 += x1[j] * v
+							}
+							s0 += p0 * scale
+							s1 += p1 * scale
+						}
+						y[row*out+o], y[(row+1)*out+o] = s0, s1
+						row += 2
+					}
+					for ; row < min(r+4, n); row++ {
 						xr := x[row*in : (row+1)*in]
 						var sum float32
 						for g, scale := range scales {
@@ -3988,6 +4024,158 @@ func linearQ8Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 			}
 		}
 	})
+}
+
+// Complete Q8 pairs keep the original four accumulators and reduction order.
+// Safe array views avoid per-column bounds/index work without copying. Paired
+// rows share each int8-to-float32 conversion; scales remain outside each sum.
+func dotQ8PairBlock64(x0, x1 *[64]float32, w *[64]int8) (float32, float32) {
+	var a0, b0, c0, d0, a1, b1, c1, d1 float32
+	v0, v1, v2, v3 := float32(w[0]), float32(w[1]), float32(w[2]), float32(w[3])
+	a0 += x0[0] * v0
+	b0 += x0[1] * v1
+	c0 += x0[2] * v2
+	d0 += x0[3] * v3
+	a1 += x1[0] * v0
+	b1 += x1[1] * v1
+	c1 += x1[2] * v2
+	d1 += x1[3] * v3
+	v4, v5, v6, v7 := float32(w[4]), float32(w[5]), float32(w[6]), float32(w[7])
+	a0 += x0[4] * v4
+	b0 += x0[5] * v5
+	c0 += x0[6] * v6
+	d0 += x0[7] * v7
+	a1 += x1[4] * v4
+	b1 += x1[5] * v5
+	c1 += x1[6] * v6
+	d1 += x1[7] * v7
+	v8, v9, v10, v11 := float32(w[8]), float32(w[9]), float32(w[10]), float32(w[11])
+	a0 += x0[8] * v8
+	b0 += x0[9] * v9
+	c0 += x0[10] * v10
+	d0 += x0[11] * v11
+	a1 += x1[8] * v8
+	b1 += x1[9] * v9
+	c1 += x1[10] * v10
+	d1 += x1[11] * v11
+	v12, v13, v14, v15 := float32(w[12]), float32(w[13]), float32(w[14]), float32(w[15])
+	a0 += x0[12] * v12
+	b0 += x0[13] * v13
+	c0 += x0[14] * v14
+	d0 += x0[15] * v15
+	a1 += x1[12] * v12
+	b1 += x1[13] * v13
+	c1 += x1[14] * v14
+	d1 += x1[15] * v15
+	v16, v17, v18, v19 := float32(w[16]), float32(w[17]), float32(w[18]), float32(w[19])
+	a0 += x0[16] * v16
+	b0 += x0[17] * v17
+	c0 += x0[18] * v18
+	d0 += x0[19] * v19
+	a1 += x1[16] * v16
+	b1 += x1[17] * v17
+	c1 += x1[18] * v18
+	d1 += x1[19] * v19
+	v20, v21, v22, v23 := float32(w[20]), float32(w[21]), float32(w[22]), float32(w[23])
+	a0 += x0[20] * v20
+	b0 += x0[21] * v21
+	c0 += x0[22] * v22
+	d0 += x0[23] * v23
+	a1 += x1[20] * v20
+	b1 += x1[21] * v21
+	c1 += x1[22] * v22
+	d1 += x1[23] * v23
+	v24, v25, v26, v27 := float32(w[24]), float32(w[25]), float32(w[26]), float32(w[27])
+	a0 += x0[24] * v24
+	b0 += x0[25] * v25
+	c0 += x0[26] * v26
+	d0 += x0[27] * v27
+	a1 += x1[24] * v24
+	b1 += x1[25] * v25
+	c1 += x1[26] * v26
+	d1 += x1[27] * v27
+	v28, v29, v30, v31 := float32(w[28]), float32(w[29]), float32(w[30]), float32(w[31])
+	a0 += x0[28] * v28
+	b0 += x0[29] * v29
+	c0 += x0[30] * v30
+	d0 += x0[31] * v31
+	a1 += x1[28] * v28
+	b1 += x1[29] * v29
+	c1 += x1[30] * v30
+	d1 += x1[31] * v31
+	v32, v33, v34, v35 := float32(w[32]), float32(w[33]), float32(w[34]), float32(w[35])
+	a0 += x0[32] * v32
+	b0 += x0[33] * v33
+	c0 += x0[34] * v34
+	d0 += x0[35] * v35
+	a1 += x1[32] * v32
+	b1 += x1[33] * v33
+	c1 += x1[34] * v34
+	d1 += x1[35] * v35
+	v36, v37, v38, v39 := float32(w[36]), float32(w[37]), float32(w[38]), float32(w[39])
+	a0 += x0[36] * v36
+	b0 += x0[37] * v37
+	c0 += x0[38] * v38
+	d0 += x0[39] * v39
+	a1 += x1[36] * v36
+	b1 += x1[37] * v37
+	c1 += x1[38] * v38
+	d1 += x1[39] * v39
+	v40, v41, v42, v43 := float32(w[40]), float32(w[41]), float32(w[42]), float32(w[43])
+	a0 += x0[40] * v40
+	b0 += x0[41] * v41
+	c0 += x0[42] * v42
+	d0 += x0[43] * v43
+	a1 += x1[40] * v40
+	b1 += x1[41] * v41
+	c1 += x1[42] * v42
+	d1 += x1[43] * v43
+	v44, v45, v46, v47 := float32(w[44]), float32(w[45]), float32(w[46]), float32(w[47])
+	a0 += x0[44] * v44
+	b0 += x0[45] * v45
+	c0 += x0[46] * v46
+	d0 += x0[47] * v47
+	a1 += x1[44] * v44
+	b1 += x1[45] * v45
+	c1 += x1[46] * v46
+	d1 += x1[47] * v47
+	v48, v49, v50, v51 := float32(w[48]), float32(w[49]), float32(w[50]), float32(w[51])
+	a0 += x0[48] * v48
+	b0 += x0[49] * v49
+	c0 += x0[50] * v50
+	d0 += x0[51] * v51
+	a1 += x1[48] * v48
+	b1 += x1[49] * v49
+	c1 += x1[50] * v50
+	d1 += x1[51] * v51
+	v52, v53, v54, v55 := float32(w[52]), float32(w[53]), float32(w[54]), float32(w[55])
+	a0 += x0[52] * v52
+	b0 += x0[53] * v53
+	c0 += x0[54] * v54
+	d0 += x0[55] * v55
+	a1 += x1[52] * v52
+	b1 += x1[53] * v53
+	c1 += x1[54] * v54
+	d1 += x1[55] * v55
+	v56, v57, v58, v59 := float32(w[56]), float32(w[57]), float32(w[58]), float32(w[59])
+	a0 += x0[56] * v56
+	b0 += x0[57] * v57
+	c0 += x0[58] * v58
+	d0 += x0[59] * v59
+	a1 += x1[56] * v56
+	b1 += x1[57] * v57
+	c1 += x1[58] * v58
+	d1 += x1[59] * v59
+	v60, v61, v62, v63 := float32(w[60]), float32(w[61]), float32(w[62]), float32(w[63])
+	a0 += x0[60] * v60
+	b0 += x0[61] * v61
+	c0 += x0[62] * v62
+	d0 += x0[63] * v63
+	a1 += x1[60] * v60
+	b1 += x1[61] * v61
+	c1 += x1[62] * v62
+	d1 += x1[63] * v63
+	return (a0 + b0) + (c0 + d0), (a1 + b1) + (c1 + d1)
 }
 
 // Integer partial sums precede the block scale. A rare, very large activation

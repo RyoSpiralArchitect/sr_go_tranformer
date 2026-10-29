@@ -3,7 +3,7 @@
 Measure token selection separately from model projection, attention, source
 loading and HTTP delivery. A faster sampler does not imply the same speedup
 for end-to-end generation. The sampler/workspace measurements use FP32 weights;
-the last section covers exact-output Q4 kernel optimization. Separate
+the later sections cover exact-output Q4 and Q8 kernel optimization. Separate
 [Q8 measurements](Q8_INFERENCE.md) cover opt-in quantization and larger models.
 
 ## Greedy token selection
@@ -522,3 +522,116 @@ functional/lifecycle check and supplies no HTTP speedup claim.
 The local race suite, vet, Python protocol/cleanup tests and CLI training/resume
 smoke passed. Code review of the paired kernel found no actionable P0–P2
 issues. CI also checks Go 1.22 and stable Go on Linux, and stable Go on macOS.
+
+
+## Sharing Q8 weights across pairs
+
+Q8 tiles with two or three remaining rows now share each int8-to-float32
+conversion between the first two rows. Complete 64-weight blocks use safe
+array views with constant offsets; partial blocks retain bounded loops. Each
+row keeps the previous four accumulators, reduction order and scale placement.
+The final odd row, full four-row path and rare wide-sum fallback are unchanged.
+There is no activation quantization, extra weight copy or additional workspace.
+
+The retained reference is the ordinary Q8 kernel from `cfdca31`. On Apple M4 /
+24 GiB / Go 1.27.1, four threads and fixed workers, a 14,336-by-4,096 Mistral
+MLP projection produced these medians (three 250 ms samples in each run order):
+
+| Rows | Before, ms | Shared pair, ms | Time reduction |
+| ---: | ---: | ---: | ---: |
+| 1 | 5.371 | 5.397 | -0.5% |
+| 2 | 9.473 | 6.182 | 34.7% |
+| 3 | 15.931 | 11.558 | 27.5% |
+| 4 | 16.876 | 16.742 | 0.8% |
+
+The single/four-row controls do not establish an independent speedup.
+Kernel callbacks still allocate: median 112 B and one allocation per call.
+These are projection timings, not model throughput.
+[Raw samples](validation/performance/q8-pair-kernels-20261029.txt) and
+[all measurements and source hashes](validation/performance/q8-pair-kernels-20261029.json)
+retain the full ranges. Desktop activity and thermal state were uncontrolled;
+no concurrent build, profiler or heavy test was run during timed probes.
+
+An [earlier candidate](validation/performance/q8-rejected-single-20261029.json)
+also specialized single rows. It missed its predeclared 10% single-row
+microbenchmark target (3.9% reduction), so that path was removed. The
+[narrowed protocol](validation/performance/q8-pair-protocol-20261029.json)
+requires a pair-kernel improvement, exact numerical results and unchanged
+plan/workspace, no more than 5% single-session regression, at least 5% faster
+Q8 paired decode, and no more than 5% regression in either Q4-mixed control.
+These are bounded adoption thresholds, not statistical significance tests.
+
+### Mistral 7B Q8 result
+
+The pinned `mistralai/Mistral-7B-Instruct-v0.3` revision
+`c170c708c41dac9275d15a8fff4eca08d52bab71` was read from its existing original
+Safetensors files with no download. Baseline `cfdca31` and the candidate were
+built with the identical probe. All sources, binaries and model files were
+hashed; Go environment isolation and offline execution were enforced.
+
+The balanced protocol runs before/after/after/before, reversing the 1/2-session
+case order for the second pair of processes. Each case has one warmup and
+three measured trials; each session starts with eight prefix tokens and then
+seven decode calls. Only one model is resident at a time.
+
+| Sessions | Before: seven decode calls, median / range, s | Shared pair: median / range, s |
+| ---: | --- | --- |
+| 1 | 5.259 / 5.167–5.295 | 5.249 / 5.056–5.270 |
+| 2 | 10.383 / 10.336–10.589 | 6.060 / 6.014–6.091 |
+
+The two-session median is **41.6% shorter**. Single-session performance is
+within the no-regression threshold; its small difference is not claimed as
+a speedup. Every logit/KV digest, generated ID, prompt, model plan and workspace
+capacity agrees between variants. This is core-forward timing only: loading,
+tokenization, sampling and HTTP/SSE are excluded. It does not measure language
+quality or end-to-end request throughput.
+
+[Full Q8 trials](validation/performance/mistral7b-q8-pair-20261029.json) include
+all prefill/decode timings, allocation totals, process peak RSS, source hashes
+and build identity. The weight payload remains 7,701,807,104 bytes. No additional
+weight compression or resident-memory reduction is claimed.
+
+```sh
+GOENV=off GOTOOLCHAIN=local GOFLAGS= GOEXPERIMENT= GOWORK=off \
+  GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=4 \
+  ./scripts/go.sh test -run '^$' -bench '^BenchmarkQ8Blocks$' \
+  -benchmem -benchtime=250ms -count=3 -cpu=4
+python3 -S scripts/compare_inference.py --model PATH_TO_MISTRAL_7B \
+  --id mistral-7b-v03 --baseline-ref cfdca31 --weight-format q8 \
+  --case-order balanced --output-dir runs/mistral7b-q8-pair-comparison
+```
+
+The driver also accepts `--weight-format q4-mixed` (its existing default).
+It verifies the selected format against the loaded plan before comparing
+numerical signatures. Reuse the same source/model settings and a new output
+directory to run that control.
+
+### Q4-mixed control
+
+The same pinned Mistral model and balanced protocol also completed in
+Q4-mixed, where the Q8 output head uses the new pair path.
+
+| Sessions | Before: seven decode calls, median / range, s | Shared pair: median / range, s |
+| ---: | --- | --- |
+| 1 | 4.165 / 4.053–4.213 | 4.201 / 4.136–4.246 |
+| 2 | 5.254 / 5.247–5.285 | 5.179 / 5.152–5.220 |
+
+Single-session median time changed by +0.9%, and two-session time by -1.4%;
+both meet the 5% regression guard. These small changes do not establish a
+separate Q4-mixed speedup. All compared numerical signatures match exactly.
+The weight payload remains 4,212,146,176 bytes. In both formats, workspace
+capacity remains 2,228,480 bytes for one session and 4,456,960 for two.
+
+Across both variants, process peak RSS ranged from 7.142 to 7.155 GiB for Q8
+and 4.021 to 4.033 GiB for Q4-mixed. These are process-lifetime observations
+including loading, not minimum-RAM requirements or evidence of an RSS saving.
+Measured-loop allocations include KV pages, hashing and token bookkeeping;
+median allocated bytes remain approximately 8.67 MB / 17.06 MB for one/two
+sessions. Prefill controls overlap; no prefill improvement is claimed.
+
+[Full Q4-mixed trials](validation/performance/mistral7b-q4mixed-q8-pair-20261029.json)
+and the [acceptance calculation](validation/performance/q8-pair-acceptance-20261029.json)
+retain all results, limits and decision checks. All adoption checks passed.
+The earlier Q8-relative [quality and local serving checks](MISTRAL_INFERENCE.md)
+remain separate evidence; these exact-output comparisons introduce no new
+weight format and do not establish broader language quality.

@@ -1,0 +1,304 @@
+{
+  "format": "monolith-q8-pair-acceptance-v1",
+  "protocol": {
+    "format": "monolith-q8-pair-protocol-v2",
+    "date": "2026-10-29",
+    "baseline": "7704885 plus local-path-only changes; no arithmetic changes",
+    "proposal": "Only share int8-to-float32 conversion across paired row remainders, using safe complete-block array views. Keep the original single-row and four-row arithmetic. Preserve four accumulators per row and reduction order.",
+    "model": "mistralai/Mistral-7B-Instruct-v0.3",
+    "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+    "primary_format": "q8",
+    "control_format": "q4-mixed",
+    "threads": 4,
+    "workers": 4,
+    "microbenchmark": "paired before/after and reversed order; 4096 input columns, 14336 outputs; rows 1,2,3,4; 3 samples",
+    "full_model": "8 prompt tokens, 7 decode steps, 1/2 sessions, one warmup and 3 trials; ABBA processes with balanced session order; one resident model",
+    "acceptance": {
+      "exact_logits_kv_ids": true,
+      "unchanged_weight_plan_workspace": true,
+      "q8_single_decode_ratio_max": 1.05,
+      "q8_pair_decode_ratio_max": 0.95,
+      "q4_mixed_single_and_pair_decode_ratio_max": 1.05,
+      "q8_kernel_pair_median_ratio_max": 0.9,
+      "q8_kernel_single_median_ratio_max": 1.05
+    },
+    "limits": "Bounded host-specific engineering gate, not statistical significance or generic speed claim. Freeze sources during speed probes; no concurrent builds/profilers/heavy validation. Preserve failed experiments.",
+    "previous_attempt": "q8-rejected-single-20261029.json; rejected the single-row optimization after it missed its predeclared 10% microbenchmark target. This second candidate removes that optimization entirely."
+  },
+  "checks": {
+    "q8_1_session_decode": true,
+    "q8_2_session_decode": true,
+    "q4-mixed_1_session_decode": true,
+    "q4-mixed_2_session_decode": true,
+    "micro_single": true,
+    "micro_pair": true,
+    "numerical_identity_and_workspace": true
+  },
+  "accepted": true,
+  "summary": {
+    "q8": {
+      "1": {
+        "after_before_ratio": 0.9981269060753724,
+        "threshold": 1.05,
+        "accepted": true,
+        "before": {
+          "decode_seconds": {
+            "median": 5.259146041999999,
+            "minimum": 5.166712792,
+            "maximum": 5.295248333
+          },
+          "prefill_seconds": {
+            "median": 4.466564604,
+            "minimum": 4.353932625,
+            "maximum": 4.525336542
+          },
+          "allocated_bytes": {
+            "median": 8668264.0,
+            "minimum": 8668256,
+            "maximum": 8668368
+          },
+          "allocations": {
+            "median": 2079.0,
+            "minimum": 2079,
+            "maximum": 2080
+          },
+          "workspace_bytes": {
+            "median": 2228480.0,
+            "minimum": 2228480,
+            "maximum": 2228480
+          }
+        },
+        "after": {
+          "decode_seconds": {
+            "median": 5.2492951675,
+            "minimum": 5.056429334,
+            "maximum": 5.269804833999999
+          },
+          "prefill_seconds": {
+            "median": 4.437688229,
+            "minimum": 4.365167084,
+            "maximum": 4.494802417
+          },
+          "allocated_bytes": {
+            "median": 8668320.0,
+            "minimum": 8668256,
+            "maximum": 8673704
+          },
+          "allocations": {
+            "median": 2079.5,
+            "minimum": 2079,
+            "maximum": 2086
+          },
+          "workspace_bytes": {
+            "median": 2228480.0,
+            "minimum": 2228480,
+            "maximum": 2228480
+          }
+        }
+      },
+      "2": {
+        "after_before_ratio": 0.5836956387112422,
+        "threshold": 0.95,
+        "accepted": true,
+        "before": {
+          "decode_seconds": {
+            "median": 10.3825334585,
+            "minimum": 10.335655042,
+            "maximum": 10.588814459
+          },
+          "prefill_seconds": {
+            "median": 8.886305875,
+            "minimum": 8.805703708,
+            "maximum": 9.282531958
+          },
+          "allocated_bytes": {
+            "median": 17057080.0,
+            "minimum": 17057024,
+            "maximum": 17057136
+          },
+          "allocations": {
+            "median": 2086.5,
+            "minimum": 2086,
+            "maximum": 2087
+          },
+          "workspace_bytes": {
+            "median": 4456960.0,
+            "minimum": 4456960,
+            "maximum": 4456960
+          }
+        },
+        "after": {
+          "decode_seconds": {
+            "median": 6.0602394985,
+            "minimum": 6.014153832999999,
+            "maximum": 6.09125896
+          },
+          "prefill_seconds": {
+            "median": 8.822909604,
+            "minimum": 8.681927542,
+            "maximum": 8.867947542
+          },
+          "allocated_bytes": {
+            "median": 17057080.0,
+            "minimum": 17057008,
+            "maximum": 17057248
+          },
+          "allocations": {
+            "median": 2086.5,
+            "minimum": 2086,
+            "maximum": 2088
+          },
+          "workspace_bytes": {
+            "median": 4456960.0,
+            "minimum": 4456960,
+            "maximum": 4456960
+          }
+        }
+      },
+      "peak_rss_bytes": {
+        "before": [
+          7669170176,
+          7680622592
+        ],
+        "after": [
+          7672627200,
+          7682162688
+        ]
+      },
+      "weight_bytes": 7701807104,
+      "receipt_sha256": "aaa2f8564d1005240cf6805d78f5ac060db861796376d28030e48dd755a57786"
+    },
+    "q4-mixed": {
+      "1": {
+        "after_before_ratio": 1.0086294221287837,
+        "threshold": 1.05,
+        "accepted": true,
+        "before": {
+          "decode_seconds": {
+            "median": 4.1651374175,
+            "minimum": 4.053204334,
+            "maximum": 4.213462667
+          },
+          "prefill_seconds": {
+            "median": 3.4064672705000003,
+            "minimum": 3.268231542,
+            "maximum": 3.435918
+          },
+          "allocated_bytes": {
+            "median": 8668320.0,
+            "minimum": 8668256,
+            "maximum": 8668384
+          },
+          "allocations": {
+            "median": 2079.5,
+            "minimum": 2079,
+            "maximum": 2080
+          },
+          "workspace_bytes": {
+            "median": 2228480.0,
+            "minimum": 2228480,
+            "maximum": 2228480
+          }
+        },
+        "after": {
+          "decode_seconds": {
+            "median": 4.2010801465,
+            "minimum": 4.13598446,
+            "maximum": 4.245983335
+          },
+          "prefill_seconds": {
+            "median": 3.4316375829999997,
+            "minimum": 3.314497916,
+            "maximum": 3.437227458
+          },
+          "allocated_bytes": {
+            "median": 8668272.0,
+            "minimum": 8668256,
+            "maximum": 8668384
+          },
+          "allocations": {
+            "median": 2079.0,
+            "minimum": 2079,
+            "maximum": 2080
+          },
+          "workspace_bytes": {
+            "median": 2228480.0,
+            "minimum": 2228480,
+            "maximum": 2228480
+          }
+        }
+      },
+      "2": {
+        "after_before_ratio": 0.9856275983478348,
+        "threshold": 1.05,
+        "accepted": true,
+        "before": {
+          "decode_seconds": {
+            "median": 5.254064166,
+            "minimum": 5.247131124999999,
+            "maximum": 5.285458417
+          },
+          "prefill_seconds": {
+            "median": 6.7509018125,
+            "minimum": 6.67829475,
+            "maximum": 6.777209709
+          },
+          "allocated_bytes": {
+            "median": 17057072.0,
+            "minimum": 17057008,
+            "maximum": 17057248
+          },
+          "allocations": {
+            "median": 2086.5,
+            "minimum": 2086,
+            "maximum": 2088
+          },
+          "workspace_bytes": {
+            "median": 4456960.0,
+            "minimum": 4456960,
+            "maximum": 4456960
+          }
+        },
+        "after": {
+          "decode_seconds": {
+            "median": 5.1785506455,
+            "minimum": 5.1518363350000005,
+            "maximum": 5.220021502
+          },
+          "prefill_seconds": {
+            "median": 6.7415535625,
+            "minimum": 6.71112075,
+            "maximum": 6.762749209
+          },
+          "allocated_bytes": {
+            "median": 17057080.0,
+            "minimum": 17057008,
+            "maximum": 17057232
+          },
+          "allocations": {
+            "median": 2086.5,
+            "minimum": 2086,
+            "maximum": 2088
+          },
+          "workspace_bytes": {
+            "median": 4456960.0,
+            "minimum": 4456960,
+            "maximum": 4456960
+          }
+        }
+      },
+      "peak_rss_bytes": {
+        "before": [
+          4320722944,
+          4328488960
+        ],
+        "after": [
+          4317396992,
+          4330864640
+        ]
+      },
+      "weight_bytes": 4212146176,
+      "receipt_sha256": "ad7b9b44fcca723c2f651d5877ce2f18e16d3802318c127c3f746f16786a5f7d"
+    }
+  }
+}

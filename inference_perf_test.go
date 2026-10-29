@@ -76,7 +76,14 @@ func TestHFInferencePerformance(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	m, plan, err := loadHFModelFormat(ctx, dir, 128, 8192, "q4-mixed")
+	format := os.Getenv("MONOLITH_PERF_FORMAT")
+	if format == "" {
+		format = "q4-mixed"
+	}
+	if format != "q8" && format != "q4-mixed" {
+		t.Fatal("performance format must be q8 or q4-mixed")
+	}
+	m, plan, err := loadHFModelFormat(ctx, dir, 128, 8192, format)
 	if err != nil {
 		t.Fatal(err)
 	}

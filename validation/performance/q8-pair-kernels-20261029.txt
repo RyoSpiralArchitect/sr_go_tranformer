@@ -1,0 +1,54 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkQ8Blocks/14336x4096/rows1/reversefalse/before-4         	      51	   5310980 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversefalse/before-4         	      57	   5369898 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversefalse/before-4         	      55	   5439077 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversefalse/after-4          	      55	   5386850 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversefalse/after-4          	      52	   5387114 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversefalse/after-4          	      52	   5305482 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversetrue/after-4           	      52	   5405916 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversetrue/after-4           	      55	   5571960 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversetrue/after-4           	      55	   5420364 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversetrue/before-4          	      52	   5372487 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversetrue/before-4          	      56	   5355690 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows1/reversetrue/before-4          	      55	   5372887 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversefalse/before-4         	      28	  10555275 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversefalse/before-4         	      24	  10521604 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversefalse/before-4         	      27	  10525728 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversefalse/after-4          	      48	   6168508 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversefalse/after-4          	      45	   6238190 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversefalse/after-4          	      44	   6155297 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversetrue/after-4           	      49	   6195443 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversetrue/after-4           	      44	   6269262 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversetrue/after-4           	      49	   5468670 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversetrue/before-4          	      36	   8424096 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversetrue/before-4          	      36	   8364950 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows2/reversetrue/before-4          	      34	   8331484 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversefalse/before-4         	      24	  14481559 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversefalse/before-4         	      16	  15681807 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversefalse/before-4         	      24	  12507337 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversefalse/after-4          	      32	  10182827 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversefalse/after-4          	      25	  11619020 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversefalse/after-4          	      24	  11603686 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversetrue/after-4           	      27	  11511920 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversetrue/after-4           	      26	  11681641 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversetrue/after-4           	      25	  11353183 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversetrue/before-4          	      18	  16260414 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversetrue/before-4          	      18	  16180426 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows3/reversetrue/before-4          	      19	  16442553 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversefalse/before-4         	      18	  16339674 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversefalse/before-4         	      15	  17078489 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversefalse/before-4         	      16	  16799247 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversefalse/after-4          	      18	  16949396 ns/op	     118 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversefalse/after-4          	      15	  16698511 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversefalse/after-4          	      16	  16747026 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversetrue/after-4           	      16	  16567539 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversetrue/after-4           	      16	  16964482 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversetrue/after-4           	      16	  16736263 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversetrue/before-4          	      18	  16797595 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversetrue/before-4          	      16	  16953047 ns/op	     112 B/op	       1 allocs/op
+BenchmarkQ8Blocks/14336x4096/rows4/reversetrue/before-4          	      18	  16992150 ns/op	     112 B/op	       1 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	17.426s

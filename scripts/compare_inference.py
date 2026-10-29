@@ -57,6 +57,7 @@ def main():
     parser.add_argument('--model', type=Path, required=True)
     parser.add_argument('--id', required=True, help='Pinned model catalog ID')
     parser.add_argument('--baseline-ref', required=True, help='Local Git commit to compare')
+    parser.add_argument('--weight-format', choices=('q8', 'q4-mixed'), default='q4-mixed')
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--case-order', choices=('fixed', 'balanced'), default='fixed',
                         help='fixed preserves 1,2; balanced reverses cases in the second process pair')
@@ -76,7 +77,8 @@ def main():
               Path(__file__), root/'scripts/quant_quality.py', root/'scripts/go.sh']
     source_hashes = {str(p.relative_to(root)): sha(p) for p in inputs}
     env = isolated_go_environment()
-    env.update(MONOLITH_PERF_MODEL=str(model), MONOLITH_PERF_CORPUS=str(root/'validation/quality/corpus.json'))
+    env.update(MONOLITH_PERF_MODEL=str(model), MONOLITH_PERF_CORPUS=str(root/'validation/quality/corpus.json'),
+               MONOLITH_PERF_FORMAT=args.weight_format)
     # scripts/go.sh intentionally changes to the repository root. Resolve its
     # toolchain once, then invoke Go directly in each isolated build directory.
     goroot = subprocess.check_output([str(root/'scripts/go.sh'), 'env', 'GOROOT'],
@@ -119,6 +121,8 @@ def main():
                                       '-test.v', '-test.timeout=11m'], cwd=root, env=env,
                                      stdout=log, stderr=subprocess.STDOUT, timeout=700)
         report = json.loads(result.read_text())
+        if report['plan']['weight_format'] != args.weight_format:
+            raise RuntimeError('Probe loaded an unexpected weight format')
         validate_case_order(report, case_order)
         current = numerical_signature(report)
         if signature is None:
@@ -138,7 +142,7 @@ def main():
         if {n: sha(output/variant/n) for n in manifest['inputs_sha256']} != manifest['inputs_sha256']:
             raise RuntimeError('Build inputs changed')
     receipt = dict(format='monolith-runtime-comparison-v2', baseline_commit=baseline,
-                   case_order_protocol=args.case_order, process_schedule=schedule,
+                   case_order_protocol=args.case_order, process_schedule=schedule, weight_format=args.weight_format,
                    model=source['repo'], revision=source['revision'], files=source['files'],
                    host=platform.system()+'/'+platform.machine(),
                    go_version=subprocess.check_output([go, 'version'], cwd=root, env=env, text=True).strip(),
@@ -146,7 +150,7 @@ def main():
                    numerical_identity=True, reports=reports, effective_go_env=effective,
                    environment={k: env.get(k) for k in ('GOMAXPROCS', 'CGO_ENABLED', 'GOENV', 'GOWORK',
                        'GOFLAGS', 'GOEXPERIMENT', 'GOTOOLCHAIN', 'GOPROXY', 'GOSUMDB', 'GOGC', 'GOMEMLIMIT', 'GODEBUG')},
-                   note='One resident mixed model; fixed 8-token prefixes, 7 decode calls, 1/2 sessions. Core forward timing only; peak RSS spans each full process. Not HTTP throughput or a language-quality benchmark.')
+                   note='One resident model per process; fixed 8-token prefixes, 7 decode calls, 1/2 sessions. Core forward timing only; peak RSS spans each full process. Not HTTP throughput or a language-quality benchmark.')
     (output/'receipt.json').write_text(json.dumps(receipt, indent=2, ensure_ascii=False, allow_nan=False)+'\n')
 
 

@@ -46,7 +46,9 @@ Source files must remain unchanged throughout a load.
 
 The kernel consumes the integer weights directly, accumulating four independent
 partial sums per row to expose instruction-level parallelism. Four-row tiles
-reuse each conversion across prompt/session rows. Full and partial tiles use
+reuse each conversion across prompt/session rows. Two-row remainders also
+share each conversion, including safe array views for complete 64-weight
+blocks; a final odd row keeps the single-row path. Full and partial tiles use
 the same per-row reduction order, so changing batch shape or worker count
 does not change Q8 results on the same platform. Exceptionally large input
 rows use FP64 accumulation to avoid overflowing integer partial sums before
@@ -210,6 +212,29 @@ python scripts/hf_model_reference.py --model PATH_TO_PINNED_MODEL \
 
 Source acquisition for this validation resumed interrupted public HF HTTP
 transfers and verified the final model against its pinned LFS SHA-256.
-Config/tokenizer Git blob identities were checked as well. This does not
-claim that the Go downloader implements resumable or parallel downloads;
-it retains its existing bounded, atomic snapshot behavior.
+Config/tokenizer Git blob identities were checked as well. Those measurements
+used an external transfer workflow. The current Go downloader supports bounded
+resume; see [source preparation](INFERENCE.md) for the `fetch` entry point.
+
+## Local Mistral 7B
+
+An existing original Safetensors model can be read directly without a Hub
+download or a second model copy:
+
+```sh
+go run . infer local -path "$HOME/models/mistral7b-instruct-v0.3" \
+  -weight-format q8 -weight-mib 8192 -context 128 \
+  generate -chat -prompt 'Write one short sentence about cats.' \
+  -max-tokens 16 -temperature 0 -repeat-penalty 1
+```
+
+The pinned original Mistral-7B-Instruct-v0.3 files were checked and executed
+offline in Q8 and Q4-mixed on a 24 GiB Apple M4. Their weight payloads were
+7.173 and 3.923 GiB; a bounded quality probe observed process peak RSS of
+7.108 and 4.025 GiB. These are distinct measurements, not minimum-RAM limits.
+See [Mistral validation](MISTRAL_INFERENCE.md) for source hashes, the Q8-relative
+quality scope, and CLI/HTTP/concurrent SSE checks. Prequantized GGUF/GPTQ/AWQ
+files remain unsupported.
+
+The [paired Q8 performance comparison](INFERENCE_PERFORMANCE.md#sharing-q8-weights-across-pairs)
+checks one- and two-session Mistral decode with identical logits, KV and IDs.

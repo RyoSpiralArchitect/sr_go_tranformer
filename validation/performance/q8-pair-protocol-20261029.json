@@ -1,0 +1,25 @@
+{
+  "format": "monolith-q8-pair-protocol-v2",
+  "date": "2026-10-29",
+  "baseline": "7704885 plus local-path-only changes; no arithmetic changes",
+  "proposal": "Only share int8-to-float32 conversion across paired row remainders, using safe complete-block array views. Keep the original single-row and four-row arithmetic. Preserve four accumulators per row and reduction order.",
+  "model": "mistralai/Mistral-7B-Instruct-v0.3",
+  "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+  "primary_format": "q8",
+  "control_format": "q4-mixed",
+  "threads": 4,
+  "workers": 4,
+  "microbenchmark": "paired before/after and reversed order; 4096 input columns, 14336 outputs; rows 1,2,3,4; 3 samples",
+  "full_model": "8 prompt tokens, 7 decode steps, 1/2 sessions, one warmup and 3 trials; ABBA processes with balanced session order; one resident model",
+  "acceptance": {
+    "exact_logits_kv_ids": true,
+    "unchanged_weight_plan_workspace": true,
+    "q8_single_decode_ratio_max": 1.05,
+    "q8_pair_decode_ratio_max": 0.95,
+    "q4_mixed_single_and_pair_decode_ratio_max": 1.05,
+    "q8_kernel_pair_median_ratio_max": 0.9,
+    "q8_kernel_single_median_ratio_max": 1.05
+  },
+  "limits": "Bounded host-specific engineering gate, not statistical significance or generic speed claim. Freeze sources during speed probes; no concurrent builds/profilers/heavy validation. Preserve failed experiments.",
+  "previous_attempt": "q8-rejected-single-20261029.json; rejected the single-row optimization after it missed its predeclared 10% microbenchmark target. This second candidate removes that optimization entirely."
+}
