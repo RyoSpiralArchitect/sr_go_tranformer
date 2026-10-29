@@ -1,0 +1,30 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkOwnedGenerate/tokens8/reversefalse/before-4         	      24	  12305944 ns/op	  182891 B/op	    1313 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversefalse/before-4         	      24	  12280780 ns/op	  182487 B/op	    1313 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversefalse/before-4         	      24	  12238661 ns/op	  182491 B/op	    1313 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversefalse/after-4          	      24	  12001418 ns/op	  148148 B/op	     659 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversefalse/after-4          	      24	  11949538 ns/op	  147820 B/op	     658 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversefalse/after-4          	      25	  11879655 ns/op	  147798 B/op	     658 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversetrue/after-4           	      24	  11997927 ns/op	  147750 B/op	     658 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversetrue/after-4           	      24	  11945899 ns/op	  147750 B/op	     658 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversetrue/after-4           	      25	  11925705 ns/op	  147746 B/op	     658 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversetrue/before-4          	      24	  12257608 ns/op	  182487 B/op	    1313 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversetrue/before-4          	      24	  12224167 ns/op	  182486 B/op	    1313 allocs/op
+BenchmarkOwnedGenerate/tokens8/reversetrue/before-4          	      24	  12267764 ns/op	  182487 B/op	    1313 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversefalse/before-4       	       5	  51268425 ns/op	  611390 B/op	    4447 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversefalse/before-4       	       5	  51514675 ns/op	  611390 B/op	    4447 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversefalse/before-4       	       5	  56193200 ns/op	  611483 B/op	    4447 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversefalse/after-4        	       5	  50445958 ns/op	  364198 B/op	    1756 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversefalse/after-4        	       5	  50227708 ns/op	  364108 B/op	    1755 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversefalse/after-4        	       5	  50514400 ns/op	  364131 B/op	    1756 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversetrue/after-4         	       5	  50550717 ns/op	  364108 B/op	    1755 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversetrue/after-4         	       5	  50452008 ns/op	  364041 B/op	    1755 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversetrue/after-4         	       5	  50317675 ns/op	  364064 B/op	    1755 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversetrue/before-4        	       5	  51359133 ns/op	  611870 B/op	    4448 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversetrue/before-4        	       5	  51520233 ns/op	  611390 B/op	    4447 allocs/op
+BenchmarkOwnedGenerate/tokens128/reversetrue/before-4        	       5	  54283508 ns/op	  611390 B/op	    4447 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	12.823s
