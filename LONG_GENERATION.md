@@ -161,7 +161,9 @@ small. Engine-based interactive chat and serving already own fixed workers;
 this second change applies to direct generation. Prompt forwarding remains
 one token at a time, preserving the existing arithmetic and sampling order.
 
-A native 256-dimensional, 704-hidden, one-layer fixture with a 33-token prompt
+Measurements use implementation commit `cfc64c8`; subsequent source comments
+clarify ownership without changing execution. A native 256-dimensional,
+704-hidden, one-layer fixture with a 33-token prompt
 was measured with four threads. EOS is disabled only for this fixed-length
 benchmark. Both orders, three 250 ms samples each, include pool startup,
 teardown, sampling and KV cleanup. Exact completions are checked before timing.
@@ -192,3 +194,27 @@ exercise above-threshold projections, the worker-selection boundary,
 cancellation after generation has begun, retry and six concurrent requests
 sharing one model under the race detector. Existing real-tokenizer EOS tests
 continue to check ordinary stopping semantics.
+
+A separate [real Mistral chat check](validation/hf/mistral-owned-generation-20261030.json)
+loads the pinned local Q4-mixed model at context 512, four threads, temperature
+zero, seed 19 and repeat penalty one. The same black-cat/lighthouse prompt
+produced exactly the same 134-token completion and natural EOS before and
+after worker reuse, within a 192-token budget. Text, token IDs, usage and stop
+reason all matched. Original model files were rehashed before and after; no
+download was performed. This single pair checks CLI chat functionality and
+parity, not general quality or a further 7B speed/memory improvement.
+
+For longer direct chat generation from an existing model folder:
+
+```sh
+HF_HUB_OFFLINE=1 ./monolith infer local \
+  -path "$HOME/models/mistral7b-instruct-v0.3" -context 1024 \
+  -weight-format q4-mixed -weight-mib 8192 \
+  generate -chat -prompt 'Write a short story about a black cat.' \
+  -max-tokens 256 -temperature 0 -threads 4
+```
+
+Build `monolith` first with `./scripts/go.sh build -trimpath -o monolith .`.
+Prompt tokens plus the output budget must fit the selected context. The
+existing model/KV guards still apply; these changes do not admit arbitrary
+context lengths or add GPU execution.

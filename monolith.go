@@ -3630,9 +3630,9 @@ func parallel(n, work int, fn func(lo, hi int)) {
 }
 
 // A kernelExecutor belongs to one engine actor or direct generation call.
-// Its fixed workers borrow one
-// kernel's disjoint output ranges, then join before the actor advances. There
-// is no request backlog here: parallel and close must have a single caller,
+// Its fixed workers borrow one kernel's disjoint output ranges, then join
+// before the owner advances. There is no request backlog here: parallel and
+// close must have a single caller,
 // and callbacks must not recursively dispatch work through this executor.
 type kernelExecutor struct {
 	workers   int
@@ -3689,7 +3689,7 @@ func (e *kernelExecutor) parallel(n, work int, fn func(lo, hi int)) {
 	}
 }
 
-// Called once by the actor after its final joined kernel. No worker outlives
+// Called once by the owner after its final joined kernel. No worker outlives
 // Engine.Close or a direct generation return, including early errors.
 func (e *kernelExecutor) close() {
 	if e.jobs != nil {
@@ -5718,9 +5718,9 @@ func (w *decodeWorkspace) floatBytes() int64 {
 	return elements * 4
 }
 
-// A lane owns one score slice while processing independent heads. The actor
-// joins every lane before changing KV or reusing scratch; no new workers are
-// created by the engine. Rounding to KV pages avoids per-token reallocation.
+// A lane owns one score slice while processing independent heads. The caller
+// joins every lane before changing KV or reusing scratch. A fixed executor
+// reuses its workers. Rounding to KV pages avoids per-token reallocation.
 type inferenceAttentionPlan struct{ lanes, stride, work int }
 
 func planInferenceAttention(e *kernelExecutor, c Config, rows, maxPos int) inferenceAttentionPlan {
@@ -5840,7 +5840,7 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 		return nil, err
 	}
 	// Public callers keep their result across subsequent calls and concurrent
-	// engines sharing this model. Only the actor may consume borrowed logits.
+	// engines sharing this model. Only the workspace owner may borrow logits.
 	return append([]float32(nil), logits...), nil
 }
 
