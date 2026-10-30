@@ -6024,10 +6024,20 @@ func (m *Model) prefillBatch(ctx context.Context, caches []*KVCache, chunks [][]
 // The caller exclusively owns w and consumes the result before its next use.
 // No callback, response or request may retain the returned logits.
 func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [][]int, executor *kernelExecutor, w *decodeWorkspace) ([]float32, error) {
+	return m.prefillSelected(ctx, caches, chunks, executor, w, nil)
+}
+
+// A nil selection preserves the public all-session logits contract. Internal
+// callers may skip heads for unfinished prompts. Results keep session indexing;
+// unselected rows are zeroed, and no scratch escapes the exclusive caller.
+func (m *Model) prefillSelected(ctx context.Context, caches []*KVCache, chunks [][]int, executor *kernelExecutor, w *decodeWorkspace, wantLogits []bool) ([]float32, error) {
 	c := m.Config
 	sessions := len(caches)
 	if sessions < 1 || sessions > 256 || len(chunks) != sessions {
 		return nil, errors.New("invalid prefill batch (1..256 sessions)")
+	}
+	if wantLogits != nil && len(wantLogits) != sessions {
+		return nil, errors.New("logit selection must match sessions")
 	}
 	if ctx == nil {
 		return nil, errors.New("nil inference context")
@@ -6192,16 +6202,35 @@ func (m *Model) prefillBorrowed(ctx context.Context, caches []*KVCache, chunks [
 		addInPlace(w.X, w.Tmp)
 		region.End()
 	}
-	// Gather only each session's final hidden row before the vocabulary head.
+	// Compact selected final rows so mixed batches still share head weight reads.
+	heads := 0
 	for i, row := range lastRows {
-		copy(w.Tmp[i*d:(i+1)*d], w.X[row*d:(row+1)*d])
+		if wantLogits == nil || wantLogits[i] {
+			copy(w.Tmp[heads*d:(heads+1)*d], w.X[row*d:(row+1)*d])
+			heads++
+		}
 	}
-	inferenceNorm(w.N[:sessions*d], w.Tmp[:sessions*d], m.Final, m.FinalBias, sessions, c.NormEps)
-	head := m.Emb
-	if m.output != nil {
-		head = m.output
+	if heads > 0 {
+		inferenceNorm(w.N[:heads*d], w.Tmp[:heads*d], m.Final, m.FinalBias, heads, c.NormEps)
+		head := m.Emb
+		if m.output != nil {
+			head = m.output
+		}
+		linearIntoWithExecutor(executor, w.Logits[:heads*c.Vocab], w.N[:heads*d], head, heads)
 	}
-	linearIntoWithExecutor(executor, w.Logits, w.N[:sessions*d], head, sessions)
+	// Expand backwards: each compact source index is <= its destination index.
+	// Clearing unused rows also prevents a later caller from seeing stale logits.
+	if wantLogits != nil {
+		for i := sessions - 1; i >= 0; i-- {
+			dst := w.Logits[i*c.Vocab : (i+1)*c.Vocab]
+			if wantLogits[i] {
+				heads--
+				copy(dst, w.Logits[heads*c.Vocab:(heads+1)*c.Vocab])
+			} else {
+				clear(dst)
+			}
+		}
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -7289,13 +7318,15 @@ func generateInput(ctx context.Context, m *Model, tok inferenceTokenizer, prompt
 	defer executor.close()
 	var workspace decodeWorkspace
 	caches, chunks := []*KVCache{cache}, make([][]int, 1)
+	wantLogits := []bool{false}
 	var logits []float32
 	for i := 0; i < len(ids); i += promptRows {
 		if err = ctx.Err(); err != nil {
 			return Completion{}, err
 		}
 		chunks[0] = ids[i:min(i+promptRows, len(ids))]
-		logits, err = m.prefillBorrowed(ctx, caches, chunks, executor, &workspace)
+		wantLogits[0] = i+promptRows >= len(ids)
+		logits, err = m.prefillSelected(ctx, caches, chunks, executor, &workspace, wantLogits)
 		if err != nil {
 			return Completion{}, err
 		}
@@ -7924,6 +7955,7 @@ func (e *Engine) run() {
 	caches := make([]*KVCache, e.Config.MaxBatch)
 	chunks := make([][]int, e.Config.MaxBatch)
 	counts := make([]int, e.Config.MaxBatch)
+	wantLogits := make([]bool, e.Config.MaxBatch)
 	rotation := 0
 	accounting := func() {
 		prefixBytes := int64(len(e.prefix.pages) * e.pool.PageElements * 4)
@@ -8074,6 +8106,7 @@ func (e *Engine) run() {
 		rotation = (rotation + 1) % n
 		for i, s := range sessions {
 			caches[i] = s.Cache
+			wantLogits[i] = s.Cursor+counts[i] >= len(s.Request.IDs)
 			if s.Cursor < len(s.Request.IDs) {
 				chunks[i] = s.Request.IDs[s.Cursor : s.Cursor+counts[i]]
 			} else {
@@ -8091,7 +8124,7 @@ func (e *Engine) run() {
 		var logits []float32
 		var err error
 		trace.WithRegion(e.ctx, "monolith.batch", func() {
-			logits, err = e.Model.prefillBorrowed(e.ctx, caches[:n], chunks[:n], executor, &workspace)
+			logits, err = e.Model.prefillSelected(e.ctx, caches[:n], chunks[:n], executor, &workspace, wantLogits[:n])
 		})
 		e.stats.WorkspaceFloatBytes.Store(workspace.floatBytes())
 		computeDone := time.Now() // PrefillBatch joins all kernels before returning.
