@@ -1,0 +1,1195 @@
+{
+  "format": "monolith-bounded-top-k-sampling-v1",
+  "source_commit": "e282139fa7b6dca7bbd5d773a66172def895ddc1",
+  "inputs_sha256": {
+    "monolith.go": "cee7ba795c72c9102e3052d039579c08118c07237f143db189930ea98a378739",
+    "topk_sampling_test.go": "7ecc726df7857436d48a04abcd660791273c9892e60d1f4de2b91fff34d129d1",
+    "validation/performance/top-k-protocol-20261030.json": "7ca33e42a1c88f3734d48053354d6c49160148a73062e8ea476baae2d88c982e"
+  },
+  "raw_sha256": "cbcd348f403480af0ece8285028d615d287e4cad80f42a805d010fc7b1f8e72a",
+  "host": "Apple M4 / 24 GiB / darwin arm64",
+  "toolchain": "go1.27.1",
+  "threads": 4,
+  "protocol": {
+    "format": "monolith-top-k-protocol-v1",
+    "reference": "8dca84e3a254ef73fa5684370f767fa90804ad65 sampleWithBlocked, including optimized greedy path",
+    "threads": 4,
+    "seed": 19,
+    "history_tokens": 256,
+    "top_p": 0.95,
+    "repeat_penalty": 1.1,
+    "cases": [
+      [
+        258,
+        40,
+        0.8
+      ],
+      [
+        32768,
+        40,
+        0.8
+      ],
+      [
+        50257,
+        40,
+        0.8
+      ],
+      [
+        151936,
+        40,
+        0.8
+      ],
+      [
+        32768,
+        0,
+        0.8
+      ],
+      [
+        32768,
+        32768,
+        0.8
+      ],
+      [
+        32768,
+        40,
+        0
+      ]
+    ],
+    "case_fields": [
+      "vocabulary",
+      "top_k",
+      "temperature"
+    ],
+    "orders": [
+      [
+        "before",
+        "after"
+      ],
+      [
+        "after",
+        "before"
+      ]
+    ],
+    "count_per_order": 3,
+    "benchtime": "250ms",
+    "invariants": [
+      "candidate set and order",
+      "sampled ID",
+      "complete RNG state",
+      "error and input preservation",
+      "end-to-end seeded engine completion"
+    ],
+    "gates": {
+      "large_vocab_top40_time_ratio_max": 0.8,
+      "large_vocab_top40_bytes_ratio_max": 0.1,
+      "fallback_and_greedy_time_ratio_max": 1.05
+    },
+    "scope": "Sampler microbenchmarks. Keep every sample and failed gate. No pretrained model speed, RSS or language quality claim."
+  },
+  "samples": [
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 17445,
+      "ns_per_op": 15580,
+      "bytes_per_op": 29704,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 19430,
+      "ns_per_op": 15518,
+      "bytes_per_op": 29704,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 19075,
+      "ns_per_op": 15124,
+      "bytes_per_op": 29704,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 51123,
+      "ns_per_op": 5884,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 51898,
+      "ns_per_op": 5868,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 50940,
+      "ns_per_op": 6072,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 48129,
+      "ns_per_op": 6297,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 47342,
+      "ns_per_op": 6157,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 48769,
+      "ns_per_op": 6173,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 19380,
+      "ns_per_op": 15606,
+      "bytes_per_op": 29704,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 18597,
+      "ns_per_op": 15586,
+      "bytes_per_op": 29704,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 19370,
+      "ns_per_op": 14947,
+      "bytes_per_op": 29704,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 73,
+      "ns_per_op": 4048728,
+      "bytes_per_op": 1787275,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 74,
+      "ns_per_op": 4067397,
+      "bytes_per_op": 1787275,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 72,
+      "ns_per_op": 4100056,
+      "bytes_per_op": 1787273,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 1245,
+      "ns_per_op": 241544,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 1257,
+      "ns_per_op": 237806,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 1262,
+      "ns_per_op": 242769,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 1261,
+      "ns_per_op": 238424,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 1262,
+      "ns_per_op": 235261,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 1274,
+      "ns_per_op": 256171,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 73,
+      "ns_per_op": 4105611,
+      "bytes_per_op": 1787276,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 70,
+      "ns_per_op": 4094939,
+      "bytes_per_op": 1787273,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 72,
+      "ns_per_op": 4079109,
+      "bytes_per_op": 1787276,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 44,
+      "ns_per_op": 6613454,
+      "bytes_per_op": 2737549,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 45,
+      "ns_per_op": 6663548,
+      "bytes_per_op": 2737546,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 45,
+      "ns_per_op": 6637314,
+      "bytes_per_op": 2737546,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 832,
+      "ns_per_op": 359153,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 848,
+      "ns_per_op": 354286,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 848,
+      "ns_per_op": 355545,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 844,
+      "ns_per_op": 356308,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 831,
+      "ns_per_op": 358392,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 829,
+      "ns_per_op": 361425,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 44,
+      "ns_per_op": 6677190,
+      "bytes_per_op": 2737546,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 44,
+      "ns_per_op": 6639259,
+      "bytes_per_op": 2737546,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 46,
+      "ns_per_op": 6572658,
+      "bytes_per_op": 2737544,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 13,
+      "ns_per_op": 21839503,
+      "bytes_per_op": 8226184,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 13,
+      "ns_per_op": 21717856,
+      "bytes_per_op": 8226184,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 13,
+      "ns_per_op": 21672096,
+      "bytes_per_op": 8226184,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 286,
+      "ns_per_op": 1042196,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 280,
+      "ns_per_op": 1053836,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 286,
+      "ns_per_op": 1049606,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 283,
+      "ns_per_op": 1054123,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 283,
+      "ns_per_op": 1039939,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 288,
+      "ns_per_op": 1037953,
+      "bytes_per_op": 10632,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 13,
+      "ns_per_op": 21922875,
+      "bytes_per_op": 8226184,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 13,
+      "ns_per_op": 21949548,
+      "bytes_per_op": 8226184,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 13,
+      "ns_per_op": 21896397,
+      "bytes_per_op": 8226184,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 68,
+      "ns_per_op": 4254480,
+      "bytes_per_op": 1787272,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 69,
+      "ns_per_op": 4226211,
+      "bytes_per_op": 1787272,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 70,
+      "ns_per_op": 4228107,
+      "bytes_per_op": 1787272,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 69,
+      "ns_per_op": 4170551,
+      "bytes_per_op": 796040,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 72,
+      "ns_per_op": 4177312,
+      "bytes_per_op": 796040,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 70,
+      "ns_per_op": 4178353,
+      "bytes_per_op": 796040,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 70,
+      "ns_per_op": 4252735,
+      "bytes_per_op": 796041,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 70,
+      "ns_per_op": 4240762,
+      "bytes_per_op": 796040,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 69,
+      "ns_per_op": 4230193,
+      "bytes_per_op": 796040,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 69,
+      "ns_per_op": 4186740,
+      "bytes_per_op": 1787273,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 69,
+      "ns_per_op": 4171546,
+      "bytes_per_op": 1787278,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 70,
+      "ns_per_op": 4180717,
+      "bytes_per_op": 1787272,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 68,
+      "ns_per_op": 4233441,
+      "bytes_per_op": 1787276,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 74,
+      "ns_per_op": 4159063,
+      "bytes_per_op": 1787275,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 72,
+      "ns_per_op": 4154365,
+      "bytes_per_op": 1787272,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 70,
+      "ns_per_op": 4168411,
+      "bytes_per_op": 796040,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 72,
+      "ns_per_op": 4183986,
+      "bytes_per_op": 796041,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 68,
+      "ns_per_op": 4237028,
+      "bytes_per_op": 796040,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 69,
+      "ns_per_op": 4241028,
+      "bytes_per_op": 796040,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 69,
+      "ns_per_op": 4244801,
+      "bytes_per_op": 796040,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 70,
+      "ns_per_op": 4215084,
+      "bytes_per_op": 796041,
+      "allocs_per_op": 7
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 68,
+      "ns_per_op": 4178530,
+      "bytes_per_op": 1787273,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 70,
+      "ns_per_op": 4170514,
+      "bytes_per_op": 1787272,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 72,
+      "ns_per_op": 4159271,
+      "bytes_per_op": 1787272,
+      "allocs_per_op": 8
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 1602,
+      "ns_per_op": 183316,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 1640,
+      "ns_per_op": 185367,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 1603,
+      "ns_per_op": 184876,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 1641,
+      "ns_per_op": 184015,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 1612,
+      "ns_per_op": 185286,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 1599,
+      "ns_per_op": 185994,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 1612,
+      "ns_per_op": 187432,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 1606,
+      "ns_per_op": 186370,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 1630,
+      "ns_per_op": 184639,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 1620,
+      "ns_per_op": 183907,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 1605,
+      "ns_per_op": 185396,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.0,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 1658,
+      "ns_per_op": 185403,
+      "bytes_per_op": 9512,
+      "allocs_per_op": 3
+    }
+  ],
+  "summary": [
+    {
+      "vocab": 258,
+      "top_k": 40,
+      "temperature": 0.8,
+      "medians": {
+        "before": {
+          "ns_per_op": 15549.0,
+          "bytes_per_op": 29704.0,
+          "allocs_per_op": 8.0
+        },
+        "after": {
+          "ns_per_op": 6114.5,
+          "bytes_per_op": 10632.0,
+          "allocs_per_op": 7.0
+        }
+      },
+      "ratios": {
+        "ns_per_op": 0.3932407228760692,
+        "bytes_per_op": 0.3579315917048209,
+        "allocs_per_op": 0.875
+      },
+      "gates": {}
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0.8,
+      "medians": {
+        "before": {
+          "ns_per_op": 4087024.0,
+          "bytes_per_op": 1787275.0,
+          "allocs_per_op": 8.0
+        },
+        "after": {
+          "ns_per_op": 239984.0,
+          "bytes_per_op": 10632.0,
+          "allocs_per_op": 7.0
+        }
+      },
+      "ratios": {
+        "ns_per_op": 0.05871851988145898,
+        "bytes_per_op": 0.005948720818005063,
+        "allocs_per_op": 0.875
+      },
+      "gates": {
+        "time": true,
+        "bytes": true
+      }
+    },
+    {
+      "vocab": 50257,
+      "top_k": 40,
+      "temperature": 0.8,
+      "medians": {
+        "before": {
+          "ns_per_op": 6638286.5,
+          "bytes_per_op": 2737546.0,
+          "allocs_per_op": 8.0
+        },
+        "after": {
+          "ns_per_op": 357350.0,
+          "bytes_per_op": 10632.0,
+          "allocs_per_op": 7.0
+        }
+      },
+      "ratios": {
+        "ns_per_op": 0.05383166273405042,
+        "bytes_per_op": 0.0038837703549091046,
+        "allocs_per_op": 0.875
+      },
+      "gates": {
+        "time": true,
+        "bytes": true
+      }
+    },
+    {
+      "vocab": 151936,
+      "top_k": 40,
+      "temperature": 0.8,
+      "medians": {
+        "before": {
+          "ns_per_op": 21867950.0,
+          "bytes_per_op": 8226184.0,
+          "allocs_per_op": 8.0
+        },
+        "after": {
+          "ns_per_op": 1045901.0,
+          "bytes_per_op": 10632.0,
+          "allocs_per_op": 7.0
+        }
+      },
+      "ratios": {
+        "ns_per_op": 0.04782803143413077,
+        "bytes_per_op": 0.0012924583257559034,
+        "allocs_per_op": 0.875
+      },
+      "gates": {
+        "time": true,
+        "bytes": true
+      }
+    },
+    {
+      "vocab": 32768,
+      "top_k": 0,
+      "temperature": 0.8,
+      "medians": {
+        "before": {
+          "ns_per_op": 4206475.5,
+          "bytes_per_op": 1787272.0,
+          "allocs_per_op": 8.0
+        },
+        "after": {
+          "ns_per_op": 4204273.0,
+          "bytes_per_op": 796040.0,
+          "allocs_per_op": 7.0
+        }
+      },
+      "ratios": {
+        "ns_per_op": 0.9994764025132203,
+        "bytes_per_op": 0.44539387401581854,
+        "allocs_per_op": 0.875
+      },
+      "gates": {
+        "time": true
+      }
+    },
+    {
+      "vocab": 32768,
+      "top_k": 32768,
+      "temperature": 0.8,
+      "medians": {
+        "before": {
+          "ns_per_op": 4164892.5,
+          "bytes_per_op": 1787272.5,
+          "allocs_per_op": 8.0
+        },
+        "after": {
+          "ns_per_op": 4226056.0,
+          "bytes_per_op": 796040.0,
+          "allocs_per_op": 7.0
+        }
+      },
+      "ratios": {
+        "ns_per_op": 1.0146854930829547,
+        "bytes_per_op": 0.44539374941426113,
+        "allocs_per_op": 0.875
+      },
+      "gates": {
+        "time": true
+      }
+    },
+    {
+      "vocab": 32768,
+      "top_k": 40,
+      "temperature": 0,
+      "medians": {
+        "before": {
+          "ns_per_op": 185121.5,
+          "bytes_per_op": 9512.0,
+          "allocs_per_op": 3.0
+        },
+        "after": {
+          "ns_per_op": 185640.0,
+          "bytes_per_op": 9512.0,
+          "allocs_per_op": 3.0
+        }
+      },
+      "ratios": {
+        "ns_per_op": 1.0028008632168603,
+        "bytes_per_op": 1.0,
+        "allocs_per_op": 1.0
+      },
+      "gates": {
+        "time": true
+      }
+    }
+  ],
+  "accepted": true,
+  "scope": "Sampler microbenchmarks with 256 history IDs. Not a model throughput, process RSS or language quality measurement. All samples and controls retained."
+}
