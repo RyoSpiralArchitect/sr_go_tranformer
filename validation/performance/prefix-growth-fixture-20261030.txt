@@ -1,0 +1,37 @@
+=== RUN   TestPrefixGrowthFiveTurnsAndBranch
+=== RUN   TestPrefixGrowthFiveTurnsAndBranch/f32
+    prefix_growth_test.go:44: format=f32 turn=1 input=66 reused=0 prefix_bytes=22528 kv_allocated_bytes=56320
+    prefix_growth_test.go:44: format=f32 turn=2 input=100 reused=64 prefix_bytes=33792 kv_allocated_bytes=67584
+    prefix_growth_test.go:44: format=f32 turn=3 input=134 reused=160 prefix_bytes=45056 kv_allocated_bytes=78848
+    prefix_growth_test.go:44: format=f32 turn=4 input=168 reused=288 prefix_bytes=56320 kv_allocated_bytes=90112
+    prefix_growth_test.go:44: format=f32 turn=5 input=202 reused=448 prefix_bytes=67584 kv_allocated_bytes=101376
+=== RUN   TestPrefixGrowthFiveTurnsAndBranch/q8
+    prefix_growth_test.go:44: format=q8 turn=1 input=66 reused=0 prefix_bytes=22528 kv_allocated_bytes=56320
+    prefix_growth_test.go:44: format=q8 turn=2 input=100 reused=64 prefix_bytes=33792 kv_allocated_bytes=67584
+    prefix_growth_test.go:44: format=q8 turn=3 input=134 reused=160 prefix_bytes=45056 kv_allocated_bytes=78848
+    prefix_growth_test.go:44: format=q8 turn=4 input=168 reused=288 prefix_bytes=56320 kv_allocated_bytes=90112
+    prefix_growth_test.go:44: format=q8 turn=5 input=202 reused=448 prefix_bytes=67584 kv_allocated_bytes=101376
+=== RUN   TestPrefixGrowthFiveTurnsAndBranch/q4
+    prefix_growth_test.go:44: format=q4 turn=1 input=66 reused=0 prefix_bytes=22528 kv_allocated_bytes=56320
+    prefix_growth_test.go:44: format=q4 turn=2 input=100 reused=64 prefix_bytes=33792 kv_allocated_bytes=67584
+    prefix_growth_test.go:44: format=q4 turn=3 input=134 reused=160 prefix_bytes=45056 kv_allocated_bytes=78848
+    prefix_growth_test.go:44: format=q4 turn=4 input=168 reused=288 prefix_bytes=56320 kv_allocated_bytes=90112
+    prefix_growth_test.go:44: format=q4 turn=5 input=202 reused=448 prefix_bytes=67584 kv_allocated_bytes=101376
+--- PASS: TestPrefixGrowthFiveTurnsAndBranch (2.49s)
+    --- PASS: TestPrefixGrowthFiveTurnsAndBranch/f32 (0.78s)
+    --- PASS: TestPrefixGrowthFiveTurnsAndBranch/q8 (0.72s)
+    --- PASS: TestPrefixGrowthFiveTurnsAndBranch/q4 (0.99s)
+=== RUN   TestPrefixGrowthSoleBorrowerAndPoolOwnership
+--- PASS: TestPrefixGrowthSoleBorrowerAndPoolOwnership (0.09s)
+=== RUN   TestPrefixGrowthFailureDoesNotPublish
+=== RUN   TestPrefixGrowthFailureDoesNotPublish/cancel=false
+=== RUN   TestPrefixGrowthFailureDoesNotPublish/cancel=true
+--- PASS: TestPrefixGrowthFailureDoesNotPublish (0.21s)
+    --- PASS: TestPrefixGrowthFailureDoesNotPublish/cancel=false (0.10s)
+    --- PASS: TestPrefixGrowthFailureDoesNotPublish/cancel=true (0.10s)
+=== RUN   TestPrefixGrowthResetDuringBorrow
+--- PASS: TestPrefixGrowthResetDuringBorrow (0.20s)
+=== RUN   TestPrefixGrowthCancelDuringBorrow
+--- PASS: TestPrefixGrowthCancelDuringBorrow (0.06s)
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	7.263s

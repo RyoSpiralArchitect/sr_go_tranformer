@@ -123,3 +123,18 @@ computed input rows fell from 240 to 144 across the pair. The snapshot retained
 Shutdown released the snapshot. Original model files matched the pinned hashes
 before and after the run. The measured process peak RSS was about 3.94 GiB,
 including model loading; it is distinct from the KV payload budget.
+
+## Growing-prefix fixture
+
+The [five-request native fixture](validation/performance/prefix-growth-fixture-20261030.json)
+uses 66, 98, 130, 162 and 194 input positions with eight output tokens each.
+Across 650 logical input positions it reuses 448 and computes 202. Retained
+prefix pages grow from two to six, within the fixed allowance. FP32, Q8 and Q4
+weight variants produce exactly the disabled-reference completions, including
+a subsequent divergent branch. The [race-enabled log](validation/performance/prefix-growth-fixture-20261030.txt)
+also records sole/multiple-reader ownership, uncommitted-token exclusion,
+failure, deterministic cancellation and reset during a borrowed computation.
+
+These are synthetic growing prompts, not a pretrained multi-turn chat or a
+balanced speed measurement. The earlier Mistral receipt checks fixed-prefix
+reuse; it does not establish the speed or quality of this extension policy.
