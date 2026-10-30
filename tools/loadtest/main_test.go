@@ -367,6 +367,62 @@ func TestSamplingOptionsAndRequest(t *testing.T) {
 	}
 }
 
+func TestSamplingSeedAndReportRoundTrip(t *testing.T) {
+	for _, tc := range []struct {
+		name                    string
+		args                    []string
+		seed                    uint64
+		k                       int
+		p, temperature, penalty float64
+	}{
+		{"defaults", nil, 1, 40, .95, 0, 1},
+		{"large-seed", []string{"-seed=18446744073709551614", "-top-k=17", "-top-p=.8", "-temperature=.6", "-repeat-penalty=1.2"}, ^uint64(0) - 1, 17, .8, .6, 1.2},
+		{"disabled-k", []string{"-seed=0", "-top-k=0", "-top-p=1", "-temperature=.8"}, 0, 0, 1, .8, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			check := func(seed uint64, k int, p, temperature, penalty float64) {
+				if seed != tc.seed || k != tc.k || p != tc.p || temperature != tc.temperature || penalty != tc.penalty {
+					t.Errorf("sampling fields changed: seed=%d k=%d p=%g temp=%g penalty=%g", seed, k, p, temperature, penalty)
+				}
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body struct {
+					Seed          uint64  `json:"seed"`
+					TopK          int     `json:"top_k"`
+					TopP          float64 `json:"top_p"`
+					Temperature   float64 `json:"temperature"`
+					RepeatPenalty float64 `json:"repeat_penalty"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				check(body.Seed, body.TopK, body.TopP, body.Temperature, body.RepeatPenalty)
+				w.Header().Set("Content-Type", "text/event-stream")
+				emit(w, "done", completion{TokenIDs: []int{}, PromptTokens: 1, FinishReason: "eos"})
+			}))
+			defer server.Close()
+			args := append([]string{"-url", server.URL}, tc.args...)
+			o, err := parseOptions(args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := executeRequest(context.Background(), server.Client(), o, planRequest(o, 1))
+			if result.Outcome != "completed" {
+				t.Fatal(result)
+			}
+			data, err := json.Marshal(report{Options: o})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded report
+			if err := json.Unmarshal(data, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			check(decoded.Options.Seed, decoded.Options.TopK, decoded.Options.TopP, decoded.Options.Temperature, decoded.Options.RepeatPenalty)
+		})
+	}
+}
+
 func TestServerTerminalOutcomeClassification(t *testing.T) {
 	for _, streaming := range []bool{false, true} {
 		for _, tc := range []struct {
