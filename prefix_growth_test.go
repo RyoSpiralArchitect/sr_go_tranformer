@@ -239,3 +239,41 @@ func TestPrefixGrowthResetDuringBorrow(t *testing.T) {
 		t.Fatal("old epoch republished prefix", e.Stats())
 	}
 }
+
+func TestPrefixGrowthCancelDuringBorrow(t *testing.T) {
+	m := promptPrefillTestModel(t, "q4")
+	e, err := newEngine(m, fixedStepGenerateTokenizer{}, prefixEngineConfig(m))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt := strings.Repeat("a", 161)
+	ids := (Tokenizer{}).Encode(prompt, true, false)
+	source := m.NewCache()
+	defer source.Close()
+	if _, err := m.PrefillBatch(context.Background(), []*KVCache{source}, [][]int{ids[:64]}); err != nil {
+		t.Fatal(err)
+	}
+	e.prefix.capture(m, source, ids[:64], 4)
+	ctx, cancel := context.WithCancel(streamTestContext(t))
+	defer cancel()
+	stream, err := e.Stream(ctx, prompt, prefixSampling())
+	if err != nil {
+		t.Fatal(err)
+	}
+	gate := startGatedEngine(t, e)
+	before := e.Stats()
+	if before.PrefixHits != 1 {
+		t.Fatal("fixture did not borrow")
+	}
+	cancel()
+	gate.open()
+	_, err = stream.Wait()
+	<-stream.Released()
+	if !errors.Is(err, context.Canceled) {
+		t.Fatal("cancellation was not exercised", err)
+	}
+	after := e.Stats()
+	if after.PrefixBytes != before.PrefixBytes || after.KVReservedBytes != 0 {
+		t.Fatal("canceled borrower published prefix", after)
+	}
+}
