@@ -47,6 +47,8 @@ and reproduction commands.
 lanes, with exact-output checks and a measured Mistral 7B comparison.
 [Bounded prompt prefill](PROMPT_PREFILL.md) groups direct-generation inputs
 across reusable workers with explicit scratch limits.
+[Selective output heads](SELECTIVE_HEAD.md) skip vocabulary projection for
+unfinished prompt chunks in direct generation and serving.
 For smaller resident weights, see [Q8 inference](Q8_INFERENCE.md), including
 accuracy tradeoffs and bounded larger-model examples.
 [Experimental Q4 inference](Q4_INFERENCE.md) packs weights further with a shared
