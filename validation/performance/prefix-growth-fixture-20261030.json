@@ -1,0 +1,142 @@
+{
+  "format": "monolith-prefix-growth-fixture-v1",
+  "source_commit": "9cf22010b143a46853c1ca6828a8c3f578cbee5d",
+  "inputs_sha256": {
+    "monolith.go": "f10028ed35424ee6bee12dd09917d4fc6712d5da56737003b4fff7bb48922378",
+    "prefix_growth_test.go": "c81560c2a901f0d3c2b4c048e91c840816dd9ebb2c3ce599d42e4bc06c874220"
+  },
+  "raw_sha256": "d472fe2432f9bae94e4c26ec1fc1fb7666a544d5eddf0cbd9699133e5e28207f",
+  "logical_prompt_lengths": [
+    66,
+    98,
+    130,
+    162,
+    194
+  ],
+  "output_budget": 8,
+  "total_logical_input": 650,
+  "samples": [
+    {
+      "format": "f32",
+      "turn": 1,
+      "input_tokens": 66,
+      "reused_tokens": 0,
+      "prefix_bytes": 22528,
+      "kv_allocated_bytes": 56320
+    },
+    {
+      "format": "f32",
+      "turn": 2,
+      "input_tokens": 100,
+      "reused_tokens": 64,
+      "prefix_bytes": 33792,
+      "kv_allocated_bytes": 67584
+    },
+    {
+      "format": "f32",
+      "turn": 3,
+      "input_tokens": 134,
+      "reused_tokens": 160,
+      "prefix_bytes": 45056,
+      "kv_allocated_bytes": 78848
+    },
+    {
+      "format": "f32",
+      "turn": 4,
+      "input_tokens": 168,
+      "reused_tokens": 288,
+      "prefix_bytes": 56320,
+      "kv_allocated_bytes": 90112
+    },
+    {
+      "format": "f32",
+      "turn": 5,
+      "input_tokens": 202,
+      "reused_tokens": 448,
+      "prefix_bytes": 67584,
+      "kv_allocated_bytes": 101376
+    },
+    {
+      "format": "q8",
+      "turn": 1,
+      "input_tokens": 66,
+      "reused_tokens": 0,
+      "prefix_bytes": 22528,
+      "kv_allocated_bytes": 56320
+    },
+    {
+      "format": "q8",
+      "turn": 2,
+      "input_tokens": 100,
+      "reused_tokens": 64,
+      "prefix_bytes": 33792,
+      "kv_allocated_bytes": 67584
+    },
+    {
+      "format": "q8",
+      "turn": 3,
+      "input_tokens": 134,
+      "reused_tokens": 160,
+      "prefix_bytes": 45056,
+      "kv_allocated_bytes": 78848
+    },
+    {
+      "format": "q8",
+      "turn": 4,
+      "input_tokens": 168,
+      "reused_tokens": 288,
+      "prefix_bytes": 56320,
+      "kv_allocated_bytes": 90112
+    },
+    {
+      "format": "q8",
+      "turn": 5,
+      "input_tokens": 202,
+      "reused_tokens": 448,
+      "prefix_bytes": 67584,
+      "kv_allocated_bytes": 101376
+    },
+    {
+      "format": "q4",
+      "turn": 1,
+      "input_tokens": 66,
+      "reused_tokens": 0,
+      "prefix_bytes": 22528,
+      "kv_allocated_bytes": 56320
+    },
+    {
+      "format": "q4",
+      "turn": 2,
+      "input_tokens": 100,
+      "reused_tokens": 64,
+      "prefix_bytes": 33792,
+      "kv_allocated_bytes": 67584
+    },
+    {
+      "format": "q4",
+      "turn": 3,
+      "input_tokens": 134,
+      "reused_tokens": 160,
+      "prefix_bytes": 45056,
+      "kv_allocated_bytes": 78848
+    },
+    {
+      "format": "q4",
+      "turn": 4,
+      "input_tokens": 168,
+      "reused_tokens": 288,
+      "prefix_bytes": 56320,
+      "kv_allocated_bytes": 90112
+    },
+    {
+      "format": "q4",
+      "turn": 5,
+      "input_tokens": 202,
+      "reused_tokens": 448,
+      "prefix_bytes": 67584,
+      "kv_allocated_bytes": 101376
+    }
+  ],
+  "exact_completions": true,
+  "scope": "Native fixture only. Five growing prompts plus divergent branch; disabled-reference completions and f32/q8/q4 checked under race detector. Not a real-model chat, speed, RSS or language-quality measurement."
+}
