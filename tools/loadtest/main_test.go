@@ -16,7 +16,7 @@ import (
 )
 
 func testOptions(endpoint string) options {
-	return options{URL: endpoint, Requests: 12, Concurrency: 3, ShortPrompt: "x", LongPrompt: "longer prompt", MaxTokens: 4, CancelAfter: 2, SlowDelay: time.Millisecond, Timeout: 2 * time.Second, SampleInterval: time.Millisecond}
+	return options{URL: endpoint, Requests: 12, Concurrency: 3, ShortPrompt: "x", LongPrompt: "longer prompt", MaxTokens: 4, TopK: 40, TopP: .95, RepeatPenalty: 1, Seed: 1, CancelAfter: 2, SlowDelay: time.Millisecond, Timeout: 2 * time.Second, SampleInterval: time.Millisecond}
 }
 
 func emit(w http.ResponseWriter, event string, data any) {
@@ -333,6 +333,93 @@ func TestOptionsValidation(t *testing.T) {
 	}
 	if _, err := parseOptions([]string{"-requests=20", "-cancel-every=5", "-slow-every=3"}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSamplingOptionsAndRequest(t *testing.T) {
+	for _, args := range [][]string{{"-temperature=NaN"}, {"-temperature=+Inf"}, {"-temperature=-1"}, {"-temperature=101"}, {"-top-k=-1"}, {"-top-p=0"}, {"-top-p=1.1"}, {"-top-p=NaN"}, {"-repeat-penalty=0"}, {"-repeat-penalty=NaN"}, {"-repeat-penalty=101"}} {
+		if _, err := parseOptions(args); err == nil {
+			t.Fatalf("accepted %v", args)
+		}
+	}
+	want := map[string]any{"temperature": .8, "top_k": float64(40), "top_p": .95, "repeat_penalty": 1.1, "seed": float64(19)}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		for k, v := range want {
+			if body[k] != v {
+				t.Errorf("%s=%v, want %v", k, body[k], v)
+			}
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		emit(w, "done", completion{TokenIDs: []int{}, PromptTokens: 1, FinishReason: "eos"})
+	}))
+	defer server.Close()
+	o, err := parseOptions([]string{"-url", server.URL, "-temperature=.8", "-top-k=40", "-top-p=.95", "-repeat-penalty=1.1", "-seed=19"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := executeRequest(context.Background(), server.Client(), o, planRequest(o, 1))
+	if result.Outcome != "completed" {
+		t.Fatal(result)
+	}
+}
+
+func TestSamplingSeedAndReportRoundTrip(t *testing.T) {
+	for _, tc := range []struct {
+		name                    string
+		args                    []string
+		seed                    uint64
+		k                       int
+		p, temperature, penalty float64
+	}{
+		{"defaults", nil, 1, 40, .95, 0, 1},
+		{"large-seed", []string{"-seed=18446744073709551614", "-top-k=17", "-top-p=.8", "-temperature=.6", "-repeat-penalty=1.2"}, ^uint64(0) - 1, 17, .8, .6, 1.2},
+		{"disabled-k", []string{"-seed=0", "-top-k=0", "-top-p=1", "-temperature=.8"}, 0, 0, 1, .8, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			check := func(seed uint64, k int, p, temperature, penalty float64) {
+				if seed != tc.seed || k != tc.k || p != tc.p || temperature != tc.temperature || penalty != tc.penalty {
+					t.Errorf("sampling fields changed: seed=%d k=%d p=%g temp=%g penalty=%g", seed, k, p, temperature, penalty)
+				}
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body struct {
+					Seed          uint64  `json:"seed"`
+					TopK          int     `json:"top_k"`
+					TopP          float64 `json:"top_p"`
+					Temperature   float64 `json:"temperature"`
+					RepeatPenalty float64 `json:"repeat_penalty"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				check(body.Seed, body.TopK, body.TopP, body.Temperature, body.RepeatPenalty)
+				w.Header().Set("Content-Type", "text/event-stream")
+				emit(w, "done", completion{TokenIDs: []int{}, PromptTokens: 1, FinishReason: "eos"})
+			}))
+			defer server.Close()
+			args := append([]string{"-url", server.URL}, tc.args...)
+			o, err := parseOptions(args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := executeRequest(context.Background(), server.Client(), o, planRequest(o, 1))
+			if result.Outcome != "completed" {
+				t.Fatal(result)
+			}
+			data, err := json.Marshal(report{Options: o})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded report
+			if err := json.Unmarshal(data, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			check(decoded.Options.Seed, decoded.Options.TopK, decoded.Options.TopP, decoded.Options.Temperature, decoded.Options.RepeatPenalty)
+		})
 	}
 }
 

@@ -37,6 +37,11 @@ type options struct {
 	ShortPrompt    string        `json:"-"`
 	LongPrompt     string        `json:"-"`
 	MaxTokens      int           `json:"max_tokens"`
+	Temperature    float64       `json:"temperature"`
+	TopK           int           `json:"top_k"`
+	TopP           float64       `json:"top_p"`
+	RepeatPenalty  float64       `json:"repeat_penalty"`
+	Seed           uint64        `json:"seed"`
 	CancelEvery    int           `json:"cancel_every"`
 	CancelAfter    int           `json:"cancel_after_token_events"`
 	SlowEvery      int           `json:"slow_every"`
@@ -56,6 +61,11 @@ func parseOptions(args []string) (options, error) {
 	f.StringVar(&o.ShortPrompt, "short-prompt", "the ", "prompt for odd-numbered requests")
 	f.StringVar(&o.LongPrompt, "long-prompt", strings.Repeat("the cat rests. ", 4), "prompt for even-numbered requests; must fit the model context")
 	f.IntVar(&o.MaxTokens, "max-tokens", 16, "maximum generated tokens per request")
+	f.Float64Var(&o.Temperature, "temperature", 0, "sampling temperature (0 keeps greedy requests)")
+	f.IntVar(&o.TopK, "top-k", 40, "sampling top-k (0 disables)")
+	f.Float64Var(&o.TopP, "top-p", .95, "sampling probability mass")
+	f.Float64Var(&o.RepeatPenalty, "repeat-penalty", 1, "sampling repetition penalty")
+	f.Uint64Var(&o.Seed, "seed", 1, "fixed sampling seed for each request")
 	f.IntVar(&o.CancelEvery, "cancel-every", 0, "cancel every Nth request (0 disables)")
 	f.IntVar(&o.CancelAfter, "cancel-after", 2, "cancel selected requests after this many token events")
 	f.IntVar(&o.SlowEvery, "slow-every", 0, "delay reads for every Nth request (0 disables)")
@@ -86,6 +96,9 @@ func parseOptions(args []string) (options, error) {
 	}
 	if len(o.ShortPrompt) > 1<<20 || len(o.LongPrompt) > 1<<20 {
 		return o, errors.New("each prompt must fit within 1 MiB")
+	}
+	if math.IsNaN(o.Temperature) || math.IsInf(o.Temperature, 0) || o.Temperature < 0 || o.Temperature > 100 || o.TopK < 0 || math.IsNaN(o.TopP) || math.IsInf(o.TopP, 0) || o.TopP <= 0 || o.TopP > 1 || math.IsNaN(o.RepeatPenalty) || math.IsInf(o.RepeatPenalty, 0) || o.RepeatPenalty < 1 || o.RepeatPenalty > 100 {
+		return o, errors.New("invalid sampling settings")
 	}
 	return o, nil
 }
@@ -216,7 +229,7 @@ func classifyServerCode(code, fallback string) string {
 func executeRequest(parent context.Context, client *http.Client, o options, p requestPlan) (result requestResult) {
 	result.requestPlan = p
 	result.Outcome = "transport_failure"
-	body, _ := json.Marshal(map[string]any{"prompt": p.text, "max_tokens": o.MaxTokens, "temperature": 0, "repeat_penalty": 1, "stream": true})
+	body, _ := json.Marshal(map[string]any{"prompt": p.text, "max_tokens": o.MaxTokens, "temperature": o.Temperature, "top_k": o.TopK, "top_p": o.TopP, "repeat_penalty": o.RepeatPenalty, "seed": o.Seed, "stream": true})
 	ctx, cancel := context.WithTimeout(parent, o.Timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.URL+"/v1/completions", bytes.NewReader(body))

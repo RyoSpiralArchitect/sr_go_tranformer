@@ -1,0 +1,17 @@
+{
+  "format": "monolith-top-k-protocol-v1",
+  "reference": "8dca84e3a254ef73fa5684370f767fa90804ad65 sampleWithBlocked, including optimized greedy path",
+  "threads": 4,
+  "seed": 19,
+  "history_tokens": 256,
+  "top_p": 0.95,
+  "repeat_penalty": 1.1,
+  "cases": [[258,40,0.8],[32768,40,0.8],[50257,40,0.8],[151936,40,0.8],[32768,0,0.8],[32768,32768,0.8],[32768,40,0]],
+  "case_fields": ["vocabulary", "top_k", "temperature"],
+  "orders": [["before","after"],["after","before"]],
+  "count_per_order": 3,
+  "benchtime": "250ms",
+  "invariants": ["candidate set and order", "sampled ID", "complete RNG state", "error and input preservation", "end-to-end seeded engine completion"],
+  "gates": {"large_vocab_top40_time_ratio_max": 0.8, "large_vocab_top40_bytes_ratio_max": 0.1, "fallback_and_greedy_time_ratio_max": 1.05},
+  "scope": "Sampler microbenchmarks. Keep every sample and failed gate. No pretrained model speed, RSS or language quality claim."
+}

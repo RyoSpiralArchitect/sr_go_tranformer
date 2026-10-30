@@ -43,6 +43,8 @@ Choose an explicit backend. See [inference setup](INFERENCE.md) for model
 families, cache/offline operation, HF endpoints and compatibility limits.
 See [inference performance](INFERENCE_PERFORMANCE.md) for measured optimizations
 and reproduction commands.
+[Bounded top-k sampling](TOP_K_SAMPLING.md) retains only a small candidate set
+for non-greedy generation while preserving seeded output and RNG behavior.
 [Long generation](LONG_GENERATION.md) partitions attention across bounded worker
 lanes, with exact-output checks and a measured Mistral 7B comparison.
 [Bounded prompt prefill](PROMPT_PREFILL.md) groups direct-generation inputs

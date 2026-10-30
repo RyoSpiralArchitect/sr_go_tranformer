@@ -7061,6 +7061,46 @@ type candidate struct {
 	Logit, Prob float64
 }
 
+func candidateBefore(a, b candidate) bool {
+	if a.Logit == b.Logit {
+		return a.ID < b.ID
+	}
+	return a.Logit > b.Logit
+}
+
+// Keep the worst retained candidate at the root. Capacity is the requested k,
+// independent of vocabulary size; ties retain the same lower IDs as full sort.
+func retainTopCandidate(cs []candidate, v candidate, limit int) []candidate {
+	if len(cs) < limit {
+		cs = append(cs, v)
+		for i := len(cs) - 1; i > 0; {
+			parent := (i - 1) / 2
+			if !candidateBefore(cs[parent], cs[i]) {
+				break
+			}
+			cs[parent], cs[i] = cs[i], cs[parent]
+			i = parent
+		}
+		return cs
+	}
+	if !candidateBefore(v, cs[0]) {
+		return cs
+	}
+	cs[0] = v
+	for i := 0; 2*i+1 < len(cs); {
+		child := 2*i + 1
+		if child+1 < len(cs) && candidateBefore(cs[child], cs[child+1]) {
+			child++
+		}
+		if !candidateBefore(cs[i], cs[child]) {
+			break
+		}
+		cs[i], cs[child] = cs[child], cs[i]
+		i = child
+	}
+	return cs
+}
+
 func sample(logits []float32, history []int, s Sampling, rng *RNG) (int, error) {
 	return sampleWithBlocked(logits, history, s, rng, BOS)
 }
@@ -7104,7 +7144,18 @@ func sampleWithBlocked(logits []float32, history []int, s Sampling, rng *RNG, bl
 		}
 		return best, nil
 	}
-	cs := make([]candidate, 0, len(logits)-1)
+	eligible := len(logits)
+	if blocked >= 0 && blocked < len(logits) {
+		eligible--
+	}
+	// Keep the full-sort path when k covers much of the vocabulary: building
+	// a large heap before sorting it would add work with little storage benefit.
+	bounded := s.TopK > 0 && s.TopK <= eligible/4
+	capacity := eligible
+	if bounded {
+		capacity = s.TopK
+	}
+	cs := make([]candidate, 0, capacity)
 	for id, v := range logits {
 		if !finite(float64(v)) {
 			return 0, errors.New("nonfinite sampling logit")
@@ -7120,17 +7171,17 @@ func sampleWithBlocked(logits []float32, history []int, s Sampling, rng *RNG, bl
 				x *= s.RepeatPenalty
 			}
 		}
-		cs = append(cs, candidate{ID: id, Logit: x})
+		v := candidate{ID: id, Logit: x}
+		if bounded {
+			cs = retainTopCandidate(cs, v, s.TopK)
+		} else {
+			cs = append(cs, v)
+		}
 	}
 	if len(cs) == 0 {
 		return 0, errors.New("empty sampling distribution")
 	}
-	sort.Slice(cs, func(i, j int) bool {
-		if cs[i].Logit == cs[j].Logit {
-			return cs[i].ID < cs[j].ID
-		}
-		return cs[i].Logit > cs[j].Logit
-	})
+	sort.Slice(cs, func(i, j int) bool { return candidateBefore(cs[i], cs[j]) })
 	if s.TopK > 0 && s.TopK < len(cs) {
 		cs = cs[:s.TopK]
 	}
