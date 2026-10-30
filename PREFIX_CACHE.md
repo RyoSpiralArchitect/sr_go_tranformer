@@ -31,12 +31,20 @@ full pages read-only to the new session. It always leaves at least one input
 token to forward, because it does not cache logits. The mutable suffix belongs
 to the new session and can never write into the shared pages.
 
-Snapshot replacement occurs only with no outstanding borrowers, using existing
-page storage where possible. A request borrowing the current snapshot therefore
-does not extend it on completion. A successful cacheable miss can replace it.
-This conservative policy permits only one live snapshot allocation, without a
-background reclaimer, lock per page, or unbounded generations of old prefixes.
-It is not a multi-entry LRU or a complete conversation cache.
+Snapshot replacement occurs with no outstanding borrowers, or when the
+successfully finishing session is the current snapshot's sole borrower. The
+engine actor waits for compute to join before copying completed suffix pages;
+the shared prefix remains in place. This lets successive matching conversations
+grow the retained prefix within the existing allowance. If another reader
+remains, capture is skipped. A successful cacheable miss can still replace it.
+Only one snapshot allocation is live, using existing page storage where possible,
+without a background reclaimer or lock per page. This is not a multi-entry LRU.
+
+The same model revision and reset epoch are required. Capture stops at the
+cache's committed position, not the history length: the last sampled output
+token may not have a KV row yet. Mutable suffix pages are copied, never taken
+from the request's pool reservation. Cancellation, slow-consumer failure and
+requests admitted before `/reset` cannot publish or extend retention.
 
 `-prefix-cache-mib` is carved out of `-kv-mib`, not added to it. The mutable pool
 uses the remainder. Full request reservations still use the complete prompt
@@ -115,3 +123,18 @@ computed input rows fell from 240 to 144 across the pair. The snapshot retained
 Shutdown released the snapshot. Original model files matched the pinned hashes
 before and after the run. The measured process peak RSS was about 3.94 GiB,
 including model loading; it is distinct from the KV payload budget.
+
+## Growing-prefix fixture
+
+The [five-request native fixture](validation/performance/prefix-growth-fixture-20261030.json)
+uses 66, 98, 130, 162 and 194 input positions with eight output tokens each.
+Across 650 logical input positions it reuses 448 and computes 202. Retained
+prefix pages grow from two to six, within the fixed allowance. FP32, Q8 and Q4
+weight variants produce exactly the disabled-reference completions, including
+a subsequent divergent branch. The [race-enabled log](validation/performance/prefix-growth-fixture-20261030.txt)
+also records sole/multiple-reader ownership, uncommitted-token exclusion,
+failure, deterministic cancellation and reset during a borrowed computation.
+
+These are synthetic growing prompts, not a pretrained multi-turn chat or a
+balanced speed measurement. The earlier Mistral receipt checks fixed-prefix
+reuse; it does not establish the speed or quality of this extension policy.
