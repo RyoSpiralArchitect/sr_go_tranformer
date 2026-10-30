@@ -22,7 +22,12 @@ go run ./tools/loadtest \
 Use `./scripts/go.sh run ./tools/loadtest` if using the repository's local Go
 toolchain. Both prompts plus the generation budget must fit the checkpoint's
 context. The defaults request at most 16 generated tokens. No request is retried.
-Requests use greedy sampling (`temperature: 0`, `repeat_penalty: 1`).
+Requests default to greedy sampling (`temperature: 0`, `repeat_penalty: 1`).
+Use `-temperature .8 -top-k 40 -top-p .95 -repeat-penalty 1.1 -seed 19`
+for a fixed non-greedy cohort. The same seed is sent for every request; sampling
+settings are included in the report. Keep settings and prompts identical across
+compared versions. Non-greedy measurements must be reported separately from
+earlier greedy-only results.
 
 The number of in-flight requests is bounded by `-concurrency`. A separate
 connection fetches `/metrics` before the workload, periodically during it, and

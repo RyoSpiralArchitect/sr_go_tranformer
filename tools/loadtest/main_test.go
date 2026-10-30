@@ -16,7 +16,7 @@ import (
 )
 
 func testOptions(endpoint string) options {
-	return options{URL: endpoint, Requests: 12, Concurrency: 3, ShortPrompt: "x", LongPrompt: "longer prompt", MaxTokens: 4, CancelAfter: 2, SlowDelay: time.Millisecond, Timeout: 2 * time.Second, SampleInterval: time.Millisecond}
+	return options{URL: endpoint, Requests: 12, Concurrency: 3, ShortPrompt: "x", LongPrompt: "longer prompt", MaxTokens: 4, TopK: 40, TopP: .95, RepeatPenalty: 1, Seed: 1, CancelAfter: 2, SlowDelay: time.Millisecond, Timeout: 2 * time.Second, SampleInterval: time.Millisecond}
 }
 
 func emit(w http.ResponseWriter, event string, data any) {
@@ -333,6 +333,37 @@ func TestOptionsValidation(t *testing.T) {
 	}
 	if _, err := parseOptions([]string{"-requests=20", "-cancel-every=5", "-slow-every=3"}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSamplingOptionsAndRequest(t *testing.T) {
+	for _, args := range [][]string{{"-temperature=NaN"}, {"-temperature=+Inf"}, {"-temperature=-1"}, {"-temperature=101"}, {"-top-k=-1"}, {"-top-p=0"}, {"-top-p=1.1"}, {"-top-p=NaN"}, {"-repeat-penalty=0"}, {"-repeat-penalty=NaN"}, {"-repeat-penalty=101"}} {
+		if _, err := parseOptions(args); err == nil {
+			t.Fatalf("accepted %v", args)
+		}
+	}
+	want := map[string]any{"temperature": .8, "top_k": float64(40), "top_p": .95, "repeat_penalty": 1.1, "seed": float64(19)}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		for k, v := range want {
+			if body[k] != v {
+				t.Errorf("%s=%v, want %v", k, body[k], v)
+			}
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		emit(w, "done", completion{TokenIDs: []int{}, PromptTokens: 1, FinishReason: "eos"})
+	}))
+	defer server.Close()
+	o, err := parseOptions([]string{"-url", server.URL, "-temperature=.8", "-top-k=40", "-top-p=.95", "-repeat-penalty=1.1", "-seed=19"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := executeRequest(context.Background(), server.Client(), o, planRequest(o, 1))
+	if result.Outcome != "completed" {
+		t.Fatal(result)
 	}
 }
 
