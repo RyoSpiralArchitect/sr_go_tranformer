@@ -69,3 +69,22 @@ speedup from this small fraction of total 7B compute:
 ./scripts/compare_prompt_prefill.py --baseline 8dca84e --long-ratio-max 1.05 \
   --model PATH_TO_MISTRAL_7B --output runs/selective-head-real
 ```
+
+## Pinned Mistral result
+
+The [real-model ABBA receipt](validation/performance/mistral-selective-head-20261030.json)
+compares merged `8dca84e` with the runtime in `4d1d401`, Q4-mixed Mistral 7B,
+context 1024, four threads, one greedy output token. Every completion matched.
+Original model files were verified before and after; loading is excluded.
+
+| Input tokens | Before median, s | Selected heads median, s | Change |
+| ---: | ---: | ---: | ---: |
+| 4 | 1.599 | 1.571 | -1.7% |
+| 275 | 104.626 | 107.371 | +2.6% |
+
+Both predeclared 5% non-regression ceilings passed, but **this measurement does
+not establish a 7B speedup**. There are only two long and six short trials per
+variant, with no warmups or confidence intervals. All trials, including the
+long-case regression, are retained. The four-token input fits one chunk and
+already needed only one head. The native fixture's larger relative head cost
+must not be extrapolated to this pretrained model or concurrent serving.
