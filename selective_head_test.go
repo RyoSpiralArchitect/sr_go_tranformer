@@ -125,6 +125,93 @@ func TestSelectiveHeadGenerationParity(t *testing.T) {
 	}
 }
 
+// The large-vocabulary synthetic fixture encodes byte prompts and renders
+// generated IDs directly; it makes no language/tokenizer compatibility claim.
+type headBenchmarkTokenizer struct{ fixedStepGenerateTokenizer }
+
+func (headBenchmarkTokenizer) Vocab() int              { return 32768 }
+func (headBenchmarkTokenizer) Decode(ids []int) string { return fmt.Sprint(ids) }
+
+func TestSelectiveHeadParallelProjection(t *testing.T) {
+	for _, format := range []string{"f32", "q8", "q4"} {
+		cfg := Config{Vocab: 1024, Dim: 66, Hidden: 257, Layers: 2, Heads: 3, KVHeads: 1, Context: 128, RopeTheta: 10000, NormEps: 1e-5}
+		m, err := NewModel(cfg, 19)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m.DropOptimizer()
+		for _, p := range m.Params {
+			if p.Rows < 2 || format == "f32" {
+				continue
+			}
+			q := quantizeTestParam(t, p)
+			if format == "q4" {
+				q = quantizeQ4TestParam(t, p)
+			}
+			*p = *q
+		}
+		e := newKernelExecutor(4)
+		a, b := []*KVCache{m.NewCache(), m.NewCache(), m.NewCache()}, []*KVCache{m.NewCache(), m.NewCache(), m.NewCache()}
+		chunks := [][]int{{2, 3, 4}, {5}, {6, 7}}
+		var wa, wb decodeWorkspace
+		want, err := m.prefillBorrowed(context.Background(), b, chunks, e, &wb)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Two compact head rows exceed the parallel threshold even though one
+		// row would run inline. The gap also exercises backwards expansion.
+		got, err := m.prefillSelected(context.Background(), a, chunks, e, &wa, []bool{true, false, true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, i := range []int{0, 2} {
+			exactWorkerFloats(t, got[i*cfg.Vocab:(i+1)*cfg.Vocab], want[i*cfg.Vocab:(i+1)*cfg.Vocab])
+		}
+		e.close()
+		for i := range a {
+			a[i].Close()
+			b[i].Close()
+		}
+	}
+}
+
+func TestSelectiveHeadCancelAtHeadlessCommit(t *testing.T) {
+	m := promptPrefillTestModel(t, "q4")
+	a, b := m.NewCache(), m.NewCache()
+	defer a.Close()
+	defer b.Close()
+	e := newKernelExecutor(4)
+	defer e.close()
+	var wa, wb decodeWorkspace
+	prefix := prefillTokens(31, 3)
+	for i, c := range []*KVCache{a, b} {
+		w := &wa
+		if i == 1 {
+			w = &wb
+		}
+		if _, err := m.prefillBorrowed(context.Background(), []*KVCache{c}, [][]int{prefix}, e, w); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx := &prefillCancelContext{Context: context.Background(), cancelAt: len(m.Blocks) + 3}
+	if _, err := m.prefillSelected(ctx, []*KVCache{a}, [][]int{{5, 6, 7, 8}}, e, &wa, []bool{false}); err != context.Canceled || a.Pos != 31 || len(a.Pages) != 2 {
+		t.Fatal("headless cancellation committed", a.Pos, err)
+	}
+	assertWorkspaceReferencesCleared(t, &wa)
+	got, err := m.prefillSelected(context.Background(), []*KVCache{a}, [][]int{{9, 10, 11, 12}}, e, &wa, []bool{true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := m.prefillBorrowed(context.Background(), []*KVCache{b}, [][]int{{9, 10, 11, 12}}, e, &wb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exactWorkerFloats(t, got, want)
+	for i, p := range a.Pages {
+		exactWorkerFloats(t, p.Data, b.Pages[i].Data)
+	}
+}
+
 func BenchmarkSelectiveHeadGenerate(b *testing.B) {
 	c := Config{Vocab: 32768, Dim: 256, Hidden: 704, Layers: 1, Heads: 8, KVHeads: 2, Context: 512, RopeTheta: 10000, NormEps: 1e-5}
 	m, err := NewModel(c, 19)
@@ -132,7 +219,7 @@ func BenchmarkSelectiveHeadGenerate(b *testing.B) {
 		b.Fatal(err)
 	}
 	m.DropOptimizer()
-	tok := fixedStepGenerateTokenizer{}
+	tok := headBenchmarkTokenizer{}
 	for _, shape := range [][2]int{{3, 1}, {33, 1}, {129, 1}, {257, 1}, {3, 32}} {
 		prompt := strings.Repeat("a", shape[0]-1)
 		s := defaultSampling()
