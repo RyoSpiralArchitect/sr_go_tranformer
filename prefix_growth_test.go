@@ -199,25 +199,43 @@ func TestPrefixGrowthResetDuringBorrow(t *testing.T) {
 	m := promptPrefillTestModel(t, "f32")
 	cfg := prefixEngineConfig(m)
 	e, err := newEngine(m, fixedStepGenerateTokenizer{}, cfg)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Stage a clear command while compute is gated. Buffering only this test's
 	// actor mailbox makes delivery deterministic; the reset operation is real.
 	e.clearPrefix = make(chan chan struct{}, 1)
 	prompt := strings.Repeat("a", 161)
 	ids := (Tokenizer{}).Encode(prompt, true, false)
-	source := m.NewCache(); defer source.Close()
-	if _, err := m.PrefillBatch(context.Background(), []*KVCache{source}, [][]int{ids[:64]}); err != nil { t.Fatal(err) }
+	source := m.NewCache()
+	defer source.Close()
+	if _, err := m.PrefillBatch(context.Background(), []*KVCache{source}, [][]int{ids[:64]}); err != nil {
+		t.Fatal(err)
+	}
 	e.prefix.capture(m, source, ids[:64], 4)
 	s := prefixSampling()
 	stream, err := e.Stream(streamTestContext(t), prompt, s)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	gate := startGatedEngine(t, e)
-	if e.Stats().PrefixHits != 1 { t.Fatal("fixture did not borrow") }
-	done := make(chan struct{}); e.clearPrefix <- done
-	gate.open(); waitLifecycle(t, done)
-	got, err := stream.Wait(); <-stream.Released()
-	if err != nil { t.Fatal(err) }
+	if e.Stats().PrefixHits != 1 {
+		t.Fatal("fixture did not borrow")
+	}
+	done := make(chan struct{})
+	e.clearPrefix <- done
+	gate.open()
+	waitLifecycle(t, done)
+	got, err := stream.Wait()
+	<-stream.Released()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want, err := Generate(context.Background(), m, fixedStepGenerateTokenizer{}, prompt, s)
-	if err != nil || !reflect.DeepEqual(got, want) { t.Fatal("reset changed completion", err) }
-	if e.Stats().PrefixBytes != 0 || e.Stats().KVReservedBytes != 0 { t.Fatal("old epoch republished prefix", e.Stats()) }
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatal("reset changed completion", err)
+	}
+	if e.Stats().PrefixBytes != 0 || e.Stats().KVReservedBytes != 0 {
+		t.Fatal("old epoch republished prefix", e.Stats())
+	}
 }
