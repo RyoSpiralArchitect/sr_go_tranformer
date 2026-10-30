@@ -1,0 +1,717 @@
+{
+  "format": "monolith-selective-head-native-v1",
+  "source_commit": "105052993bcc1e74d8f1cde9ee4bff1dd8c14f11",
+  "inputs_sha256": {
+    "monolith.go": "fc3c82dea5afa6f2666f8a02152f2e88ad31772073170454dd6df9a2a16dfd04",
+    "selective_head_test.go": "892c729fdf2f7a3a0f0f98c8b74cc81a29a99f51ea631c0cd35b6bc026ccd2f5",
+    "validation/performance/selective-head-protocol-20261030.json": "baa4361cc9ec39af746c3beab50bd5f46ea0fa7cb8c48d4bcd77ce383672ba8c"
+  },
+  "host": "Apple M4 / 24 GiB / darwin arm64",
+  "toolchain": "go1.27.1",
+  "threads": 4,
+  "samples": [
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 55,
+      "ns_per_op": 4969347,
+      "bytes_per_op": 185382,
+      "allocs_per_op": 65
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 62,
+      "ns_per_op": 5122165,
+      "bytes_per_op": 185272,
+      "allocs_per_op": 64
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 57,
+      "ns_per_op": 4960542,
+      "bytes_per_op": 185297,
+      "allocs_per_op": 64
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 134,
+      "ns_per_op": 2258842,
+      "bytes_per_op": 185138,
+      "allocs_per_op": 62
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 128,
+      "ns_per_op": 2354883,
+      "bytes_per_op": 185094,
+      "allocs_per_op": 62
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 100,
+      "ns_per_op": 2596539,
+      "bytes_per_op": 185079,
+      "allocs_per_op": 62
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 129,
+      "ns_per_op": 2306987,
+      "bytes_per_op": 185067,
+      "allocs_per_op": 62
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 121,
+      "ns_per_op": 2260409,
+      "bytes_per_op": 185092,
+      "allocs_per_op": 62
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 133,
+      "ns_per_op": 2345580,
+      "bytes_per_op": 185064,
+      "allocs_per_op": 62
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 57,
+      "ns_per_op": 5047671,
+      "bytes_per_op": 185277,
+      "allocs_per_op": 64
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 58,
+      "ns_per_op": 5092871,
+      "bytes_per_op": 185312,
+      "allocs_per_op": 64
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 51,
+      "ns_per_op": 5163321,
+      "bytes_per_op": 185284,
+      "allocs_per_op": 64
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 50,
+      "ns_per_op": 6449055,
+      "bytes_per_op": 425652,
+      "allocs_per_op": 67
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 44,
+      "ns_per_op": 6921807,
+      "bytes_per_op": 425645,
+      "allocs_per_op": 67
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 43,
+      "ns_per_op": 7017403,
+      "bytes_per_op": 425753,
+      "allocs_per_op": 67
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 86,
+      "ns_per_op": 3734553,
+      "bytes_per_op": 425473,
+      "allocs_per_op": 65
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 90,
+      "ns_per_op": 3712034,
+      "bytes_per_op": 425452,
+      "allocs_per_op": 65
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 73,
+      "ns_per_op": 4136135,
+      "bytes_per_op": 425445,
+      "allocs_per_op": 65
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 68,
+      "ns_per_op": 4065195,
+      "bytes_per_op": 425458,
+      "allocs_per_op": 65
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 74,
+      "ns_per_op": 3704542,
+      "bytes_per_op": 425472,
+      "allocs_per_op": 65
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 84,
+      "ns_per_op": 3709467,
+      "bytes_per_op": 425452,
+      "allocs_per_op": 65
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 48,
+      "ns_per_op": 6153112,
+      "bytes_per_op": 425644,
+      "allocs_per_op": 67
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 50,
+      "ns_per_op": 7075376,
+      "bytes_per_op": 425653,
+      "allocs_per_op": 67
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 39,
+      "ns_per_op": 6914346,
+      "bytes_per_op": 425765,
+      "allocs_per_op": 68
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 13,
+      "ns_per_op": 20610587,
+      "bytes_per_op": 487653,
+      "allocs_per_op": 132
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 14,
+      "ns_per_op": 20039926,
+      "bytes_per_op": 487651,
+      "allocs_per_op": 132
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 15,
+      "ns_per_op": 21651556,
+      "bytes_per_op": 487714,
+      "allocs_per_op": 132
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 26,
+      "ns_per_op": 9838471,
+      "bytes_per_op": 486899,
+      "allocs_per_op": 124
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 32,
+      "ns_per_op": 9525530,
+      "bytes_per_op": 486972,
+      "allocs_per_op": 125
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 32,
+      "ns_per_op": 10166557,
+      "bytes_per_op": 486884,
+      "allocs_per_op": 124
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 33,
+      "ns_per_op": 9387471,
+      "bytes_per_op": 486914,
+      "allocs_per_op": 124
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 30,
+      "ns_per_op": 10192085,
+      "bytes_per_op": 486875,
+      "allocs_per_op": 124
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 27,
+      "ns_per_op": 9997085,
+      "bytes_per_op": 486856,
+      "allocs_per_op": 124
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 14,
+      "ns_per_op": 22688244,
+      "bytes_per_op": 487665,
+      "allocs_per_op": 132
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 12,
+      "ns_per_op": 23365754,
+      "bytes_per_op": 487656,
+      "allocs_per_op": 132
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 13,
+      "ns_per_op": 22006872,
+      "bytes_per_op": 487797,
+      "allocs_per_op": 133
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 7,
+      "ns_per_op": 38943685,
+      "bytes_per_op": 578234,
+      "allocs_per_op": 218
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 7,
+      "ns_per_op": 43873744,
+      "bytes_per_op": 578170,
+      "allocs_per_op": 217
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 6,
+      "ns_per_op": 41695278,
+      "bytes_per_op": 578245,
+      "allocs_per_op": 218
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 15,
+      "ns_per_op": 18916272,
+      "bytes_per_op": 576620,
+      "allocs_per_op": 201
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 14,
+      "ns_per_op": 19671396,
+      "bytes_per_op": 576593,
+      "allocs_per_op": 201
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 15,
+      "ns_per_op": 19062133,
+      "bytes_per_op": 576597,
+      "allocs_per_op": 201
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 15,
+      "ns_per_op": 18947914,
+      "bytes_per_op": 576590,
+      "allocs_per_op": 201
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 15,
+      "ns_per_op": 20492161,
+      "bytes_per_op": 576642,
+      "allocs_per_op": 201
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 14,
+      "ns_per_op": 18788976,
+      "bytes_per_op": 576649,
+      "allocs_per_op": 201
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 7,
+      "ns_per_op": 45673179,
+      "bytes_per_op": 578268,
+      "allocs_per_op": 218
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 6,
+      "ns_per_op": 42347292,
+      "bytes_per_op": 578184,
+      "allocs_per_op": 218
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 7,
+      "ns_per_op": 39296720,
+      "bytes_per_op": 578190,
+      "allocs_per_op": 218
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 5,
+      "ns_per_op": 58966558,
+      "bytes_per_op": 232060,
+      "allocs_per_op": 381
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 5,
+      "ns_per_op": 58407458,
+      "bytes_per_op": 232720,
+      "allocs_per_op": 386
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": false,
+      "variant": "before",
+      "iterations": 5,
+      "ns_per_op": 58001683,
+      "bytes_per_op": 232329,
+      "allocs_per_op": 383
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 5,
+      "ns_per_op": 53553067,
+      "bytes_per_op": 232275,
+      "allocs_per_op": 383
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 5,
+      "ns_per_op": 54199150,
+      "bytes_per_op": 231865,
+      "allocs_per_op": 379
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": false,
+      "variant": "after",
+      "iterations": 5,
+      "ns_per_op": 54284475,
+      "bytes_per_op": 232003,
+      "allocs_per_op": 380
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 5,
+      "ns_per_op": 55295083,
+      "bytes_per_op": 232272,
+      "allocs_per_op": 383
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 5,
+      "ns_per_op": 53412150,
+      "bytes_per_op": 232227,
+      "allocs_per_op": 382
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": true,
+      "variant": "after",
+      "iterations": 5,
+      "ns_per_op": 54127567,
+      "bytes_per_op": 232137,
+      "allocs_per_op": 381
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 5,
+      "ns_per_op": 61449750,
+      "bytes_per_op": 232464,
+      "allocs_per_op": 385
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 5,
+      "ns_per_op": 66673242,
+      "bytes_per_op": 232329,
+      "allocs_per_op": 383
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "reverse": true,
+      "variant": "before",
+      "iterations": 5,
+      "ns_per_op": 57582350,
+      "bytes_per_op": 232467,
+      "allocs_per_op": 385
+    }
+  ],
+  "summary": [
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 1,
+      "medians": {
+        "before": {
+          "ns_per_op": 5070271.0,
+          "bytes_per_op": 185290.5,
+          "allocs_per_op": 64.0
+        },
+        "after": {
+          "ns_per_op": 2326283.5,
+          "bytes_per_op": 185085.5,
+          "allocs_per_op": 62.0
+        }
+      },
+      "ratio": 0.4588085133910988,
+      "ratio_max": 1.05,
+      "passed": true
+    },
+    {
+      "prompt_tokens": 33,
+      "output_tokens": 1,
+      "medians": {
+        "before": {
+          "ns_per_op": 6918076.5,
+          "bytes_per_op": 425652.5,
+          "allocs_per_op": 67.0
+        },
+        "after": {
+          "ns_per_op": 3723293.5,
+          "bytes_per_op": 425455.0,
+          "allocs_per_op": 65.0
+        }
+      },
+      "ratio": 0.5381977924066031,
+      "ratio_max": 0.95,
+      "passed": true
+    },
+    {
+      "prompt_tokens": 129,
+      "output_tokens": 1,
+      "medians": {
+        "before": {
+          "ns_per_op": 21829214.0,
+          "bytes_per_op": 487660.5,
+          "allocs_per_op": 132.0
+        },
+        "after": {
+          "ns_per_op": 9917778.0,
+          "bytes_per_op": 486891.5,
+          "allocs_per_op": 124.0
+        }
+      },
+      "ratio": 0.45433509424572044,
+      "ratio_max": 0.95,
+      "passed": true
+    },
+    {
+      "prompt_tokens": 257,
+      "output_tokens": 1,
+      "medians": {
+        "before": {
+          "ns_per_op": 42021285.0,
+          "bytes_per_op": 578212.0,
+          "allocs_per_op": 218.0
+        },
+        "after": {
+          "ns_per_op": 19005023.5,
+          "bytes_per_op": 576608.5,
+          "allocs_per_op": 201.0
+        }
+      },
+      "ratio": 0.4522713548621847,
+      "ratio_max": 0.95,
+      "passed": true
+    },
+    {
+      "prompt_tokens": 3,
+      "output_tokens": 32,
+      "medians": {
+        "before": {
+          "ns_per_op": 58687008.0,
+          "bytes_per_op": 232396.5,
+          "allocs_per_op": 384.0
+        },
+        "after": {
+          "ns_per_op": 54163358.5,
+          "bytes_per_op": 232182.0,
+          "allocs_per_op": 381.5
+        }
+      },
+      "ratio": 0.922919064130855,
+      "ratio_max": 1.05,
+      "passed": true
+    }
+  ],
+  "accepted": true,
+  "initial_attempt": {
+    "outcome": "fixture error before timing: tokenizer/model mismatch",
+    "sha256": "df9098f66d203b95364d463e7cb82625ea3f5062b1c76dd63c80b1ef01707e6c"
+  },
+  "scope": "Synthetic single-layer 32768-vocabulary model with synthetic ID-rendering tokenizer. Not a pretrained model throughput or quality claim."
+}

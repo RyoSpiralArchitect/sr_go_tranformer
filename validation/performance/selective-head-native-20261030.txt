@@ -1,0 +1,66 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/RyoSpiralArchitect/sr_go_tranformer
+cpu: Apple M4
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversefalse/before-4         	      55	   4969347 ns/op	  185382 B/op	      65 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversefalse/before-4         	      62	   5122165 ns/op	  185272 B/op	      64 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversefalse/before-4         	      57	   4960542 ns/op	  185297 B/op	      64 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversefalse/after-4          	     134	   2258842 ns/op	  185138 B/op	      62 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversefalse/after-4          	     128	   2354883 ns/op	  185094 B/op	      62 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversefalse/after-4          	     100	   2596539 ns/op	  185079 B/op	      62 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversetrue/after-4           	     129	   2306987 ns/op	  185067 B/op	      62 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversetrue/after-4           	     121	   2260409 ns/op	  185092 B/op	      62 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversetrue/after-4           	     133	   2345580 ns/op	  185064 B/op	      62 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversetrue/before-4          	      57	   5047671 ns/op	  185277 B/op	      64 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversetrue/before-4          	      58	   5092871 ns/op	  185312 B/op	      64 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output1/reversetrue/before-4          	      51	   5163321 ns/op	  185284 B/op	      64 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversefalse/before-4        	      50	   6449055 ns/op	  425652 B/op	      67 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversefalse/before-4        	      44	   6921807 ns/op	  425645 B/op	      67 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversefalse/before-4        	      43	   7017403 ns/op	  425753 B/op	      67 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversefalse/after-4         	      86	   3734553 ns/op	  425473 B/op	      65 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversefalse/after-4         	      90	   3712034 ns/op	  425452 B/op	      65 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversefalse/after-4         	      73	   4136135 ns/op	  425445 B/op	      65 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversetrue/after-4          	      68	   4065195 ns/op	  425458 B/op	      65 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversetrue/after-4          	      74	   3704542 ns/op	  425472 B/op	      65 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversetrue/after-4          	      84	   3709467 ns/op	  425452 B/op	      65 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversetrue/before-4         	      48	   6153112 ns/op	  425644 B/op	      67 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversetrue/before-4         	      50	   7075376 ns/op	  425653 B/op	      67 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt33/output1/reversetrue/before-4         	      39	   6914346 ns/op	  425765 B/op	      68 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversefalse/before-4       	      13	  20610587 ns/op	  487653 B/op	     132 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversefalse/before-4       	      14	  20039926 ns/op	  487651 B/op	     132 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversefalse/before-4       	      15	  21651556 ns/op	  487714 B/op	     132 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversefalse/after-4        	      26	   9838471 ns/op	  486899 B/op	     124 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversefalse/after-4        	      32	   9525530 ns/op	  486972 B/op	     125 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversefalse/after-4        	      32	  10166557 ns/op	  486884 B/op	     124 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversetrue/after-4         	      33	   9387471 ns/op	  486914 B/op	     124 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversetrue/after-4         	      30	  10192085 ns/op	  486875 B/op	     124 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversetrue/after-4         	      27	   9997085 ns/op	  486856 B/op	     124 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversetrue/before-4        	      14	  22688244 ns/op	  487665 B/op	     132 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversetrue/before-4        	      12	  23365754 ns/op	  487656 B/op	     132 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt129/output1/reversetrue/before-4        	      13	  22006872 ns/op	  487797 B/op	     133 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversefalse/before-4       	       7	  38943685 ns/op	  578234 B/op	     218 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversefalse/before-4       	       7	  43873744 ns/op	  578170 B/op	     217 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversefalse/before-4       	       6	  41695278 ns/op	  578245 B/op	     218 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversefalse/after-4        	      15	  18916272 ns/op	  576620 B/op	     201 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversefalse/after-4        	      14	  19671396 ns/op	  576593 B/op	     201 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversefalse/after-4        	      15	  19062133 ns/op	  576597 B/op	     201 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversetrue/after-4         	      15	  18947914 ns/op	  576590 B/op	     201 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversetrue/after-4         	      15	  20492161 ns/op	  576642 B/op	     201 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversetrue/after-4         	      14	  18788976 ns/op	  576649 B/op	     201 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversetrue/before-4        	       7	  45673179 ns/op	  578268 B/op	     218 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversetrue/before-4        	       6	  42347292 ns/op	  578184 B/op	     218 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt257/output1/reversetrue/before-4        	       7	  39296720 ns/op	  578190 B/op	     218 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversefalse/before-4        	       5	  58966558 ns/op	  232060 B/op	     381 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversefalse/before-4        	       5	  58407458 ns/op	  232720 B/op	     386 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversefalse/before-4        	       5	  58001683 ns/op	  232329 B/op	     383 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversefalse/after-4         	       5	  53553067 ns/op	  232275 B/op	     383 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversefalse/after-4         	       5	  54199150 ns/op	  231865 B/op	     379 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversefalse/after-4         	       5	  54284475 ns/op	  232003 B/op	     380 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversetrue/after-4          	       5	  55295083 ns/op	  232272 B/op	     383 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversetrue/after-4          	       5	  53412150 ns/op	  232227 B/op	     382 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversetrue/after-4          	       5	  54127567 ns/op	  232137 B/op	     381 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversetrue/before-4         	       5	  61449750 ns/op	  232464 B/op	     385 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversetrue/before-4         	       5	  66673242 ns/op	  232329 B/op	     383 allocs/op
+BenchmarkSelectiveHeadGenerate/prompt3/output32/reversetrue/before-4         	       5	  57582350 ns/op	  232467 B/op	     385 allocs/op
+PASS
+ok  	github.com/RyoSpiralArchitect/sr_go_tranformer	27.217s

@@ -1,0 +1,5 @@
+--- FAIL: BenchmarkSelectiveHeadGenerate
+    selective_head_test.go:144: tokenizer/model mismatch
+FAIL
+exit status 1
+FAIL	github.com/RyoSpiralArchitect/sr_go_tranformer	0.480s
