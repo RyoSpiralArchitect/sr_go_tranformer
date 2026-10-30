@@ -5741,11 +5741,13 @@ func (p *prefixSnapshot) clear() {
 	}
 }
 
-// Retain only successful, committed full pages. The reserved prefix allowance
-// is separate from the mutable pool, so copying never consumes another request's
-// reservation. Reuse backing pages on replacement to avoid transient doubling.
+// Retain only successful, committed full pages after the actor joins compute.
+// The finishing cache may be the sole borrower of this snapshot: its immutable
+// shared prefix stays in place while its completed suffix is copied. Other
+// borrowers prevent replacement. Prefix allocation stays in its own allowance.
 func (p *prefixSnapshot) capture(m *Model, c *KVCache, ids []int, limit int) {
-	if p.borrowers != 0 || c.Revision != m.Revision {
+	soleBorrower := c.shared == p && p.borrowers == 1 && p.model == m && p.revision == m.Revision
+	if (p.borrowers != 0 && !soleBorrower) || c.Revision != m.Revision {
 		return
 	}
 	n := min(limit, c.Pos/pageTokens)
