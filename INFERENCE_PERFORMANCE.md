@@ -653,10 +653,13 @@ and keep both orders and every observation. Adoption requires a long-prompt
 median ratio at most 0.95 and ratios at most 1.05 for the short prompt and both
 decode controls, plus exact output and used-KV comparisons.
 
-On a checkout containing the pinned Go sources and the measurement scripts,
-with local Mistral v0.3 weights and a fresh output directory for each command:
+Use the experiment commit to reproduce the candidate with the measurement
+scripts and exact test inputs. Run each command with local Mistral v0.3 weights
+and a fresh output directory:
 
 ```sh
+git worktree add --detach ../mistral-q4-replay 1fa0739
+cd ../mistral-q4-replay
 plan=validation/performance/mistral-q4-prefill-protocol-20261101.json
 python3 -S scripts/check_q4_prefill.py --protocol "$plan" --output runs/quad-exact
 python3 -S scripts/compare_prompt_prefill.py --baseline 06535fb \
@@ -674,3 +677,44 @@ codes 2 and 1 respectively. The separate untimed bit probe rebuilds both pinned
 runtime sources from Git. It compares the final 32,768 logits and all 18,022,400
 committed key/value floats for the same 275-token prompt. Run the timing and
 parity probes sequentially.
+
+### Four-row candidate disposition
+
+Both prompt gates failed. The shipping kernel remains byte-identical to
+`06535fb`. The [candidate patch](validation/performance/mistral-q4-four-row-candidate.patch)
+includes the proposed runtime change and its four-row test. The patch can also
+be applied to that exact baseline with `git apply --unidiff-zero`.
+
+| Direct Generate input / output | Before median | Candidate median | After / before | Maximum allowed |
+| --- | ---: | ---: | ---: | ---: |
+| 275 / 1 | 115.300 s | 129.224 s | 1.121 | 0.95 |
+| 4 / 1 | 1.612 s | 2.402 s | 1.490 | 1.05 |
+
+The [full prompt receipt](validation/performance/mistral-q4-prefill-prompt-20261101.json)
+contains all trials in before/after/after/before order. The long times were
+133.715, 142.312, 116.136 and 96.885 s. All returned the same completion.
+An unrelated compiler was observed at 670% CPU during the first candidate
+process. Intermittent [host observations](validation/performance/mistral-q4-prefill-host-20261101.json)
+began partway through that process. The host was a shared Apple M4, and these
+two long trials per variant cannot isolate the cause of the difference.
+
+The [balanced decode control](validation/performance/mistral-q4-prefill-decode-20261101.json)
+uses six seven-call samples per variant and session count. One-session median
+decode time increased from 3.290 to 3.946 s (+20.0%, above the 5% ceiling).
+Two sessions measured 4.422 to 4.283 s (-3.1%, within the ceiling). All four
+processes agreed on every generated ID, logit digest, used-KV digest and
+workspace size. The [decision](validation/performance/mistral-q4-prefill-decision-20261101.json)
+records three failed timing gates out of four. These shared-host observations
+apply to this workload; the failed gates stand without a retry.
+
+The [exactness log](validation/performance/mistral-q4-prefill-exact-20261101/go-test.jsonl)
+and [test receipt](validation/performance/mistral-q4-prefill-exact-20261101/receipt.json)
+bind the candidate source to the race-enabled Q4 checks, including all packed
+byte values, every tail length through width 193, row remainders, and extreme
+activations.
+
+The [separate 275-token bit probe](validation/performance/mistral-q4-prefill-bits-20261101.json)
+matched both exact runtime revisions on the prompt IDs, output token 1117,
+all 32,768 final logits and all 18,022,400 committed KV floats. It used
+16-token chunks and four workers. Its process durations are excluded from the
+speed results.

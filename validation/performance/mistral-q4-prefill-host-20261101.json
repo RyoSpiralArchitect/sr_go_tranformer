@@ -1,0 +1,676 @@
+{
+  "scope": "15-second ps snapshots began during prompt run 1-after; not complete host coverage or causal isolation. The initial observation was taken separately. No measurements were dropped.",
+  "initial": {
+    "scope": "single contemporaneous ps snapshot, late in the first candidate process; no samples before this point",
+    "local_date": "2026-11-01",
+    "timezone": "Asia/Tokyo",
+    "local_minute": "10:11",
+    "active_trial": "quad-prompt/1-after",
+    "rust_compiler_percent_cpu": 670.1,
+    "mistral_probe_percent_cpu": 248.3,
+    "load1": 19.94,
+    "thermal_warning_reported": false
+  },
+  "observations": [
+    {
+      "utc": "2026-11-01T01:11:50.816871+00:00",
+      "percent_cpu": {
+        "benchmark": 393.7,
+        "rustc": 0.0,
+        "other": 95.8
+      },
+      "load1": 19.67,
+      "active_logs": [
+        "quad-prompt/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:12:05.847034+00:00",
+      "percent_cpu": {
+        "benchmark": 393.0,
+        "rustc": 0.0,
+        "other": 46.4
+      },
+      "load1": 16.95,
+      "active_logs": [
+        "quad-prompt/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:12:20.877970+00:00",
+      "percent_cpu": {
+        "benchmark": 388.8,
+        "rustc": 0.0,
+        "other": 92.8
+      },
+      "load1": 14.36,
+      "active_logs": [
+        "quad-prompt/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:12:35.907141+00:00",
+      "percent_cpu": {
+        "benchmark": 392.6,
+        "rustc": 0.0,
+        "other": 71.0
+      },
+      "load1": 13.05,
+      "active_logs": [
+        "quad-prompt/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:12:50.941308+00:00",
+      "percent_cpu": {
+        "benchmark": 360.5,
+        "rustc": 0.0,
+        "other": 158.8
+      },
+      "load1": 11.48,
+      "active_logs": [
+        "quad-prompt/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:13:05.979553+00:00",
+      "percent_cpu": {
+        "benchmark": 380.9,
+        "rustc": 0.0,
+        "other": 91.6
+      },
+      "load1": 9.91,
+      "active_logs": [
+        "quad-prompt/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:13:21.005359+00:00",
+      "percent_cpu": {
+        "benchmark": 98.9,
+        "rustc": 0.0,
+        "other": 94.1
+      },
+      "load1": 8.59,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:13:36.034571+00:00",
+      "percent_cpu": {
+        "benchmark": 97.9,
+        "rustc": 0.0,
+        "other": 46.7
+      },
+      "load1": 8.3,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:13:51.064437+00:00",
+      "percent_cpu": {
+        "benchmark": 388.0,
+        "rustc": 0.0,
+        "other": 46.0
+      },
+      "load1": 7.12,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:14:06.094871+00:00",
+      "percent_cpu": {
+        "benchmark": 397.1,
+        "rustc": 0.0,
+        "other": 32.0
+      },
+      "load1": 6.93,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:14:21.128955+00:00",
+      "percent_cpu": {
+        "benchmark": 395.5,
+        "rustc": 0.0,
+        "other": 31.7
+      },
+      "load1": 6.57,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:14:36.157482+00:00",
+      "percent_cpu": {
+        "benchmark": 391.5,
+        "rustc": 0.0,
+        "other": 45.7
+      },
+      "load1": 6.35,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:14:51.191940+00:00",
+      "percent_cpu": {
+        "benchmark": 393.8,
+        "rustc": 0.0,
+        "other": 49.6
+      },
+      "load1": 6.2,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:15:06.229784+00:00",
+      "percent_cpu": {
+        "benchmark": 398.0,
+        "rustc": 0.0,
+        "other": 26.6
+      },
+      "load1": 6.08,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:15:21.266179+00:00",
+      "percent_cpu": {
+        "benchmark": 391.7,
+        "rustc": 0.0,
+        "other": 25.4
+      },
+      "load1": 5.76,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:15:36.307501+00:00",
+      "percent_cpu": {
+        "benchmark": 393.2,
+        "rustc": 0.0,
+        "other": 36.8
+      },
+      "load1": 6.01,
+      "active_logs": [
+        "quad-prompt/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:15:51.330674+00:00",
+      "percent_cpu": {
+        "benchmark": 96.0,
+        "rustc": 0.0,
+        "other": 66.7
+      },
+      "load1": 6.13,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:16:06.371192+00:00",
+      "percent_cpu": {
+        "benchmark": 99.9,
+        "rustc": 0.0,
+        "other": 32.4
+      },
+      "load1": 5.52,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:16:21.404726+00:00",
+      "percent_cpu": {
+        "benchmark": 98.2,
+        "rustc": 0.0,
+        "other": 68.9
+      },
+      "load1": 4.75,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:16:36.438894+00:00",
+      "percent_cpu": {
+        "benchmark": 391.5,
+        "rustc": 0.0,
+        "other": 50.4
+      },
+      "load1": 4.76,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:16:51.476180+00:00",
+      "percent_cpu": {
+        "benchmark": 386.8,
+        "rustc": 0.0,
+        "other": 48.4
+      },
+      "load1": 4.8,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:17:06.512772+00:00",
+      "percent_cpu": {
+        "benchmark": 395.4,
+        "rustc": 0.0,
+        "other": 66.7
+      },
+      "load1": 4.92,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:17:21.548439+00:00",
+      "percent_cpu": {
+        "benchmark": 394.2,
+        "rustc": 0.0,
+        "other": 52.2
+      },
+      "load1": 5.6,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:17:36.588987+00:00",
+      "percent_cpu": {
+        "benchmark": 392.0,
+        "rustc": 0.0,
+        "other": 38.5
+      },
+      "load1": 5.68,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:17:51.627541+00:00",
+      "percent_cpu": {
+        "benchmark": 395.1,
+        "rustc": 0.0,
+        "other": 32.1
+      },
+      "load1": 5.61,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:18:06.666435+00:00",
+      "percent_cpu": {
+        "benchmark": 396.1,
+        "rustc": 0.0,
+        "other": 57.7
+      },
+      "load1": 6.28,
+      "active_logs": [
+        "quad-prompt/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:18:36.730553+00:00",
+      "percent_cpu": {
+        "benchmark": 100.0,
+        "rustc": 0.0,
+        "other": 71.4
+      },
+      "load1": 5.37,
+      "active_logs": [
+        "quad-decode/0-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:18:51.756416+00:00",
+      "percent_cpu": {
+        "benchmark": 100.0,
+        "rustc": 0.0,
+        "other": 52.7
+      },
+      "load1": 4.63,
+      "active_logs": [
+        "quad-decode/0-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:19:06.796712+00:00",
+      "percent_cpu": {
+        "benchmark": 388.4,
+        "rustc": 0.0,
+        "other": 148.7
+      },
+      "load1": 4.68,
+      "active_logs": [
+        "quad-decode/0-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:19:21.828071+00:00",
+      "percent_cpu": {
+        "benchmark": 388.5,
+        "rustc": 0.0,
+        "other": 392.0
+      },
+      "load1": 5.76,
+      "active_logs": [
+        "quad-decode/0-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:19:36.862541+00:00",
+      "percent_cpu": {
+        "benchmark": 387.5,
+        "rustc": 0.0,
+        "other": 69.3
+      },
+      "load1": 7.26,
+      "active_logs": [
+        "quad-decode/0-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:19:51.892561+00:00",
+      "percent_cpu": {
+        "benchmark": 393.1,
+        "rustc": 0.0,
+        "other": 26.5
+      },
+      "load1": 6.9,
+      "active_logs": [
+        "quad-decode/0-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:20:06.921155+00:00",
+      "percent_cpu": {
+        "benchmark": 381.6,
+        "rustc": 0.0,
+        "other": 56.4
+      },
+      "load1": 7.21,
+      "active_logs": [
+        "quad-decode/0-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:20:21.947866+00:00",
+      "percent_cpu": {
+        "benchmark": 100.0,
+        "rustc": 0.0,
+        "other": 21.1
+      },
+      "load1": 6.35,
+      "active_logs": [
+        "quad-decode/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:20:36.972183+00:00",
+      "percent_cpu": {
+        "benchmark": 100.0,
+        "rustc": 0.0,
+        "other": 24.7
+      },
+      "load1": 5.4,
+      "active_logs": [
+        "quad-decode/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:20:52.001456+00:00",
+      "percent_cpu": {
+        "benchmark": 370.3,
+        "rustc": 0.0,
+        "other": 74.8
+      },
+      "load1": 5.28,
+      "active_logs": [
+        "quad-decode/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:21:07.031046+00:00",
+      "percent_cpu": {
+        "benchmark": 377.4,
+        "rustc": 0.0,
+        "other": 93.1
+      },
+      "load1": 5.44,
+      "active_logs": [
+        "quad-decode/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:21:22.062811+00:00",
+      "percent_cpu": {
+        "benchmark": 385.3,
+        "rustc": 0.0,
+        "other": 22.5
+      },
+      "load1": 5.48,
+      "active_logs": [
+        "quad-decode/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:21:37.093258+00:00",
+      "percent_cpu": {
+        "benchmark": 385.1,
+        "rustc": 0.0,
+        "other": 57.4
+      },
+      "load1": 5.37,
+      "active_logs": [
+        "quad-decode/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:21:52.135028+00:00",
+      "percent_cpu": {
+        "benchmark": 387.2,
+        "rustc": 0.0,
+        "other": 52.3
+      },
+      "load1": 5.21,
+      "active_logs": [
+        "quad-decode/1-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:22:07.158667+00:00",
+      "percent_cpu": {
+        "benchmark": 98.0,
+        "rustc": 0.0,
+        "other": 252.0
+      },
+      "load1": 4.92,
+      "active_logs": [
+        "quad-decode/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:22:22.187188+00:00",
+      "percent_cpu": {
+        "benchmark": 98.7,
+        "rustc": 0.0,
+        "other": 87.6
+      },
+      "load1": 4.72,
+      "active_logs": [
+        "quad-decode/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:22:37.220738+00:00",
+      "percent_cpu": {
+        "benchmark": 116.5,
+        "rustc": 0.0,
+        "other": 54.1
+      },
+      "load1": 4.54,
+      "active_logs": [
+        "quad-decode/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:22:52.250795+00:00",
+      "percent_cpu": {
+        "benchmark": 387.1,
+        "rustc": 0.0,
+        "other": 64.8
+      },
+      "load1": 4.65,
+      "active_logs": [
+        "quad-decode/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:23:07.282561+00:00",
+      "percent_cpu": {
+        "benchmark": 356.2,
+        "rustc": 0.0,
+        "other": 155.4
+      },
+      "load1": 4.5,
+      "active_logs": [
+        "quad-decode/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:23:22.314432+00:00",
+      "percent_cpu": {
+        "benchmark": 322.0,
+        "rustc": 0.0,
+        "other": 124.9
+      },
+      "load1": 4.91,
+      "active_logs": [
+        "quad-decode/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:23:37.355200+00:00",
+      "percent_cpu": {
+        "benchmark": 351.7,
+        "rustc": 0.0,
+        "other": 217.0
+      },
+      "load1": 4.62,
+      "active_logs": [
+        "quad-decode/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:23:52.388647+00:00",
+      "percent_cpu": {
+        "benchmark": 358.9,
+        "rustc": 0.0,
+        "other": 123.0
+      },
+      "load1": 5.23,
+      "active_logs": [
+        "quad-decode/2-after"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:24:07.416677+00:00",
+      "percent_cpu": {
+        "benchmark": 99.6,
+        "rustc": 0.0,
+        "other": 216.5
+      },
+      "load1": 5.38,
+      "active_logs": [
+        "quad-decode/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:24:22.442033+00:00",
+      "percent_cpu": {
+        "benchmark": 98.0,
+        "rustc": 0.0,
+        "other": 175.9
+      },
+      "load1": 5.23,
+      "active_logs": [
+        "quad-decode/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:24:37.473511+00:00",
+      "percent_cpu": {
+        "benchmark": 98.1,
+        "rustc": 0.0,
+        "other": 179.2
+      },
+      "load1": 7.95,
+      "active_logs": [
+        "quad-decode/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:24:52.512894+00:00",
+      "percent_cpu": {
+        "benchmark": 387.1,
+        "rustc": 0.0,
+        "other": 37.0
+      },
+      "load1": 7.08,
+      "active_logs": [
+        "quad-decode/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:25:07.550082+00:00",
+      "percent_cpu": {
+        "benchmark": 380.2,
+        "rustc": 0.0,
+        "other": 141.5
+      },
+      "load1": 6.33,
+      "active_logs": [
+        "quad-decode/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:25:22.584066+00:00",
+      "percent_cpu": {
+        "benchmark": 370.9,
+        "rustc": 0.0,
+        "other": 58.4
+      },
+      "load1": 6.11,
+      "active_logs": [
+        "quad-decode/3-before"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:25:37.622010+00:00",
+      "percent_cpu": {
+        "benchmark": 374.9,
+        "rustc": 0.0,
+        "other": 90.7
+      },
+      "load1": 6.08,
+      "active_logs": [
+        "quad-decode/3-before"
+      ]
+    }
+  ]
+}
