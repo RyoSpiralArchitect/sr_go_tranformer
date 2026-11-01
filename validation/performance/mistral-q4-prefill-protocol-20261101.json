@@ -1,0 +1,38 @@
+{
+  "format": "monolith-q4-prompt-adoption-v1",
+  "baseline": "06535fb367a418f9e4eca0b6c22976e7e62d39ab",
+  "model": "mistral-7b-v03",
+  "weight_format": "q4-mixed",
+  "context": 1024,
+  "threads": 4,
+  "precondition": "Use the post-load CPU and trace diagnostics from the first PR to select the dominant kernel. Keep the uninstrumented timing separate.",
+  "candidate": "Specialize the complete 64-weight block for four ordinary Q4 input rows using safe fixed-size Go arrays and the original four partial sums per row. Preserve odd-width tails, wide fallback, and one/two-row paths.",
+  "timing": {
+    "tool": "scripts/compare_prompt_prefill.py",
+    "order": "ABBA",
+    "long_input": 275,
+    "short_input": 4,
+    "output": 1,
+    "long_samples_per_variant": 2,
+    "short_samples_per_variant": 6,
+    "long_max_ratio": 0.95,
+    "short_max_ratio": 1.05
+  },
+  "decode_controls": {
+    "tool": "scripts/compare_inference.py",
+    "case_order": "balanced",
+    "sessions": [
+      1,
+      2
+    ],
+    "steps": 7,
+    "trials_per_variant": 6,
+    "max_median_ratio": 1.05
+  },
+  "identity": [
+    "prompt completions",
+    "all measured decode-control logit and used KV digests, token IDs, and workspace capacity",
+    "Q4 exact scalar equivalence including complete blocks, partial tails, and remainder rows"
+  ],
+  "disposition": "If any correctness or timing gate fails, retain the candidate as a reproducible experiment and leave production on the baseline. Retain every attempt and the individual controls. No retries for a favorable result."
+}
