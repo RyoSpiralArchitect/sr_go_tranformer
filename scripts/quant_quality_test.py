@@ -38,7 +38,11 @@ class PeakRSS(unittest.TestCase):
             pidfile = Path(tmp)/'pid'
             code = f'import os,time; open({str(pidfile)!r},"w").write(str(os.getpid())); time.sleep(60)'
             with self.assertRaises(subprocess.TimeoutExpired):
-                run_measured([sys.executable, '-S', '-c', code], timeout=.5)
+                run_measured([sys.executable, '-S', '-c', code], timeout=.5, outcome_path=Path(tmp)/'timeout.json')
+            outcome = json.loads((Path(tmp)/'timeout.json').read_text())
+            self.assertTrue(outcome['timed_out'])
+            self.assertLess(outcome['returncode'], 0)
+            self.assertGreater(outcome['peak_rss_bytes'], 0)
             pid = int(pidfile.read_text())
             with self.assertRaises(ChildProcessError):
                 os.waitpid(pid, os.WNOHANG)

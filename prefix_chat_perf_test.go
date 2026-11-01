@@ -73,14 +73,14 @@ func measurePrefixChatTurn(ctx context.Context, e *Engine, tok *hfTokenizer, his
 	stream.Close()
 	<-stream.Released()
 	turn.StreamText = display.String()
-	if err == nil && (!slices.Equal(turn.StreamIDs, turn.Completion.TokenIDs) || turn.StreamText != turn.Completion.Text) {
-		return turn, errors.New("stream differs from terminal completion")
-	}
 	after := e.Stats()
 	turn.Computed = after.InputTokens - before.InputTokens
 	turn.Reused = after.PrefixTokens - before.PrefixTokens
 	turn.PrefixBytes = after.PrefixBytes
 	turn.KVBytes = after.KVAllocatedBytes
+	if err == nil && (!slices.Equal(turn.StreamIDs, turn.Completion.TokenIDs) || turn.StreamText != turn.Completion.Text) {
+		return turn, errors.New("stream differs from terminal completion")
+	}
 	return turn, err
 }
 

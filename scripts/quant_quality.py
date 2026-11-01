@@ -25,7 +25,7 @@ def sha(path):
     return digest.hexdigest()
 
 
-def run_measured(command, *, timeout, **kwargs):
+def run_measured(command, *, timeout, outcome_path=None, **kwargs):
     """Run one direct child, returning its lifetime peak RSS and CPU usage.
 
     wait4 owns reaping: calling Popen.poll/wait first would lose this child's
@@ -41,6 +41,7 @@ def run_measured(command, *, timeout, **kwargs):
         raise ValueError('Measured child timeout must be positive')
     started = time.monotonic()
     proc = subprocess.Popen(command, **kwargs)
+    timed_out = False
     try:
         while True:
             pid, status, usage = os.wait4(proc.pid, os.WNOHANG)
@@ -49,7 +50,8 @@ def run_measured(command, *, timeout, **kwargs):
                 break
             remaining = timeout - (time.monotonic() - started)
             if remaining <= 0:
-                raise subprocess.TimeoutExpired(command, timeout)
+                timed_out = True
+                break
             time.sleep(min(.05, remaining))
     finally:
         if proc.returncode is None:
@@ -59,14 +61,21 @@ def run_measured(command, *, timeout, **kwargs):
                 os.kill(proc.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-            _, status, _ = os.wait4(proc.pid, 0)
+            _, status, usage = os.wait4(proc.pid, 0)
             proc.returncode = os.waitstatus_to_exitcode(status)
+    resources = dict(peak_rss_bytes=int(usage.ru_maxrss) * (1024 if system == 'Linux' else 1),
+                     measurement='wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing',
+                     elapsed_seconds=time.monotonic() - started,
+                     user_cpu_seconds=usage.ru_utime, system_cpu_seconds=usage.ru_stime)
+    if outcome_path is not None:
+        with Path(outcome_path).open('x') as output:
+            json.dump(dict(resources, returncode=proc.returncode, timed_out=timed_out), output)
+            output.write('\n')
+    if timed_out:
+        raise subprocess.TimeoutExpired(command, timeout)
     if proc.returncode:
         raise subprocess.CalledProcessError(proc.returncode, command)
-    return dict(peak_rss_bytes=int(usage.ru_maxrss) * (1024 if system == 'Linux' else 1),
-                measurement='wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing',
-                elapsed_seconds=time.monotonic() - started,
-                user_cpu_seconds=usage.ru_utime, system_cpu_seconds=usage.ru_stime)
+    return resources
 
 
 def main():

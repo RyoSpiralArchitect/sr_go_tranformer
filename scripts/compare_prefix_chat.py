@@ -159,8 +159,8 @@ def main():
         with (out / f'{i}-{mode}.log').open('x') as log:
             resources = run_measured([out / variant / 'probe.test', '-test.run=^TestHFMistralGrowingChat$',
                                       '-test.v', '-test.timeout=21m'], timeout=1280, cwd=root,
+                                     outcome_path=out / f'{i}-{mode}-resources.json',
                                      env=run_env, stdout=log, stderr=subprocess.STDOUT)
-        (out / f'{i}-{mode}-resources.json').write_text(json.dumps(resources, indent=2) + '\n')
         report = json.loads(output.read_text())
         journal = [json.loads(line) for line in Path(str(output) + '.turns.jsonl').read_text().splitlines()]
         if journal != report['turns']:
