@@ -4,7 +4,7 @@ import json
 import unittest
 from pathlib import Path
 
-from assess_q4_prefill import assess
+from assess_q4_prefill import assess, CorrectnessFailure
 
 
 class Q4GateTests(unittest.TestCase):
@@ -47,4 +47,13 @@ class Q4GateTests(unittest.TestCase):
                 for t in c['trials']:
                     t['kv_sha256'] = ''
         with self.assertRaisesRegex(ValueError,'bit digests'):
+            self.check()
+
+    def test_observed_failure_is_a_rejection(self):
+        self.x.update(passed=False, tests=[], failed_tests=[self.plan['exact_tests'][0]])
+        with self.assertRaisesRegex(CorrectnessFailure,'failed exactness'):
+            self.check()
+        self.x.update(passed=True, tests=self.plan['exact_tests'], failed_tests=[])
+        self.d['reports'][1]['report']['cases'][0]['trials'][0]['kv_sha256'] = '0'*64
+        with self.assertRaisesRegex(CorrectnessFailure,'used KV'):
             self.check()
