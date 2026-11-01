@@ -5,11 +5,25 @@
 import argparse
 import json
 import platform
+import re
 import subprocess
 from pathlib import Path
 
 from compare_inference import isolated_go_environment
 from quant_quality import run_measured, sha
+
+
+def render_q4_listing(go, build, capture, destination, env):
+    # -trimpath records the module import path in the profile. pprof can exit
+    # successfully even when its listing consists only of a file-open error.
+    module = subprocess.check_output([go, 'list', '-m'], cwd=build, env=env, text=True).strip()
+    with destination.open('x') as output:
+        subprocess.run([go, 'tool', 'pprof', '-list=linearQ4Into.func1', '-trim_path=' + module,
+                        '-source_path=' + str(build), build / 'probe.test', capture],
+                       cwd=build, env=env, stdout=output, check=True)
+    listing = destination.read_text()
+    if ' Error:' in listing or not re.search(r'^\s*\S+\s+\S+\s+\d+:.*\S', listing, re.MULTILINE):
+        raise ValueError('missing annotated Q4 source lines')
 
 
 def main():
@@ -27,9 +41,11 @@ def main():
     hashes = {name: sha(root / name) for name in inputs}
     protocol = dict(format='monolith-postload-prefill-v1', model=source['repo'], revision=source['revision'],
                     files=source['files'], source_sha256=hashes, modes=['cpu', 'trace', 'plain'],
+                    driver_sha256=sha(Path(__file__)),
                     tokens=275, threads=4, context=1024, weight_format='q4-mixed', output_tokens=1,
                     scope='One fresh process and one Generate per mode. Only plain is uninstrumented. '
-                          'All exclude loading. The trace has aggregate wait, not subtractable wall time.')
+                          'All exclude loading. CPU/trace allocation totals include capture setup and '
+                          'shutdown; use plain for Generate allocations. Trace waits are aggregate.')
     (out / 'protocol.json').write_text(json.dumps(protocol, indent=2) + '\n')
 
     def verify_model():
@@ -84,7 +100,9 @@ def main():
             artifacts[capture.name] = sha(capture)
         if mode == 'cpu':
             render('cpu-top.txt', [go, 'tool', 'pprof', '-top', '-nodefraction=0', binary, capture])
-            render('cpu-q4.txt', [go, 'tool', 'pprof', '-list=linearQ4Into.func1', binary, capture])
+            listing = out / 'cpu-q4.txt'
+            render_q4_listing(go, build, capture, listing, env)
+            artifacts[listing.name] = sha(listing)
         if mode == 'trace':
             for kind in ('sched', 'sync'):
                 render(kind + '.pprof', [go, 'tool', 'trace', '-pprof=' + kind, capture])
