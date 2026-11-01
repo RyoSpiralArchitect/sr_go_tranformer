@@ -37,6 +37,7 @@ def fixed_control(source, old_source, growing_source):
 def check_report(report, mode):
     turns = report['turns']
     if (report['mode'] != mode or report['threads'] != 4 or len(turns) != 5 or
+            report['build_policy'] != ('fixed' if mode == 'fixed' else 'growing') or
             report['plan']['weight_format'] != 'q4-mixed' or len(report['questions']) != 5):
         raise ValueError('unexpected mode, geometry or turn count')
     snapshot = []
@@ -47,6 +48,8 @@ def check_report(report, mode):
         ttft, end = t['first_token_seconds'], t['completion_seconds']
         prefix, kv = t['retained_prefix_bytes'], t['allocated_kv_bytes']
         output = t['completion']['token_ids']
+        if t['stream_ids'] != output or t['stream_text'] != t['completion']['text']:
+            raise ValueError(f'incomplete displayed reply at {mode} turn {i+1}')
         if (not (0 < computed <= n) or computed + reused != n or reused < 0 or reused % 32
                 or (i == 0 or mode == 'disabled') and reused != 0
                 or n != t['completion']['prompt_tokens'] or not 1 <= len(output) <= 8
@@ -78,7 +81,7 @@ def check_report(report, mode):
 
 def summary(reports):
     out = {}
-    for mode in set(SCHEDULE):
+    for mode in dict.fromkeys(SCHEDULE):
         trials = [r['report']['turns'] for r in reports if r['mode'] == mode]
         if len(trials) != 2:
             raise ValueError('missing replicate')
@@ -90,6 +93,7 @@ def summary(reports):
                     raise ValueError(f'non-deterministic {mode} {key}')
                 row[key] = turns[0][key]
             row['first_token_seconds'] = statistics.median(t['first_token_seconds'] for t in turns)
+            row['completion_seconds'] = statistics.median(t['completion_seconds'] for t in turns)
             rows.append(row)
         out[mode] = rows
     return out
@@ -103,6 +107,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     model, out = args.model.resolve(), args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
+    (out / 'status.json').write_text('{"complete":false}\n')
     env = isolated_go_environment()
     pinned = next(m for m in json.loads((root / 'validation/hf/model-profiles.json').read_text())['models']
                   if m['id'] == 'mistral-7b-v03')
@@ -136,7 +141,11 @@ def main():
         for item in inputs[:4]:
             (build / item).write_bytes(contents if item == 'monolith.go' else (root / item).read_bytes())
         binary = build / 'probe.test'
-        subprocess.run([go, 'test', '-c', '-trimpath', '-o', binary, '.'], env=env, cwd=build, check=True)
+        cmd = [go, 'test', '-c', '-trimpath', '-o', binary]
+        if name == 'fixed':
+            module = subprocess.check_output([go, 'list', '-m'], cwd=build, env=env, text=True).strip()
+            cmd.append('-ldflags=-X=' + module + '.prefixChatBuildPolicy=fixed')
+        subprocess.run(cmd + ['.'], env=env, cwd=build, check=True)
         builds[name] = {n: sha(build / n) for n in inputs[:4] + ['probe.test']}
     reports, reference = [], None
     for i, mode in enumerate(SCHEDULE):
@@ -148,7 +157,11 @@ def main():
             resources = run_measured([out / variant / 'probe.test', '-test.run=^TestHFMistralGrowingChat$',
                                       '-test.v', '-test.timeout=21m'], timeout=1280, cwd=root,
                                      env=run_env, stdout=log, stderr=subprocess.STDOUT)
+        (out / f'{i}-{mode}-resources.json').write_text(json.dumps(resources, indent=2) + '\n')
         report = json.loads(output.read_text())
+        journal = [json.loads(line) for line in Path(str(output) + '.turns.jsonl').read_text().splitlines()]
+        if journal != report['turns']:
+            raise ValueError('turn journal differs from terminal report')
         sig = check_report(report, mode)
         if reference is not None and reference != sig:
             raise ValueError('prompt IDs, transcript, model or completions changed')
@@ -166,6 +179,8 @@ def main():
                    host=platform.system() + '/' + platform.machine(),
                    go_version=subprocess.check_output([go, 'version'], env=env, text=True).strip())
     (out / 'receipt.json').write_text(json.dumps(receipt, indent=2, allow_nan=False) + '\n')
+    (out / 'status.tmp').write_text('{"complete":true}\n')
+    (out / 'status.tmp').replace(out / 'status.json')
 
 
 if __name__ == '__main__':

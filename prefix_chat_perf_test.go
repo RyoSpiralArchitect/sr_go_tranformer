@@ -5,11 +5,17 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"runtime"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 )
+
+// The fixed control build sets this test-only label with the Go linker.
+var prefixChatBuildPolicy = "growing"
 
 var prefixChatQuestions = []string{
 	"A black cat named Kuro lives beside a lighthouse. Its keeper uses a blue lantern when fog rolls in. Remember the cat's name, the lantern's color, and where they live. What is the cat's name?",
@@ -22,6 +28,8 @@ var prefixChatQuestions = []string{
 type prefixChatTurn struct {
 	PromptIDs         []int      `json:"prompt_ids"`
 	Completion        Completion `json:"completion"`
+	StreamIDs         []int      `json:"stream_ids"`
+	StreamText        string     `json:"stream_text"`
 	FirstTokenSeconds float64    `json:"first_token_seconds"`
 	CompletionSeconds float64    `json:"completion_seconds"`
 	Computed          int64      `json:"computed_input_tokens"`
@@ -46,15 +54,22 @@ func measurePrefixChatTurn(ctx context.Context, e *Engine, tok *hfTokenizer, his
 	}
 	// The request owns a fresh ID slice, immutable after admission.
 	turn.PromptIDs = stream.request.IDs
-	for range stream.Events {
+	var display strings.Builder
+	for event := range stream.Events {
 		if turn.FirstTokenSeconds == 0 {
 			turn.FirstTokenSeconds = time.Since(start).Seconds()
 		}
+		turn.StreamIDs = append(turn.StreamIDs, event.TokenID)
+		display.WriteString(event.Text)
 	}
 	turn.Completion, err = stream.Wait()
 	turn.CompletionSeconds = time.Since(start).Seconds()
 	stream.Close()
 	<-stream.Released()
+	turn.StreamText = display.String()
+	if err == nil && (!slices.Equal(turn.StreamIDs, turn.Completion.TokenIDs) || turn.StreamText != turn.Completion.Text) {
+		return turn, errors.New("stream differs from terminal completion")
+	}
 	after := e.Stats()
 	turn.Computed = after.InputTokens - before.InputTokens
 	turn.Reused = after.PrefixTokens - before.PrefixTokens
@@ -73,6 +88,9 @@ func TestHFMistralGrowingChat(t *testing.T) {
 	switch mode {
 	case "disabled":
 	case "fixed", "growing":
+		if mode != prefixChatBuildPolicy {
+			t.Fatalf("requested %s cache on %s build", mode, prefixChatBuildPolicy)
+		}
 		cfg.PrefixCacheBytes = 128 << 20
 	default:
 		t.Fatal("unknown chat cache mode", mode)
@@ -80,6 +98,16 @@ func TestHFMistralGrowingChat(t *testing.T) {
 	if runtime.GOMAXPROCS(0) != 4 {
 		t.Fatal("expected four Go threads")
 	}
+	output := os.Getenv("MONOLITH_CHAT_OUTPUT")
+	if output == "" {
+		t.Fatal("a fresh output path is required")
+	}
+	journal, err := os.OpenFile(output+".turns.jsonl", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer journal.Close()
+	encoder := json.NewEncoder(journal)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 	m, plan, err := loadHFModelFormat(ctx, dir, 512, 8192, "q4-mixed")
@@ -102,6 +130,9 @@ func TestHFMistralGrowingChat(t *testing.T) {
 	for i, question := range prefixChatQuestions {
 		history = append(history, ChatMessage{Role: "user", Content: question})
 		turn, err := measurePrefixChatTurn(ctx, e, tok, history, s)
+		if writeErr := encoder.Encode(turn); writeErr != nil {
+			t.Fatal(writeErr)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -118,9 +149,9 @@ func TestHFMistralGrowingChat(t *testing.T) {
 	if shutdown.PrefixBytes != 0 || shutdown.KVReservedBytes != 0 || shutdown.AdmissionUsed != 0 || shutdown.KernelWorkers != 0 {
 		t.Fatal("prefix, reservation or active workers survived engine close", shutdown)
 	}
-	report := map[string]any{"mode": mode, "threads": runtime.GOMAXPROCS(0), "plan": plan, "sampling": s,
+	report := map[string]any{"mode": mode, "build_policy": prefixChatBuildPolicy, "threads": runtime.GOMAXPROCS(0), "plan": plan, "sampling": s,
 		"questions": prefixChatQuestions, "turns": turns, "shutdown": shutdown}
-	f, err := os.OpenFile(os.Getenv("MONOLITH_CHAT_OUTPUT"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(output, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
