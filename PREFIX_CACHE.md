@@ -138,3 +138,33 @@ failure, deterministic cancellation and reset during a borrowed computation.
 These are synthetic growing prompts, not a pretrained multi-turn chat or a
 balanced speed measurement. The earlier Mistral receipt checks fixed-prefix
 reuse; it does not establish the speed or quality of this extension policy.
+
+## Five-turn Mistral chat comparison
+
+The offline comparison runs five user messages through the same Mistral chat
+template and streaming engine as interactive `chat`. Each next turn includes
+the previous decoded assistant reply. Sampling is greedy with an eight-token
+cap and natural EOS. The comparison checks the exact re-encoded prompt IDs,
+every streamed token and text fragment as a joined reply, and the terminal
+completion. The token histories and generated replies are saved with each trial.
+
+```sh
+python3 -S scripts/compare_prefix_chat.py --model PATH_TO_MISTRAL_7B \
+  --output runs/mistral-five-turn
+```
+
+The runner needs both historical capture revisions in the local Git history.
+It builds the current source and a control that replaces only the capture method
+with its pre-growth implementation. The fixed binary has a separate test label
+checked before the model loads. Each fresh process runs one conversation. The
+six runs use disabled, fixed, growing, growing, fixed, disabled order with four
+threads, context 512 and a total KV budget of 512 MiB. The two enabled modes
+reserve 128 MiB within that total for the prefix.
+
+First-token time starts before formatting the conversation and ends when the
+caller receives the first token-ID event, which can carry empty text. Completion
+time ends at the terminal reply. Model loading is outside both intervals.
+Per-turn counts report actual input positions, reuse, and KV payload after
+release; process peak RSS includes loading. The first turn starts with an empty
+engine. The remaining turns keep that engine's snapshot. Every completed turn
+is journaled, and a partial run remains marked incomplete.
