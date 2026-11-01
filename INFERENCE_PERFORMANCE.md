@@ -718,3 +718,10 @@ matched both exact runtime revisions on the prompt IDs, output token 1117,
 all 32,768 final logits and all 18,022,400 committed KV floats. It used
 16-token chunks and four workers. Its process durations are excluded from the
 speed results.
+
+On a completed comparison with a numerical disagreement, both drivers retain
+the full four-process schedule, write the checked receipt, then return an
+error. The assessor can distinguish that rejection from missing or malformed
+data. A post-run simulation injected changed output IDs and logit digests into
+the two drivers to exercise the disagreement path. The published matching
+model trials were captured before this failure-reporting change.
