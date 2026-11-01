@@ -1,0 +1,45 @@
+Type: delay
+Showing nodes accounting for 304481.64us, 53.12% of 573194.79us total
+      flat  flat%   sum%        cum   cum%
+263885.33us 46.04% 46.04% 263899.98us 46.04%  runtime.chansend1
+40215.51us  7.02% 53.05% 40215.51us  7.02%  runtime.asyncPreempt2
+  204.03us 0.036% 53.09%   204.03us 0.036%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*decodeWorkspace).attend.func1.1
+   55.10us 0.0096% 53.10%    55.10us 0.0096%  github.com/RyoSpiralArchitect/sr_go_tranformer.dotQ4PairBlock64
+   33.22us 0.0058% 53.10% 202929.86us 35.40%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearIntoWithExecutor
+   30.34us 0.0053% 53.11%    30.34us 0.0053%  github.com/RyoSpiralArchitect/sr_go_tranformer.dotQ4Block64
+   14.66us 0.0026% 53.11%    14.66us 0.0026%  runtime.chansend
+   12.61us 0.0022% 53.11%    12.61us 0.0022%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*Model).rope
+   11.07us 0.0019% 53.12%    11.07us 0.0019%  runtime.step
+    9.73us 0.0017% 53.12%     9.73us 0.0017%  runtime.newobject
+    8.70us 0.0015% 53.12%     8.70us 0.0015%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).close
+    1.09us 0.00019% 53.12%     1.09us 0.00019%  math.log
+    0.26us 4.5e-05% 53.12%     0.26us 4.5e-05%  sync.(*WaitGroup).Add
+         0     0% 53.12% 228702.70us 39.90%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*Model).prefillSelected
+         0     0% 53.12% 25733.93us  4.49%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*decodeWorkspace).attend
+         0     0% 53.12%   205.12us 0.036%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*decodeWorkspace).attend.func1
+         0     0% 53.12% 228606.70us 39.88%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).parallel
+         0     0% 53.12% 75759.16us 13.22%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).run
+         0     0% 53.12% 228711.40us 39.90%  github.com/RyoSpiralArchitect/sr_go_tranformer.Generate
+         0     0% 53.12% 228711.40us 39.90%  github.com/RyoSpiralArchitect/sr_go_tranformer.TestHFPromptStackProbe
+         0     0% 53.12%     4.93us 0.00086%  github.com/RyoSpiralArchitect/sr_go_tranformer.addInPlace
+         0     0% 53.12%   205.12us 0.036%  github.com/RyoSpiralArchitect/sr_go_tranformer.attend
+         0     0% 53.12% 228711.40us 39.90%  github.com/RyoSpiralArchitect/sr_go_tranformer.generateInput
+         0     0% 53.12%     8.38us 0.0015%  github.com/RyoSpiralArchitect/sr_go_tranformer.inferenceNorm
+         0     0% 53.12% 202860.29us 35.39%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ4Into
+         0     0% 53.12% 40252.69us  7.02%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ4Into.func1
+         0     0% 53.12%    36.35us 0.0063%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ8Into
+         0     0% 53.12%     7.81us 0.0014%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ8Into.func1
+         0     0% 53.12%    14.14us 0.0025%  github.com/RyoSpiralArchitect/sr_go_tranformer.q8NeedsWideSum
+         0     0% 53.12%     8.38us 0.0015%  github.com/RyoSpiralArchitect/sr_go_tranformer.rmsInto
+         0     0% 53.12%     1.09us 0.00019%  math.Log
+         0     0% 53.12%    11.07us 0.0019%  runtime.(*Frames).Next
+         0     0% 53.12%    11.07us 0.0019%  runtime.(*traceAdvancerState).start.func1
+         0     0% 53.12%    11.07us 0.0019%  runtime.(*traceStackTable).dump
+         0     0% 53.12% 40215.51us  7.02%  runtime.asyncPreempt
+         0     0% 53.12%    11.07us 0.0019%  runtime.dumpStacksRec
+         0     0% 53.12%    11.07us 0.0019%  runtime.funcline1
+         0     0% 53.12%    11.07us 0.0019%  runtime.makeTraceFrames
+         0     0% 53.12%    11.07us 0.0019%  runtime.pcvalue
+         0     0% 53.12%    11.07us 0.0019%  runtime.traceAdvance
+         0     0% 53.12%     0.26us 4.5e-05%  sync.(*WaitGroup).Done
+         0     0% 53.12% 228711.40us 39.90%  testing.tRunner
