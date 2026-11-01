@@ -4282,6 +4282,14 @@ func linearQ4Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 					for g, scale := range scales {
 						var a0, b0, c0, d0, a1, b1, c1, d1, a2, b2, c2, d2, a3, b3, c3, d3 float32
 						j, end := g*q8Block, min((g+1)*q8Block, in)
+						if end-j == 64 {
+							p0, p1, p2, p3 := dotQ4FourBlock64((*[64]float32)(x0[j:end]), (*[64]float32)(x1[j:end]), (*[64]float32)(x2[j:end]), (*[64]float32)(x3[j:end]), (*[32]byte)(wr[j/2:end/2]))
+							s0 += p0 * scale
+							s1 += p1 * scale
+							s2 += p2 * scale
+							s3 += p3 * scale
+							continue
+						}
 						for ; j+4 <= end; j += 4 {
 							v0, v1, v2, v3 := q4Pairs[wr[j/2]][0], q4Pairs[wr[j/2]][1], q4Pairs[wr[j/2+1]][0], q4Pairs[wr[j/2+1]][1]
 							a0 += x0[j] * v0
@@ -4385,6 +4393,33 @@ func linearQ4Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
 			}
 		}
 	})
+}
+
+// Four prompt rows share the decoded pair of nibbles. Each row keeps the
+// original four sums and reduction order; the caller applies the block scale.
+func dotQ4FourBlock64(x0, x1, x2, x3 *[64]float32, w *[32]byte) (float32, float32, float32, float32) {
+	var a0, b0, c0, d0, a1, b1, c1, d1 float32
+	var a2, b2, c2, d2, a3, b3, c3, d3 float32
+	for j := 0; j < 64; j += 4 {
+		lo, hi := q4Pairs[w[j/2]], q4Pairs[w[j/2+1]]
+		a0 += x0[j] * lo[0]
+		b0 += x0[j+1] * lo[1]
+		c0 += x0[j+2] * hi[0]
+		d0 += x0[j+3] * hi[1]
+		a1 += x1[j] * lo[0]
+		b1 += x1[j+1] * lo[1]
+		c1 += x1[j+2] * hi[0]
+		d1 += x1[j+3] * hi[1]
+		a2 += x2[j] * lo[0]
+		b2 += x2[j+1] * lo[1]
+		c2 += x2[j+2] * hi[0]
+		d2 += x2[j+3] * hi[1]
+		a3 += x3[j] * lo[0]
+		b3 += x3[j+1] * lo[1]
+		c3 += x3[j+2] * hi[0]
+		d3 += x3[j+3] * hi[1]
+	}
+	return (a0 + b0) + (c0 + d0), (a1 + b1) + (c1 + d1), (a2 + b2) + (c2 + d2), (a3 + b3) + (c3 + d3)
 }
 
 // dotQ4PairBlock64 shares each packed decode across two rows while retaining
