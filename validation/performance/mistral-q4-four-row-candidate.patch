@@ -1,0 +1,84 @@
+diff --git a/monolith.go b/monolith.go
+index 10e3614c98cbdbfc48d0ea0e943065558a811231..46e58fd6df4be4281b68f42b8212b82fb135868e 100644
+--- a/monolith.go
++++ b/monolith.go
+@@ -4284,0 +4285,8 @@ func linearQ4Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
++						if end-j == 64 {
++							p0, p1, p2, p3 := dotQ4FourBlock64((*[64]float32)(x0[j:end]), (*[64]float32)(x1[j:end]), (*[64]float32)(x2[j:end]), (*[64]float32)(x3[j:end]), (*[32]byte)(wr[j/2:end/2]))
++							s0 += p0 * scale
++							s1 += p1 * scale
++							s2 += p2 * scale
++							s3 += p3 * scale
++							continue
++						}
+@@ -4389,0 +4398,27 @@ func linearQ4Into(e *kernelExecutor, y, x []float32, w *Param, n int) {
++// Four prompt rows share the decoded pair of nibbles. Each row keeps the
++// original four sums and reduction order; the caller applies the block scale.
++func dotQ4FourBlock64(x0, x1, x2, x3 *[64]float32, w *[32]byte) (float32, float32, float32, float32) {
++	var a0, b0, c0, d0, a1, b1, c1, d1 float32
++	var a2, b2, c2, d2, a3, b3, c3, d3 float32
++	for j := 0; j < 64; j += 4 {
++		lo, hi := q4Pairs[w[j/2]], q4Pairs[w[j/2+1]]
++		a0 += x0[j] * lo[0]
++		b0 += x0[j+1] * lo[1]
++		c0 += x0[j+2] * hi[0]
++		d0 += x0[j+3] * hi[1]
++		a1 += x1[j] * lo[0]
++		b1 += x1[j+1] * lo[1]
++		c1 += x1[j+2] * hi[0]
++		d1 += x1[j+3] * hi[1]
++		a2 += x2[j] * lo[0]
++		b2 += x2[j+1] * lo[1]
++		c2 += x2[j+2] * hi[0]
++		d2 += x2[j+3] * hi[1]
++		a3 += x3[j] * lo[0]
++		b3 += x3[j+1] * lo[1]
++		c3 += x3[j+2] * hi[0]
++		d3 += x3[j+3] * hi[1]
++	}
++	return (a0 + b0) + (c0 + d0), (a1 + b1) + (c1 + d1), (a2 + b2) + (c2 + d2), (a3 + b3) + (c3 + d3)
++}
++
+diff --git a/q4_four_block_test.go b/q4_four_block_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..4fe3a4bf12eead745b85a82828c93a96ed3b8835
+--- /dev/null
++++ b/q4_four_block_test.go
+@@ -0,0 +1,37 @@
++// Copyright 2026 RyoSpiralArchitect
++// SPDX-License-Identifier: Apache-2.0
++package main
++
++import (
++	"math"
++	"testing"
++)
++
++// A one-hot input isolates every packed column. Distinct signed rows make a
++// swapped activation row or nibble visible even when the sum would alias it.
++func TestQ4FourRowBlockColumns(t *testing.T) {
++	var x [4][64]float32
++	var packed [32]byte
++	for code := 0; code < 256; code++ {
++		for i := range packed {
++			packed[i] = byte(code + 37*i)
++		}
++		for j := 0; j < 64; j++ {
++			for r, value := range []float32{0.5, -2, 4, -8} {
++				x[r][j] = value
++			}
++			a, b, c, d := dotQ4FourBlock64(&x[0], &x[1], &x[2], &x[3], &packed)
++			nibble := int8(packed[j/2]<<4) >> 4
++			if j%2 != 0 {
++				nibble = int8(packed[j/2]) >> 4
++			}
++			for r, got := range [4]float32{a, b, c, d} {
++				want := float32(0) + x[r][j]*float32(nibble)
++				if math.Float32bits(got) != math.Float32bits(want) {
++					t.Fatalf("code=%d col=%d row=%d: got %g, want %g", code, j, r, got, want)
++				}
++				x[r][j] = 0
++			}
++		}
++	}
++}

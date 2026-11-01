@@ -1,0 +1,41 @@
+{
+  "accepted": false,
+  "cases": {
+    "short": {
+      "before": 1.611907104,
+      "after": 2.402061292,
+      "ratio": 1.490198340859226,
+      "limit": 1.05,
+      "passed": false
+    },
+    "long": {
+      "before": 115.30036525,
+      "after": 129.2241405415,
+      "ratio": 1.1207608949139907,
+      "limit": 0.95,
+      "passed": false
+    },
+    "decode_1": {
+      "before": 3.2897448735,
+      "after": 3.9462813135,
+      "ratio": 1.1995706248495503,
+      "limit": 1.05,
+      "passed": false
+    },
+    "decode_2": {
+      "before": 4.4216540415,
+      "after": 4.282785416499999,
+      "ratio": 0.9685935119082969,
+      "limit": 1.05,
+      "passed": true
+    }
+  },
+  "numerical_identity": true,
+  "status": "reject",
+  "input_sha256": {
+    "protocol": "66404fdc303e5642dcdc248b189be859b707641da676f2a07d1c964babc1b026",
+    "prompt": "e6e91618612cce5eca8ee270b54b55321327045be310a5d53159082fc831702d",
+    "decode": "800a9c6eb3fa2147292414e759f06c0cdc55932e90429740f0d4ab03172c2ce8",
+    "exact": "1491caeb213fa91fc0c5b8bb05a90520d2a2f97021afd634480ea5607ced9130"
+  }
+}

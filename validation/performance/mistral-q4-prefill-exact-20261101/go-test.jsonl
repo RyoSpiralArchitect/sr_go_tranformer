@@ -1,0 +1,24 @@
+{"Time":"2026-11-01T10:06:19.386529+09:00","Action":"start","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer"}
+{"Time":"2026-11-01T10:06:20.076026+09:00","Action":"run","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FullBlockEveryCodeAndColumn"}
+{"Time":"2026-11-01T10:06:20.076462+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FullBlockEveryCodeAndColumn","Output":"=== RUN   TestQ4FullBlockEveryCodeAndColumn\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:20.099855+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FullBlockEveryCodeAndColumn","Output":"--- PASS: TestQ4FullBlockEveryCodeAndColumn (0.02s)\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:20.09988+09:00","Action":"pass","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FullBlockEveryCodeAndColumn","Elapsed":0.02}
+{"Time":"2026-11-01T10:06:20.099905+09:00","Action":"run","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FullBlockAndEveryTailMatchLegacy"}
+{"Time":"2026-11-01T10:06:20.099911+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FullBlockAndEveryTailMatchLegacy","Output":"=== RUN   TestQ4FullBlockAndEveryTailMatchLegacy\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:20.214544+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FullBlockAndEveryTailMatchLegacy","Output":"--- PASS: TestQ4FullBlockAndEveryTailMatchLegacy (0.11s)\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:20.214581+09:00","Action":"pass","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FullBlockAndEveryTailMatchLegacy","Elapsed":0.11}
+{"Time":"2026-11-01T10:06:20.214593+09:00","Action":"run","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FourRowBlockColumns"}
+{"Time":"2026-11-01T10:06:20.214598+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FourRowBlockColumns","Output":"=== RUN   TestQ4FourRowBlockColumns\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:20.2335+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FourRowBlockColumns","Output":"--- PASS: TestQ4FourRowBlockColumns (0.02s)\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:20.233533+09:00","Action":"pass","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4FourRowBlockColumns","Elapsed":0.02}
+{"Time":"2026-11-01T10:06:20.233543+09:00","Action":"run","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4PairMatchesLegacy"}
+{"Time":"2026-11-01T10:06:20.233548+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4PairMatchesLegacy","Output":"=== RUN   TestQ4PairMatchesLegacy\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:21.417299+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4PairMatchesLegacy","Output":"--- PASS: TestQ4PairMatchesLegacy (1.18s)\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:21.41735+09:00","Action":"pass","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4PairMatchesLegacy","Elapsed":1.18}
+{"Time":"2026-11-01T10:06:21.417361+09:00","Action":"run","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4PairExtremeInputsMatchLegacy"}
+{"Time":"2026-11-01T10:06:21.417365+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4PairExtremeInputsMatchLegacy","Output":"=== RUN   TestQ4PairExtremeInputsMatchLegacy\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:21.493706+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4PairExtremeInputsMatchLegacy","Output":"--- PASS: TestQ4PairExtremeInputsMatchLegacy (0.08s)\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:21.493749+09:00","Action":"pass","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Test":"TestQ4PairExtremeInputsMatchLegacy","Elapsed":0.08}
+{"Time":"2026-11-01T10:06:21.493831+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-11-01T10:06:22.502283+09:00","Action":"output","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Output":"ok  \tgithub.com/RyoSpiralArchitect/sr_go_tranformer\t3.115s\n"}
+{"Time":"2026-11-01T10:06:22.502351+09:00","Action":"pass","Package":"github.com/RyoSpiralArchitect/sr_go_tranformer","Elapsed":3.116}

@@ -10,10 +10,19 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from compare_inference import isolated_go_environment, numerical_signature, process_schedule, validate_case_order
+from compare_inference import isolated_go_environment, numerical_signature, process_schedule, validate_case_order, write_parity_receipt
 
 
 class ComparisonProtocolTests(unittest.TestCase):
+    def test_numerical_disagreement_retains_completed_receipt_before_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'receipt.json'
+            report = dict(numerical_identity=False, reports=[{'token_ids':[7]}, {'token_ids':[8]}])
+            with self.assertRaisesRegex(RuntimeError, 'comparison retained'):
+                write_parity_receipt(path, report, False)
+            self.assertEqual(json.loads(path.read_text()), report)
+            with self.assertRaises(FileExistsError):
+                write_parity_receipt(path, {}, True)
     def test_balanced_schedule_crosses_variant_and_case_position(self):
         schedule = process_schedule('balanced')
         self.assertEqual([variant for variant, _ in schedule], ['before', 'after', 'after', 'before'])
