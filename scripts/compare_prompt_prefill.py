@@ -8,7 +8,7 @@ if not 0 < a.long_ratio_max <= 2:p.error('--long-ratio-max must be in (0, 2]')
 root=a.root.resolve();a.harness=a.harness or root/'prompt_prefill_perf_test.go';out=a.output.resolve();out.mkdir(exist_ok=False,parents=True)
 sys.path.insert(0,str(root/'scripts'))
 from quant_quality import sha,run_measured
-from compare_inference import isolated_go_environment
+from compare_inference import isolated_go_environment, write_parity_receipt
 env=isolated_go_environment()
 goroot=subprocess.check_output([str(root/'scripts/go.sh'),'env','GOROOT'],cwd=root,env=env,text=True).strip()
 go=str(Path(goroot)/'bin/go');baseline=subprocess.check_output(['git','rev-parse','--verify',a.baseline+'^{commit}'],cwd=root,text=True).strip()
@@ -26,7 +26,7 @@ for variant in ('before','after'):
  (d/'prompt_real_test.go').write_bytes(a.harness.read_bytes());binary=d/'probe.test'
  with (d/'build.log').open('w') as log:subprocess.run([go,'test','-c','-trimpath','-o',str(binary),'.'],cwd=d,env=env,stdout=log,stderr=log,check=True)
  builds[variant]={'binary_sha256':sha(binary),'inputs_sha256':{n:sha(d/n) for n in list(inputs)+['prompt_real_test.go']}}
-reports=[];reference=None
+reports=[];reference=None;matched=True
 for i,variant in enumerate(protocol['order']):
  result=out/f'{i}-{variant}.json';env.update(MONOLITH_STACK_MODEL=str(a.model),MONOLITH_STACK_OUTPUT=str(result),MONOLITH_STACK_ORDER=protocol['case_orders'][i])
  with (out/f'{i}-{variant}.log').open('w') as log:resources=run_measured([str(out/variant/'probe.test'),'-test.run=^TestHFPromptStackProbe$','-test.v','-test.timeout=13m'],timeout=800,cwd=root,env=env,stdout=log,stderr=log)
@@ -34,8 +34,8 @@ for i,variant in enumerate(protocol['order']):
  sig={x['name']:[t['completion'] for t in x['trials']] for x in r['cases']}
  assert all(len(sig[n])==(3 if n=='short' else 1) for n in sig)
  if reference is None:reference=sig
- assert sig==reference
- reports.append({'variant':variant,'report':r,'resources':resources});print(i,variant,'complete; exact completion',flush=True)
+ same=sig==reference;matched=matched and same
+ reports.append({'variant':variant,'report':r,'resources':resources});print(i,variant,'complete; completion '+('matches' if same else 'differs'),flush=True)
 verify_model();assert inputs=={n:sha(root/n) for n in inputs}
 for v,b in builds.items():
  assert sha(out/v/'probe.test')==b['binary_sha256']
@@ -43,6 +43,6 @@ for v,b in builds.items():
 summary={}
 for case in ('short','long'):
  d={v:statistics.median(t['seconds'] for r in reports if r['variant']==v for c in r['report']['cases'] if c['name']==case for t in c['trials']) for v in ('before','after')};d['ratio']=d['after']/d['before'];summary[case]=d
-checks={'identity':True,'long':summary['long']['ratio']<=protocol['gate']['long_median_ratio_max'],'short':summary['short']['ratio']<=protocol['gate']['short_median_ratio_max']}
+checks={'identity':matched,'long':summary['long']['ratio']<=protocol['gate']['long_median_ratio_max'],'short':summary['short']['ratio']<=protocol['gate']['short_median_ratio_max']}
 r={'format':'monolith-prompt-first-token-result-v1','protocol':protocol,'host':platform.system()+'/'+platform.machine(),'go_version':subprocess.check_output([go,'version'],env=env,text=True).strip(),'model':source['repo'],'revision':source['revision'],'files':source['files'],'builds':builds,'source_sha256':inputs,'reports':reports,'summary':summary,'checks':checks,'accepted':all(checks.values())}
-(out/'receipt.json').write_text(json.dumps(r,indent=2)+'\n');print(json.dumps({'summary':summary,'checks':checks}),flush=True)
+write_parity_receipt(out/'receipt.json', r, matched);print(json.dumps({'summary':summary,'checks':checks}),flush=True)

@@ -52,6 +52,16 @@ def validate_case_order(report, expected):
         raise RuntimeError('Probe did not execute the requested case order')
 
 
+def write_parity_receipt(path, receipt, matched):
+    # A valid disagreement is a completed result. Keep the entire bounded
+    # schedule and verified build/model identities before signaling failure.
+    with path.open('x') as out:
+        json.dump(receipt, out, indent=2, ensure_ascii=False, allow_nan=False)
+        out.write('\n')
+    if not matched:
+        raise RuntimeError(f'Numerical disagreement; comparison retained in {path}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--model', type=Path, required=True)
@@ -109,7 +119,7 @@ def main():
                                inputs_sha256={n: sha(build/n) for n in ('monolith.go', 'go.mod', 'go.sum', 'inference_perf_test.go')})
     # Two process pairs reverse run order. Each process warms both cases, then
     # measures three trials per case. Loading is outside the forward intervals.
-    signature, reports = None, []
+    signature, reports, matched = None, [], True
     schedule = process_schedule(args.case_order)
     for index, (variant, case_order) in enumerate(schedule):
         build = output/variant
@@ -127,10 +137,10 @@ def main():
         current = numerical_signature(report)
         if signature is None:
             signature = current
-        elif signature != current:
-            raise RuntimeError('Runtime variants changed input, logits, KV, IDs or workspace bytes')
+        same = signature == current
+        matched = matched and same
         reports.append(dict(variant=variant, process_index=index, report=report, process_resources=resources))
-        print(index, variant, 'complete; identical numerical signature', flush=True)
+        print(index, variant, 'complete; signature ' + ('matches' if same else 'differs'), flush=True)
     if source_hashes != {str(p.relative_to(root)): sha(p) for p in inputs}:
         raise RuntimeError('Source or protocol changed during comparison')
     for name, expected in source['files'].items():
@@ -147,11 +157,11 @@ def main():
                    host=platform.system()+'/'+platform.machine(),
                    go_version=subprocess.check_output([go, 'version'], cwd=root, env=env, text=True).strip(),
                    hf_hub_offline=True, builds=builds, source_inputs_sha256=source_hashes,
-                   numerical_identity=True, reports=reports, effective_go_env=effective,
+                   numerical_identity=matched, reports=reports, effective_go_env=effective,
                    environment={k: env.get(k) for k in ('GOMAXPROCS', 'CGO_ENABLED', 'GOENV', 'GOWORK',
                        'GOFLAGS', 'GOEXPERIMENT', 'GOTOOLCHAIN', 'GOPROXY', 'GOSUMDB', 'GOGC', 'GOMEMLIMIT', 'GODEBUG')},
                    note='One resident model per process; fixed 8-token prefixes, 7 decode calls, 1/2 sessions. Core forward timing only; peak RSS spans each full process. Not HTTP throughput or a language-quality benchmark.')
-    (output/'receipt.json').write_text(json.dumps(receipt, indent=2, ensure_ascii=False, allow_nan=False)+'\n')
+    write_parity_receipt(output/'receipt.json', receipt, matched)
 
 
 if __name__ == '__main__':
