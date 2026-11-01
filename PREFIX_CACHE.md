@@ -168,3 +168,25 @@ Per-turn counts report actual input positions, reuse, and KV payload after
 release; process peak RSS includes loading. The first turn starts with an empty
 engine. The remaining turns keep that engine's snapshot. Every completed turn
 is journaled, and a partial run remains marked incomplete.
+
+### Five-turn results
+
+The [complete receipt](validation/performance/mistral-five-turn-chat-20261101.json) records six processes, five turns per process. All modes had identical prompt IDs, delivered token IDs, display text and terminal completions at every turn. The table shows the median of two first-token times per mode, in seconds.
+
+| Turn | Logical input | Disabled, s | Fixed, s | Growing, s | Reused tokens (fixed / growing) | Allocated KV MiB (disabled / fixed / growing) |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 56 | 22.652 | 23.042 | 25.887 | 0 / 0 | 16 / 24 / 24 |
+| 2 | 80 | 42.712 | 19.832 | 30.057 | 32 / 32 | 24 / 24 / 32 |
+| 3 | 103 | 46.745 | 32.429 | 19.465 | 32 / 64 | 32 / 32 / 40 |
+| 4 | 126 | 51.276 | 42.610 | 16.271 | 32 / 96 | 40 / 40 / 48 |
+| 5 | 155 | 62.139 | 55.172 | 12.583 | 32 / 128 | 48 / 48 / 56 |
+
+Across 520 logical input positions, disabled/fixed/growing reuse skipped 0/128/320 positions. Final retained prefix payload was 0/8/40 MiB; maximum observed KV payload was 48/48/56 MiB within each 512 MiB engine budget. Prefix retention and live reservations returned to zero on shutdown. These byte counts describe KV payload. Per-process peak RSS in the receipt also includes model loading.
+
+The first turn has an empty cache in every mode. Later turns use the actual decoded chat history and can cross different token/page boundaries. This is a bounded comparison on one shared Mac, with two trajectories per mode and a maximum of eight reply tokens.
+
+A separate compiler was observed in 19 of 95 periodic [host snapshots](validation/performance/mistral-five-turn-host-20261101.json) across these six processes. All trials are retained. Token counts are deterministic; wall-clock timings include shared-host variation.
+
+Across the two processes per mode, peak RSS including loading was 3.881–3.902 GiB disabled, 3.883–3.910 GiB fixed, and 3.909–3.910 GiB growing.
+
+All measured inputs match commit `1791cf8`. The subsequent change to comparison-driver error reporting from #49 does not change the tested chat runtime or the isolated Go environment settings. Use the recorded commit to reproduce the exact inputs.
