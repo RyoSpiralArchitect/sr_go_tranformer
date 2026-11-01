@@ -17,6 +17,12 @@ import (
 // The fixed control build sets this test-only label with the Go linker.
 var prefixChatBuildPolicy = "growing"
 
+func TestChatBuildPolicy(t *testing.T) {
+	if expected := os.Getenv("MONOLITH_EXPECT_CHAT_POLICY"); expected != "" && expected != prefixChatBuildPolicy {
+		t.Fatalf("built %q, expected %q", prefixChatBuildPolicy, expected)
+	}
+}
+
 var prefixChatQuestions = []string{
 	"A black cat named Kuro lives beside a lighthouse. Its keeper uses a blue lantern when fog rolls in. Remember the cat's name, the lantern's color, and where they live. What is the cat's name?",
 	"What color is the lantern the keeper uses in fog?",

@@ -146,6 +146,9 @@ def main():
             module = subprocess.check_output([go, 'list', '-m'], cwd=build, env=env, text=True).strip()
             cmd.append('-ldflags=-X=' + module + '.prefixChatBuildPolicy=fixed')
         subprocess.run(cmd + ['.'], env=env, cwd=build, check=True)
+        expected = 'fixed' if name == 'fixed' else 'growing'
+        subprocess.run([binary, '-test.run=^TestChatBuildPolicy$'], cwd=build,
+                       env=dict(env, MONOLITH_EXPECT_CHAT_POLICY=expected), check=True)
         builds[name] = {n: sha(build / n) for n in inputs[:4] + ['probe.test']}
     reports, reference = [], None
     for i, mode in enumerate(SCHEDULE):
