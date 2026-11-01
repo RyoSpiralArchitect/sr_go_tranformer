@@ -5,12 +5,48 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"testing"
 	"time"
 )
+
+// The diagnostic runner captures only a single, post-load Generate call.
+// Normal comparison runs leave both capture variables unset.
+func startPromptCapture(mode, path string) (func() error, error) {
+	switch mode {
+	case "", "plain":
+		return func() error { return nil }, nil
+	case "trace":
+		if path == "" {
+			return nil, errors.New("trace output path is required")
+		}
+		trace, err := startInferenceTrace(path)
+		if err != nil {
+			return nil, err
+		}
+		return trace.close, nil
+	case "cpu":
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err != nil {
+			return nil, err
+		}
+		w := &profileWriter{Writer: f}
+		if err = pprof.StartCPUProfile(w); err != nil {
+			_ = f.Close()
+			return nil, err
+		}
+		return func() error {
+			pprof.StopCPUProfile()
+			return errors.Join(w.err, f.Close())
+		}, nil
+	default:
+		return nil, errors.New("unknown prompt capture mode")
+	}
+}
 
 func TestHFPromptStackProbe(t *testing.T) {
 	dir := os.Getenv("MONOLITH_STACK_MODEL")
@@ -44,7 +80,12 @@ func TestHFPromptStackProbe(t *testing.T) {
 	}
 	cases := []result{}
 	order := strings.Split(os.Getenv("MONOLITH_STACK_ORDER"), ",")
-	if len(order) != 2 {
+	mode := os.Getenv("MONOLITH_STACK_CAPTURE")
+	if mode != "" {
+		if len(order) != 1 || order[0] != "long" || runtime.GOMAXPROCS(0) != 4 {
+			t.Fatal("diagnostic capture requires the long case alone and four threads")
+		}
+	} else if len(order) != 2 {
 		t.Fatal("order")
 	}
 	for _, name := range order {
@@ -63,9 +104,16 @@ func TestHFPromptStackProbe(t *testing.T) {
 			runtime.GC()
 			var a, b runtime.MemStats
 			runtime.ReadMemStats(&a)
+			stop, err := startPromptCapture(mode, os.Getenv("MONOLITH_STACK_CAPTURE_PATH"))
+			if err != nil {
+				t.Fatal(err)
+			}
 			start := time.Now()
 			c, e := Generate(ctx, m, tok, prompt, s)
 			elapsed := time.Since(start).Seconds()
+			if err := stop(); err != nil {
+				t.Fatal(err)
+			}
 			runtime.ReadMemStats(&b)
 			if e != nil {
 				t.Fatal(e)
