@@ -635,3 +635,42 @@ retain all results, limits and decision checks. All adoption checks passed.
 The earlier Q8-relative [quality and local serving checks](MISTRAL_INFERENCE.md)
 remain separate evidence; these exact-output comparisons introduce no new
 weight format and do not establish broader language quality.
+
+## Four-row Q4 prompt experiment on Mistral v0.3
+
+The [post-load profile](SELECTIVE_HEAD.md#where-the-275-token-prefill-spends-cpu-time)
+points to the four-row packed projection on long prompts. The candidate applies
+a fixed-size Go array view to each complete 64-value block. It shares the two
+decoded pairs across the four input rows and keeps each row's four independent
+partial sums. Partial blocks and single/two-row cases retain their own paths.
+
+The [protocol](validation/performance/mistral-q4-prefill-protocol-20261101.json)
+pins baseline `06535fb`, candidate runtime `6b13cd5`, their source digests,
+the model revision and the exact-test harnesses. Prompt time includes direct
+generation through one output token. The 1/2-session controls measure seven
+decode calls after eight-token prefixes. All speed trials are uninstrumented
+and keep both orders and every observation. Adoption requires a long-prompt
+median ratio at most 0.95 and ratios at most 1.05 for the short prompt and both
+decode controls, plus exact output and used-KV comparisons.
+
+On a checkout containing the pinned Go sources and the measurement scripts,
+with local Mistral v0.3 weights and a fresh output directory for each command:
+
+```sh
+plan=validation/performance/mistral-q4-prefill-protocol-20261101.json
+python3 -S scripts/check_q4_prefill.py --protocol "$plan" --output runs/quad-exact
+python3 -S scripts/compare_prompt_prefill.py --baseline 06535fb \
+  --model PATH_TO_MISTRAL_7B --output runs/quad-prompt
+python3 -S scripts/compare_inference.py --baseline-ref 06535fb --id mistral-7b-v03 \
+  --model PATH_TO_MISTRAL_7B --case-order balanced --output-dir runs/quad-decode
+python3 -S scripts/assess_q4_prefill.py --protocol "$plan" --exact runs/quad-exact/receipt.json \
+  --prompt runs/quad-prompt/receipt.json --decode runs/quad-decode/receipt.json --output runs/quad-decision.json
+python3 -S scripts/check_q4_prompt_bits.py --protocol "$plan" --model PATH_TO_MISTRAL_7B \
+  --output runs/quad-bits
+```
+
+The assessor writes a decision for rejected and incomplete inputs, with exit
+codes 2 and 1 respectively. The separate untimed bit probe rebuilds both pinned
+runtime sources from Git. It compares the final 32,768 logits and all 18,022,400
+committed key/value floats for the same 275-token prompt. Run the timing and
+parity probes sequentially.
