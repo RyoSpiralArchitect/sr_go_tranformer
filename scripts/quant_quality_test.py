@@ -38,7 +38,11 @@ class PeakRSS(unittest.TestCase):
             pidfile = Path(tmp)/'pid'
             code = f'import os,time; open({str(pidfile)!r},"w").write(str(os.getpid())); time.sleep(60)'
             with self.assertRaises(subprocess.TimeoutExpired):
-                run_measured([sys.executable, '-S', '-c', code], timeout=.5)
+                run_measured([sys.executable, '-S', '-c', code], timeout=.5, outcome_path=Path(tmp)/'timeout.json')
+            outcome = json.loads((Path(tmp)/'timeout.json').read_text())
+            self.assertTrue(outcome['timed_out'])
+            self.assertLess(outcome['returncode'], 0)
+            self.assertGreater(outcome['peak_rss_bytes'], 0)
             pid = int(pidfile.read_text())
             with self.assertRaises(ChildProcessError):
                 os.waitpid(pid, os.WNOHANG)
@@ -53,6 +57,17 @@ class PeakRSS(unittest.TestCase):
     def test_undrained_pipe_is_rejected(self):
         with self.assertRaises(ValueError):
             run_measured([sys.executable, '-S', '-c', 'print("x" * 1000000)'], timeout=1, stdout=subprocess.PIPE)
+
+
+    def test_failed_child_records_its_own_status_and_resources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)/'outcome.json'
+            with self.assertRaises(subprocess.CalledProcessError):
+                run_measured([sys.executable, '-S', '-c', 'raise SystemExit(7)'], timeout=5, outcome_path=out)
+            result = json.loads(out.read_text())
+            self.assertEqual(result['returncode'], 7)
+            self.assertFalse(result['timed_out'])
+            self.assertGreater(result['peak_rss_bytes'], 0)
 
 
 if __name__ == '__main__':

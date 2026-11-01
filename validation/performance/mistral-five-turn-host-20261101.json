@@ -1,0 +1,1177 @@
+{
+  "scope": "Shared host, periodic ps snapshots while each process log was active. The observed compiler was independent. Partial snapshots cannot apportion wall time to competing work.",
+  "groups": {
+    "chat/0-disabled": {
+      "samples": 17,
+      "rustc_observed": 3,
+      "peak_rustc_percent_cpu": 779.1
+    },
+    "chat/1-fixed": {
+      "samples": 15,
+      "rustc_observed": 0,
+      "peak_rustc_percent_cpu": 0.0
+    },
+    "chat/2-growing": {
+      "samples": 11,
+      "rustc_observed": 1,
+      "peak_rustc_percent_cpu": 68.4
+    },
+    "chat/3-growing": {
+      "samples": 13,
+      "rustc_observed": 7,
+      "peak_rustc_percent_cpu": 568.1
+    },
+    "chat/4-fixed": {
+      "samples": 17,
+      "rustc_observed": 1,
+      "peak_rustc_percent_cpu": 25.6
+    },
+    "chat/5-disabled": {
+      "samples": 22,
+      "rustc_observed": 7,
+      "peak_rustc_percent_cpu": 554.3
+    }
+  },
+  "samples": [
+    {
+      "utc": "2026-11-01T01:32:08.459532+00:00",
+      "percent_cpu": {
+        "benchmark": 92.7,
+        "rustc": 500.2,
+        "other": 25.2
+      },
+      "load1": 10.8,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:32:23.486921+00:00",
+      "percent_cpu": {
+        "benchmark": 99.9,
+        "rustc": 95.3,
+        "other": 17.1
+      },
+      "load1": 9.83,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:32:38.525561+00:00",
+      "percent_cpu": {
+        "benchmark": 93.5,
+        "rustc": 779.1,
+        "other": 25.4
+      },
+      "load1": 9.78,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:32:53.560557+00:00",
+      "percent_cpu": {
+        "benchmark": 394.8,
+        "rustc": 0.0,
+        "other": 17.8
+      },
+      "load1": 9.15,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:33:08.590764+00:00",
+      "percent_cpu": {
+        "benchmark": 392.9,
+        "rustc": 0.0,
+        "other": 21.5
+      },
+      "load1": 8.9,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:33:23.616082+00:00",
+      "percent_cpu": {
+        "benchmark": 392.1,
+        "rustc": 0.0,
+        "other": 21.9
+      },
+      "load1": 8.25,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:33:38.657709+00:00",
+      "percent_cpu": {
+        "benchmark": 389.5,
+        "rustc": 0.0,
+        "other": 17.7
+      },
+      "load1": 7.47,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:33:53.688968+00:00",
+      "percent_cpu": {
+        "benchmark": 384.8,
+        "rustc": 0.0,
+        "other": 50.1
+      },
+      "load1": 6.99,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:34:08.714482+00:00",
+      "percent_cpu": {
+        "benchmark": 387.8,
+        "rustc": 0.0,
+        "other": 15.4
+      },
+      "load1": 6.57,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:34:23.744313+00:00",
+      "percent_cpu": {
+        "benchmark": 352.4,
+        "rustc": 0.0,
+        "other": 15.9
+      },
+      "load1": 6.2,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:34:38.772172+00:00",
+      "percent_cpu": {
+        "benchmark": 390.3,
+        "rustc": 0.0,
+        "other": 14.8
+      },
+      "load1": 6.16,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:34:53.803142+00:00",
+      "percent_cpu": {
+        "benchmark": 388.5,
+        "rustc": 0.0,
+        "other": 16.7
+      },
+      "load1": 6.54,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:35:08.835680+00:00",
+      "percent_cpu": {
+        "benchmark": 391.6,
+        "rustc": 0.0,
+        "other": 15.4
+      },
+      "load1": 6.27,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:35:23.871105+00:00",
+      "percent_cpu": {
+        "benchmark": 392.1,
+        "rustc": 0.0,
+        "other": 17.5
+      },
+      "load1": 6.24,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:35:38.905573+00:00",
+      "percent_cpu": {
+        "benchmark": 390.7,
+        "rustc": 0.0,
+        "other": 23.6
+      },
+      "load1": 6.39,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:35:53.936489+00:00",
+      "percent_cpu": {
+        "benchmark": 389.7,
+        "rustc": 0.0,
+        "other": 10.8
+      },
+      "load1": 6.39,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:36:08.961259+00:00",
+      "percent_cpu": {
+        "benchmark": 391.2,
+        "rustc": 0.0,
+        "other": 11.1
+      },
+      "load1": 6.09,
+      "active_logs": [
+        "chat/0-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:36:23.981239+00:00",
+      "percent_cpu": {
+        "benchmark": 99.6,
+        "rustc": 0.0,
+        "other": 21.8
+      },
+      "load1": 5.59,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:36:39.014204+00:00",
+      "percent_cpu": {
+        "benchmark": 99.7,
+        "rustc": 0.0,
+        "other": 19.6
+      },
+      "load1": 4.95,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:36:54.042679+00:00",
+      "percent_cpu": {
+        "benchmark": 99.4,
+        "rustc": 0.0,
+        "other": 11.5
+      },
+      "load1": 4.54,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:37:09.081473+00:00",
+      "percent_cpu": {
+        "benchmark": 379.1,
+        "rustc": 0.0,
+        "other": 13.0
+      },
+      "load1": 4.51,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:37:24.111655+00:00",
+      "percent_cpu": {
+        "benchmark": 387.0,
+        "rustc": 0.0,
+        "other": 67.9
+      },
+      "load1": 4.24,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:37:39.150227+00:00",
+      "percent_cpu": {
+        "benchmark": 325.7,
+        "rustc": 0.0,
+        "other": 81.6
+      },
+      "load1": 4.37,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:37:54.189477+00:00",
+      "percent_cpu": {
+        "benchmark": 363.2,
+        "rustc": 0.0,
+        "other": 224.8
+      },
+      "load1": 5.27,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:38:09.229010+00:00",
+      "percent_cpu": {
+        "benchmark": 366.9,
+        "rustc": 0.0,
+        "other": 258.5
+      },
+      "load1": 5.56,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:38:24.267760+00:00",
+      "percent_cpu": {
+        "benchmark": 372.1,
+        "rustc": 0.0,
+        "other": 223.9
+      },
+      "load1": 5.51,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:38:39.303715+00:00",
+      "percent_cpu": {
+        "benchmark": 371.4,
+        "rustc": 0.0,
+        "other": 222.4
+      },
+      "load1": 6.04,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:38:54.341417+00:00",
+      "percent_cpu": {
+        "benchmark": 321.4,
+        "rustc": 0.0,
+        "other": 248.6
+      },
+      "load1": 6.09,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:39:09.380922+00:00",
+      "percent_cpu": {
+        "benchmark": 367.5,
+        "rustc": 0.0,
+        "other": 240.1
+      },
+      "load1": 6.06,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:39:24.425222+00:00",
+      "percent_cpu": {
+        "benchmark": 352.6,
+        "rustc": 0.0,
+        "other": 339.7
+      },
+      "load1": 6.18,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:39:39.466608+00:00",
+      "percent_cpu": {
+        "benchmark": 365.4,
+        "rustc": 0.0,
+        "other": 282.8
+      },
+      "load1": 6.71,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:39:54.503370+00:00",
+      "percent_cpu": {
+        "benchmark": 364.8,
+        "rustc": 0.0,
+        "other": 241.2
+      },
+      "load1": 6.99,
+      "active_logs": [
+        "chat/1-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:40:09.537693+00:00",
+      "percent_cpu": {
+        "benchmark": 99.5,
+        "rustc": 0.0,
+        "other": 274.0
+      },
+      "load1": 6.82,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:40:24.575244+00:00",
+      "percent_cpu": {
+        "benchmark": 98.3,
+        "rustc": 68.4,
+        "other": 229.8
+      },
+      "load1": 6.63,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:40:39.608220+00:00",
+      "percent_cpu": {
+        "benchmark": 98.6,
+        "rustc": 0.0,
+        "other": 241.6
+      },
+      "load1": 6.55,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:40:54.643628+00:00",
+      "percent_cpu": {
+        "benchmark": 376.0,
+        "rustc": 0.0,
+        "other": 225.1
+      },
+      "load1": 5.75,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:41:09.682129+00:00",
+      "percent_cpu": {
+        "benchmark": 364.6,
+        "rustc": 0.0,
+        "other": 270.3
+      },
+      "load1": 6.11,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:41:24.734643+00:00",
+      "percent_cpu": {
+        "benchmark": 367.2,
+        "rustc": 0.0,
+        "other": 232.1
+      },
+      "load1": 6.01,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:41:39.777299+00:00",
+      "percent_cpu": {
+        "benchmark": 372.4,
+        "rustc": 0.0,
+        "other": 227.8
+      },
+      "load1": 6.0,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:41:54.812519+00:00",
+      "percent_cpu": {
+        "benchmark": 363.8,
+        "rustc": 0.0,
+        "other": 229.3
+      },
+      "load1": 6.74,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:42:09.848115+00:00",
+      "percent_cpu": {
+        "benchmark": 314.7,
+        "rustc": 0.0,
+        "other": 288.2
+      },
+      "load1": 6.83,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:42:24.883380+00:00",
+      "percent_cpu": {
+        "benchmark": 325.8,
+        "rustc": 0.0,
+        "other": 232.7
+      },
+      "load1": 6.71,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:42:39.919653+00:00",
+      "percent_cpu": {
+        "benchmark": 349.2,
+        "rustc": 0.0,
+        "other": 235.1
+      },
+      "load1": 7.3,
+      "active_logs": [
+        "chat/2-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:42:54.951464+00:00",
+      "percent_cpu": {
+        "benchmark": 96.7,
+        "rustc": 0.0,
+        "other": 226.1
+      },
+      "load1": 7.09,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:43:09.983556+00:00",
+      "percent_cpu": {
+        "benchmark": 98.1,
+        "rustc": 0.0,
+        "other": 347.9
+      },
+      "load1": 6.61,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:43:25.009745+00:00",
+      "percent_cpu": {
+        "benchmark": 99.1,
+        "rustc": 0.0,
+        "other": 235.5
+      },
+      "load1": 6.16,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:43:40.043967+00:00",
+      "percent_cpu": {
+        "benchmark": 366.2,
+        "rustc": 0.0,
+        "other": 253.9
+      },
+      "load1": 6.58,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:43:55.081392+00:00",
+      "percent_cpu": {
+        "benchmark": 355.6,
+        "rustc": 121.3,
+        "other": 222.1
+      },
+      "load1": 6.68,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:44:10.121708+00:00",
+      "percent_cpu": {
+        "benchmark": 352.7,
+        "rustc": 95.1,
+        "other": 341.9
+      },
+      "load1": 7.09,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:44:25.161025+00:00",
+      "percent_cpu": {
+        "benchmark": 215.0,
+        "rustc": 568.1,
+        "other": 205.4
+      },
+      "load1": 12.67,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:44:40.221992+00:00",
+      "percent_cpu": {
+        "benchmark": 198.7,
+        "rustc": 537.0,
+        "other": 179.4
+      },
+      "load1": 14.21,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:44:55.263952+00:00",
+      "percent_cpu": {
+        "benchmark": 365.3,
+        "rustc": 92.6,
+        "other": 253.6
+      },
+      "load1": 14.63,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:45:10.320324+00:00",
+      "percent_cpu": {
+        "benchmark": 209.2,
+        "rustc": 542.1,
+        "other": 225.6
+      },
+      "load1": 12.86,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:45:25.364575+00:00",
+      "percent_cpu": {
+        "benchmark": 226.1,
+        "rustc": 487.5,
+        "other": 176.5
+      },
+      "load1": 17.47,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:45:40.396617+00:00",
+      "percent_cpu": {
+        "benchmark": 316.0,
+        "rustc": 0.0,
+        "other": 295.3
+      },
+      "load1": 15.65,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:45:55.439226+00:00",
+      "percent_cpu": {
+        "benchmark": 348.5,
+        "rustc": 0.0,
+        "other": 228.5
+      },
+      "load1": 14.26,
+      "active_logs": [
+        "chat/3-growing"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:46:10.474328+00:00",
+      "percent_cpu": {
+        "benchmark": 100.5,
+        "rustc": 0.0,
+        "other": 237.4
+      },
+      "load1": 12.46,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:46:25.510876+00:00",
+      "percent_cpu": {
+        "benchmark": 99.2,
+        "rustc": 0.0,
+        "other": 225.5
+      },
+      "load1": 10.69,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:46:40.544967+00:00",
+      "percent_cpu": {
+        "benchmark": 97.1,
+        "rustc": 0.0,
+        "other": 268.5
+      },
+      "load1": 9.3,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:46:55.575691+00:00",
+      "percent_cpu": {
+        "benchmark": 360.7,
+        "rustc": 0.0,
+        "other": 228.7
+      },
+      "load1": 8.38,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:47:10.609048+00:00",
+      "percent_cpu": {
+        "benchmark": 344.3,
+        "rustc": 25.6,
+        "other": 219.1
+      },
+      "load1": 8.38,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:47:25.653197+00:00",
+      "percent_cpu": {
+        "benchmark": 366.8,
+        "rustc": 0.0,
+        "other": 230.8
+      },
+      "load1": 8.57,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:47:40.690483+00:00",
+      "percent_cpu": {
+        "benchmark": 364.7,
+        "rustc": 0.0,
+        "other": 257.2
+      },
+      "load1": 8.91,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:47:55.733578+00:00",
+      "percent_cpu": {
+        "benchmark": 375.3,
+        "rustc": 0.0,
+        "other": 217.4
+      },
+      "load1": 8.72,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:48:10.769390+00:00",
+      "percent_cpu": {
+        "benchmark": 366.4,
+        "rustc": 0.0,
+        "other": 263.7
+      },
+      "load1": 7.96,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:48:25.801339+00:00",
+      "percent_cpu": {
+        "benchmark": 369.9,
+        "rustc": 0.0,
+        "other": 235.9
+      },
+      "load1": 7.14,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:48:40.832662+00:00",
+      "percent_cpu": {
+        "benchmark": 363.0,
+        "rustc": 0.0,
+        "other": 235.7
+      },
+      "load1": 7.23,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:48:55.886605+00:00",
+      "percent_cpu": {
+        "benchmark": 365.9,
+        "rustc": 0.0,
+        "other": 200.2
+      },
+      "load1": 6.98,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:49:10.916015+00:00",
+      "percent_cpu": {
+        "benchmark": 321.8,
+        "rustc": 0.0,
+        "other": 264.0
+      },
+      "load1": 6.91,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:49:25.952794+00:00",
+      "percent_cpu": {
+        "benchmark": 360.8,
+        "rustc": 0.0,
+        "other": 254.6
+      },
+      "load1": 7.47,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:49:40.995210+00:00",
+      "percent_cpu": {
+        "benchmark": 373.6,
+        "rustc": 0.0,
+        "other": 252.0
+      },
+      "load1": 7.52,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:49:56.048356+00:00",
+      "percent_cpu": {
+        "benchmark": 370.9,
+        "rustc": 0.0,
+        "other": 269.7
+      },
+      "load1": 7.99,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:50:11.078037+00:00",
+      "percent_cpu": {
+        "benchmark": 309.8,
+        "rustc": 0.0,
+        "other": 206.8
+      },
+      "load1": 8.37,
+      "active_logs": [
+        "chat/4-fixed"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:50:26.115223+00:00",
+      "percent_cpu": {
+        "benchmark": 100.6,
+        "rustc": 0.0,
+        "other": 257.6
+      },
+      "load1": 7.55,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:50:41.148587+00:00",
+      "percent_cpu": {
+        "benchmark": 99.4,
+        "rustc": 0.0,
+        "other": 244.5
+      },
+      "load1": 7.12,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:50:56.183219+00:00",
+      "percent_cpu": {
+        "benchmark": 100.3,
+        "rustc": 0.0,
+        "other": 236.0
+      },
+      "load1": 6.28,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:51:11.221821+00:00",
+      "percent_cpu": {
+        "benchmark": 343.2,
+        "rustc": 0.0,
+        "other": 347.3
+      },
+      "load1": 5.98,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:51:26.267884+00:00",
+      "percent_cpu": {
+        "benchmark": 314.3,
+        "rustc": 57.4,
+        "other": 318.7
+      },
+      "load1": 9.17,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:51:41.310734+00:00",
+      "percent_cpu": {
+        "benchmark": 369.4,
+        "rustc": 98.1,
+        "other": 400.1
+      },
+      "load1": 9.37,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:51:56.358328+00:00",
+      "percent_cpu": {
+        "benchmark": 239.4,
+        "rustc": 552.1,
+        "other": 179.6
+      },
+      "load1": 12.83,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:52:11.496000+00:00",
+      "percent_cpu": {
+        "benchmark": 208.6,
+        "rustc": 410.5,
+        "other": 119.0
+      },
+      "load1": 17.84,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:52:26.534892+00:00",
+      "percent_cpu": {
+        "benchmark": 325.1,
+        "rustc": 99.7,
+        "other": 328.4
+      },
+      "load1": 18.31,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:52:41.576972+00:00",
+      "percent_cpu": {
+        "benchmark": 235.1,
+        "rustc": 554.3,
+        "other": 135.1
+      },
+      "load1": 16.4,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:52:56.628216+00:00",
+      "percent_cpu": {
+        "benchmark": 338.5,
+        "rustc": 286.1,
+        "other": 179.3
+      },
+      "load1": 19.2,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:53:11.671509+00:00",
+      "percent_cpu": {
+        "benchmark": 374.1,
+        "rustc": 0.0,
+        "other": 299.1
+      },
+      "load1": 16.91,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:53:26.707658+00:00",
+      "percent_cpu": {
+        "benchmark": 313.8,
+        "rustc": 0.0,
+        "other": 256.6
+      },
+      "load1": 15.18,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:53:41.750769+00:00",
+      "percent_cpu": {
+        "benchmark": 380.3,
+        "rustc": 0.0,
+        "other": 260.0
+      },
+      "load1": 13.29,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:53:56.803879+00:00",
+      "percent_cpu": {
+        "benchmark": 362.7,
+        "rustc": 0.0,
+        "other": 238.1
+      },
+      "load1": 12.03,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:54:11.836768+00:00",
+      "percent_cpu": {
+        "benchmark": 375.6,
+        "rustc": 0.0,
+        "other": 233.8
+      },
+      "load1": 10.92,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:54:26.870815+00:00",
+      "percent_cpu": {
+        "benchmark": 306.2,
+        "rustc": 0.0,
+        "other": 227.1
+      },
+      "load1": 9.96,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:54:41.914396+00:00",
+      "percent_cpu": {
+        "benchmark": 371.5,
+        "rustc": 0.0,
+        "other": 235.2
+      },
+      "load1": 9.11,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:54:56.952924+00:00",
+      "percent_cpu": {
+        "benchmark": 374.9,
+        "rustc": 0.0,
+        "other": 231.0
+      },
+      "load1": 8.5,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:55:11.993116+00:00",
+      "percent_cpu": {
+        "benchmark": 376.0,
+        "rustc": 0.0,
+        "other": 225.4
+      },
+      "load1": 8.25,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:55:27.035618+00:00",
+      "percent_cpu": {
+        "benchmark": 366.1,
+        "rustc": 0.0,
+        "other": 258.1
+      },
+      "load1": 8.34,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    },
+    {
+      "utc": "2026-11-01T01:55:42.071477+00:00",
+      "percent_cpu": {
+        "benchmark": 310.4,
+        "rustc": 0.0,
+        "other": 236.3
+      },
+      "load1": 8.51,
+      "active_logs": [
+        "chat/5-disabled"
+      ]
+    }
+  ]
+}
