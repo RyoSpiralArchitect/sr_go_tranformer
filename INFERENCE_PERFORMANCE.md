@@ -712,3 +712,9 @@ and [test receipt](validation/performance/mistral-q4-prefill-exact-20261101/rece
 bind the candidate source to the race-enabled Q4 checks, including all packed
 byte values, every tail length through width 193, row remainders, and extreme
 activations.
+
+The [separate 275-token bit probe](validation/performance/mistral-q4-prefill-bits-20261101.json)
+matched both exact runtime revisions on the prompt IDs, output token 1117,
+all 32,768 final logits and all 18,022,400 committed KV floats. It used
+16-token chunks and four workers. Its process durations are excluded from the
+speed results.
