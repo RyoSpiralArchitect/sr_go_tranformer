@@ -13,13 +13,28 @@ from compare_inference import numerical_signature, process_schedule
 from quant_quality import sha
 
 
+class CorrectnessFailure(ValueError):
+    """A completed test or pair of observations disagreed on valid inputs."""
+
+
+def validate_exact(plan, exact):
+    if (exact['sources'] != plan['exact_source_sha256']
+            or exact['modules'] != {n: plan['comparison_input_sha256'][n] for n in ('go.mod', 'go.sum')}):
+        raise ValueError('wrong exactness inputs')
+    failures = exact.get('failed_tests', [])
+    if failures and set(failures) <= set(plan['exact_tests']):
+        if not re.fullmatch('[0-9a-f]{64}', exact.get('log_sha256','')):
+            raise ValueError('missing failed exactness log')
+        raise CorrectnessFailure('failed exactness tests: ' + ', '.join(failures))
+    if (not exact['passed'] or sorted(exact['tests']) != sorted(plan['exact_tests'])
+            or not re.fullmatch('[0-9a-f]{64}', exact.get('log_sha256',''))):
+        raise ValueError('candidate exactness tests did not pass')
+
+
 def assess(plan, prompt, decode, exact):
     variants = ('before', 'after', 'after', 'before')
     pinned = plan['model_catalog_entry']
-    if (exact['passed'] is not True or exact['sources'] != plan['exact_source_sha256']
-            or sorted(exact['tests']) != sorted(plan['exact_tests']) or not re.fullmatch('[0-9a-f]{64}', exact['log_sha256'])
-            or exact['modules'] != {n: plan['comparison_input_sha256'][n] for n in ('go.mod', 'go.sum')}):
-        raise ValueError('candidate exactness tests did not pass')
+    validate_exact(plan, exact)
     if (prompt['protocol']['baseline'] != plan['baseline'] or decode['baseline_commit'] != plan['baseline']
             or not prompt['files'] == decode['files'] == pinned['files'] or not prompt['revision'] == decode['revision'] == pinned['revision']
             or not prompt['model'] == decode['model'] == pinned['repo']
@@ -37,9 +52,6 @@ def assess(plan, prompt, decode, exact):
             raise ValueError('wrong decode build inputs')
     if decode['source_inputs_sha256']['validation/quality/corpus.json'] != plan['comparison_input_sha256']['validation/quality/corpus.json']:
         raise ValueError('wrong decode corpus')
-    sig = numerical_signature(decode['reports'][0]['report'])
-    if not all(numerical_signature(r['report']) == sig for r in decode['reports']):
-        raise ValueError('logits, used KV, IDs, plan or workspace differ')
     samples = {case: {'before': [], 'after': []} for case in ('short', 'long', 'decode_1', 'decode_2')}
     completions = {}
     for proc, order in zip(prompt['reports'], ['short,long','short,long','long,short','long,short']):
@@ -53,8 +65,10 @@ def assess(plan, prompt, decode, exact):
                 raise ValueError('missing prompt samples')
             for trial in case['trials']:
                 result = trial['completion']
-                if result['prompt_tokens'] != tokens or result['completion_tokens'] != 1 or completions.setdefault(name, result) != result:
-                    raise ValueError('completion mismatch')
+                if result['prompt_tokens'] != tokens or result['completion_tokens'] != 1 or len(result['token_ids']) != 1:
+                    raise ValueError('unexpected prompt or output length')
+                if completions.setdefault(name, result) != result:
+                    raise CorrectnessFailure('completion mismatch')
                 samples[name][proc['variant']].append(trial['seconds'])
     for proc, (_, order) in zip(decode['reports'], process_schedule('balanced')):
         report = proc['report']
@@ -74,6 +88,9 @@ def assess(plan, prompt, decode, exact):
                         or not math.isclose(t['decode_seconds'], sum(t['decode_step_seconds']), rel_tol=1e-12)):
                     raise ValueError('invalid decode durations, IDs or bit digests')
             samples['decode_' + str(case['sessions'])][proc['variant']].extend(t['decode_seconds'] for t in case['trials'])
+    sig = numerical_signature(decode['reports'][0]['report'])
+    if not all(numerical_signature(r['report']) == sig for r in decode['reports']):
+        raise CorrectnessFailure('logits, used KV, IDs, plan or workspace differ')
     results = {}
     for case, values in samples.items():
         if any(not math.isfinite(t) or t <= 0 for trials in values.values() for t in trials):
@@ -93,10 +110,15 @@ def main():
     hashes = {n: sha(p) for n, p in inputs.items() if p.is_file()}
     try:
         exact = json.loads(args.exact.read_text())
-        if exact['protocol_sha256'] != hashes['protocol'] or sha(args.exact.with_name('go-test.jsonl')) != exact['log_sha256']:
+        if exact['protocol_sha256'] != hashes['protocol']:
+            raise ValueError('wrong exactness protocol')
+        if 'log_sha256' in exact and sha(args.exact.with_name('go-test.jsonl')) != exact['log_sha256']:
             raise ValueError('wrong exactness protocol or Go test output')
+        validate_exact(json.loads(args.protocol.read_text()), exact)
         result = assess(*(json.loads(p.read_text()) for p in inputs.values()))
         result['status'] = 'adopt' if result['accepted'] else 'reject'
+    except CorrectnessFailure as err:
+        result = dict(status='reject', accepted=False, error=str(err))
     except (KeyError, TypeError, OSError, ValueError) as err:
         result = dict(status='incomplete', accepted=False, error=str(err))
     result['input_sha256'] = hashes
