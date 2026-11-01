@@ -1,0 +1,288 @@
+{
+  "protocol": {
+    "format": "monolith-postload-prefill-v1",
+    "model": "mistralai/Mistral-7B-Instruct-v0.3",
+    "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+    "files": {
+      "config.json": "affafc6478ec0fd07a32f0ca57aa2fc57743f4d17d6730f86a96ac24d1507f99",
+      "tokenizer.json": "e553af6fff7d7ad76e830608b218c5c0b0822998d5a1a96099a74cd3c1cb1a49",
+      "tokenizer_config.json": "0533dec9cfe319163801b6618d0f3ec9cfa126b6288e3df5deca6e32acb09cd2",
+      "model.safetensors.index.json": "e489ba553b87cde188d921b1a8283c2e0b9d33d635b88147d96ff0fcd6250016",
+      "model-00001-of-00003.safetensors": "ce6fb6f6f4d0183f4813cbf4ece24109da629a08d4210da46f77e1d8b0bd5c19",
+      "model-00002-of-00003.safetensors": "8c0e72f148366b6a3709e002a98706a33d31aec8515090c856c95b2044f92ae0",
+      "model-00003-of-00003.safetensors": "905dd405363e43d95779c1c1155a2dbfd36155914ae95dbd934e12e490cfb4ca"
+    },
+    "source_sha256": {
+      "monolith.go": "cee7ba795c72c9102e3052d039579c08118c07237f143db189930ea98a378739",
+      "go.mod": "8fd924c4124c93ce607d506cf677a5462ef233b3a776d0ba26d2a6fb3f498adf",
+      "go.sum": "8a0467c34198969fd6b4a4f0f41acfdaf433dc2a393db612c4d8121a60d1f66f",
+      "prompt_prefill_perf_test.go": "9ad11a037306da2a8fb1d601b84f8e6fa3cabc35d9842057d9606006acbc13b3"
+    },
+    "modes": [
+      "cpu",
+      "trace",
+      "plain"
+    ],
+    "tokens": 275,
+    "threads": 4,
+    "context": 1024,
+    "weight_format": "q4-mixed",
+    "output_tokens": 1,
+    "scope": "One fresh process and one Generate per mode. Only plain is uninstrumented. All exclude loading. The trace has aggregate wait, not subtractable wall time."
+  },
+  "host": "Darwin/arm64",
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "binary_sha256": "1ba88cf2b3539838bb673cbc29e2bcfb8c59447b116f333076c98a069d4b658c",
+  "artifacts_sha256": {
+    "cpu.raw": "0b2e0aca817e43e16ade5e2b673b4bbd462a73eff6b46ba359aa4aed70bd1c17",
+    "cpu-top.txt": "ef241bba6ba9f7e80b5158b58af7e94a9cb75325d79f066f7d8f7a4dbb7614a6",
+    "cpu-q4.txt": "9c559c84913cb4efdcdcdbdfb4f588d394c43e1d3338ba18b7897d3d154755e6",
+    "trace.raw": "e070d7bd83a7d89def8188af16a2e06b58a6d8d50e679981deb1d5a401f1e8cc",
+    "sched.pprof": "d85548b39ed74d3cf055013ef5c81c6f442191c4c1e467e790e45b0eb603921d",
+    "sched-top.txt": "8bdae82fe499df9c52889417378806ff2f97503a7dce7929d289e2425abf0013",
+    "sync.pprof": "fe0ae4c08a914ff2600439d595cd949cca4dbc2ac63b5ec71bf9bde4b501148b",
+    "sync-top.txt": "ec6eac96bbeef3a442ec5f9995862dc4643df394a581d826d985c76c5c71e259"
+  },
+  "reports": [
+    {
+      "mode": "cpu",
+      "report": {
+        "cases": [
+          {
+            "name": "long",
+            "trials": [
+              {
+                "completion": {
+                  "text": "is",
+                  "token_ids": [
+                    1117
+                  ],
+                  "prompt_tokens": 275,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 111.293275042,
+                "allocated_bytes": 83280856,
+                "allocations": 11050
+              }
+            ]
+          }
+        ],
+        "note": "One output token measures direct Generate first-token latency excluding loading. Fixed prompts and greedy sampling.",
+        "plan": {
+          "format": "monolith-hf-plan-v1",
+          "model_type": "mistral",
+          "tied_embeddings": false,
+          "eos_token_ids": [
+            2
+          ],
+          "config": {
+            "vocab": 32768,
+            "dim": 4096,
+            "hidden": 14336,
+            "layers": 32,
+            "heads": 32,
+            "kv_heads": 8,
+            "context": 1024,
+            "rope_theta": 1000000,
+            "norm_eps": 1e-05
+          },
+          "parameters": 7248023552,
+          "weight_bytes": 4212146176,
+          "weight_format": "q4-mixed",
+          "fp32_weight_bytes": 28992094208,
+          "quantized_parameters": 7247757312,
+          "q8_parameters": 268435456,
+          "q4_parameters": 6979321856,
+          "scale_bytes": 452984832,
+          "quantization_block": 64,
+          "quantization_buffer_bytes": 256,
+          "rope_bytes": 524288,
+          "kv_bytes_per_token": 262144,
+          "full_context_kv_bytes": 268435456,
+          "conversion_buffer_bytes": 65536,
+          "source_bytes": 14496080928,
+          "shards": 3,
+          "tensor_dtypes": {
+            "BF16": 291
+          }
+        },
+        "threads": 4
+      },
+      "process_resources": {
+        "peak_rss_bytes": 4161306624,
+        "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+        "elapsed_seconds": 155.327592666,
+        "user_cpu_seconds": 439.477267,
+        "system_cpu_seconds": 9.416011
+      }
+    },
+    {
+      "mode": "trace",
+      "report": {
+        "cases": [
+          {
+            "name": "long",
+            "trials": [
+              {
+                "completion": {
+                  "text": "is",
+                  "token_ids": [
+                    1117
+                  ],
+                  "prompt_tokens": 275,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 101.226838292,
+                "allocated_bytes": 86069248,
+                "allocations": 22546
+              }
+            ]
+          }
+        ],
+        "note": "One output token measures direct Generate first-token latency excluding loading. Fixed prompts and greedy sampling.",
+        "plan": {
+          "format": "monolith-hf-plan-v1",
+          "model_type": "mistral",
+          "tied_embeddings": false,
+          "eos_token_ids": [
+            2
+          ],
+          "config": {
+            "vocab": 32768,
+            "dim": 4096,
+            "hidden": 14336,
+            "layers": 32,
+            "heads": 32,
+            "kv_heads": 8,
+            "context": 1024,
+            "rope_theta": 1000000,
+            "norm_eps": 1e-05
+          },
+          "parameters": 7248023552,
+          "weight_bytes": 4212146176,
+          "weight_format": "q4-mixed",
+          "fp32_weight_bytes": 28992094208,
+          "quantized_parameters": 7247757312,
+          "q8_parameters": 268435456,
+          "q4_parameters": 6979321856,
+          "scale_bytes": 452984832,
+          "quantization_block": 64,
+          "quantization_buffer_bytes": 256,
+          "rope_bytes": 524288,
+          "kv_bytes_per_token": 262144,
+          "full_context_kv_bytes": 268435456,
+          "conversion_buffer_bytes": 65536,
+          "source_bytes": 14496080928,
+          "shards": 3,
+          "tensor_dtypes": {
+            "BF16": 291
+          }
+        },
+        "threads": 4
+      },
+      "process_resources": {
+        "peak_rss_bytes": 4173856768,
+        "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+        "elapsed_seconds": 140.03358525000002,
+        "user_cpu_seconds": 416.95859,
+        "system_cpu_seconds": 7.56035
+      }
+    },
+    {
+      "mode": "plain",
+      "report": {
+        "cases": [
+          {
+            "name": "long",
+            "trials": [
+              {
+                "completion": {
+                  "text": "is",
+                  "token_ids": [
+                    1117
+                  ],
+                  "prompt_tokens": 275,
+                  "completion_tokens": 1,
+                  "finish_reason": "length"
+                },
+                "seconds": 107.646425958,
+                "allocated_bytes": 80821480,
+                "allocations": 8177
+              }
+            ]
+          }
+        ],
+        "note": "One output token measures direct Generate first-token latency excluding loading. Fixed prompts and greedy sampling.",
+        "plan": {
+          "format": "monolith-hf-plan-v1",
+          "model_type": "mistral",
+          "tied_embeddings": false,
+          "eos_token_ids": [
+            2
+          ],
+          "config": {
+            "vocab": 32768,
+            "dim": 4096,
+            "hidden": 14336,
+            "layers": 32,
+            "heads": 32,
+            "kv_heads": 8,
+            "context": 1024,
+            "rope_theta": 1000000,
+            "norm_eps": 1e-05
+          },
+          "parameters": 7248023552,
+          "weight_bytes": 4212146176,
+          "weight_format": "q4-mixed",
+          "fp32_weight_bytes": 28992094208,
+          "quantized_parameters": 7247757312,
+          "q8_parameters": 268435456,
+          "q4_parameters": 6979321856,
+          "scale_bytes": 452984832,
+          "quantization_block": 64,
+          "quantization_buffer_bytes": 256,
+          "rope_bytes": 524288,
+          "kv_bytes_per_token": 262144,
+          "full_context_kv_bytes": 268435456,
+          "conversion_buffer_bytes": 65536,
+          "source_bytes": 14496080928,
+          "shards": 3,
+          "tensor_dtypes": {
+            "BF16": 291
+          }
+        },
+        "threads": 4
+      },
+      "process_resources": {
+        "peak_rss_bytes": 4158980096,
+        "measurement": "wait4 rusage.ru_maxrss for this child lifetime; includes startup, loading and probing",
+        "elapsed_seconds": 145.867640875,
+        "user_cpu_seconds": 427.771422,
+        "system_cpu_seconds": 7.737138
+      }
+    }
+  ],
+  "exact_completion": true,
+  "measured_commit": "e773077",
+  "runtime_source_commit": "06535fb367a418f9e4eca0b6c22976e7e62d39ab",
+  "as_run_driver_sha256": "d09e4d496ca999a50037dfa84ddcbc9f51dd9e88c27c19492bd6ff1f7c3bf519",
+  "original_receipt_sha256": "0d6507b177e24c7f0f1104d996c2a9a6e4b689d9f320ad8cc64f1d899d8c99af",
+  "listing_correction": {
+    "original_listing_sha256": "9c559c84913cb4efdcdcdbdfb4f588d394c43e1d3338ba18b7897d3d154755e6",
+    "annotated_listing_sha256": "75312107d47a768fb0e57c6bbe3597ed09e49230b879a14a87ce3dedad23d93d",
+    "renderer_commit": "0c79ec3",
+    "note": "The first listing contained a source lookup error. The same raw CPU profile was rendered with the frozen source directory and module trim path. No experiment was repeated."
+  },
+  "interpretation": {
+    "flat_q4_cpu_seconds": 316.16,
+    "cumulative_q4_cpu_seconds": 331.69,
+    "sampled_cpu_seconds": 353.3,
+    "cumulative_q4_percent": 93.88,
+    "cumulative_attention_core_cpu_seconds": 3.34,
+    "trace_aggregate_scheduler_seconds": 0.57319479,
+    "trace_aggregate_sync_seconds": 315.48084134,
+    "note": "CPU seconds accumulate across workers. Wait includes owner joins, parked workers and trace infrastructure. CPU and trace trial allocations include capture setup and shutdown. Only the plain trial is uninstrumented."
+  }
+}

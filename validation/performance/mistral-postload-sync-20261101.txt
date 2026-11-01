@@ -1,0 +1,22 @@
+Type: delay
+Showing nodes accounting for 315480841.34us, 100% of 315480841.34us total
+      flat  flat%   sum%        cum   cum%
+302095703.74us 95.76% 95.76% 302095703.74us 95.76%  runtime.chanrecv1
+13376423.42us  4.24%   100% 13376423.42us  4.24%  runtime.chanrecv2
+ 8711.81us 0.0028%   100%  8711.81us 0.0028%  runtime.traceAdvance
+    2.37us 7.5e-07%   100%     2.37us 7.5e-07%  sync.(*WaitGroup).Wait
+         0     0%   100% 100224501.50us 31.77%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*Model).prefillSelected
+         0     0%   100% 1774280.18us  0.56%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*decodeWorkspace).attend
+         0     0%   100%     2.37us 7.5e-07%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).close
+         0     0%   100% 100224501.50us 31.77%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).parallel
+         0     0%   100% 13376423.42us  4.24%  github.com/RyoSpiralArchitect/sr_go_tranformer.(*kernelExecutor).run
+         0     0%   100% 100224503.87us 31.77%  github.com/RyoSpiralArchitect/sr_go_tranformer.Generate
+         0     0%   100% 100224503.87us 31.77%  github.com/RyoSpiralArchitect/sr_go_tranformer.TestHFPromptStackProbe
+         0     0%   100% 100224503.87us 31.77%  github.com/RyoSpiralArchitect/sr_go_tranformer.generateInput
+         0     0%   100% 98450221.32us 31.21%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearIntoWithExecutor
+         0     0%   100% 98429380.49us 31.20%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ4Into
+         0     0%   100% 20840.83us 0.0066%  github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ8Into
+         0     0%   100% 100847845.57us 31.97%  runtime.(*traceAdvancerState).start.func1
+         0     0%   100% 201871202.24us 63.99%  runtime.(*wakeableSleep).sleep
+         0     0%   100% 101032068.48us 32.02%  runtime.traceStartReadCPU.func1
+         0     0%   100% 100224503.87us 31.77%  testing.tRunner

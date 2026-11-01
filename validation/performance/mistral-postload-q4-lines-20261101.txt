@@ -1,0 +1,119 @@
+Total: 353.30s
+ROUTINE ======================== github.com/RyoSpiralArchitect/sr_go_tranformer.linearQ4Into.func1 in monolith.go
+   316.16s    331.69s (flat, cum) 93.88% of Total
+         .          .   4272:	e.parallel(((n+3)/4)*tiles, n*in*out, func(lo, hi int) {
+      40ms       40ms   4273:		for task := lo; task < hi; task++ {
+         .          .   4274:			r, o0 := (task/tiles)*4, (task%tiles)*32
+     2.52s      2.59s   4275:			for o := o0; o < min(o0+32, out); o++ {
+     1.39s      1.43s   4276:				wr := w.Q4.Values[o*((in+1)/2) : (o+1)*((in+1)/2)]
+      20ms       30ms   4277:				scales := w.Q4.Scales[o*groups : (o+1)*groups]
+     1.73s      1.79s   4278:				if r+4 <= n {
+     1.07s      1.16s   4279:					x0, x1 := x[r*in:(r+1)*in], x[(r+1)*in:(r+2)*in]
+      20ms       20ms   4280:					x2, x3 := x[(r+2)*in:(r+3)*in], x[(r+3)*in:(r+4)*in]
+         .          .   4281:					var s0, s1, s2, s3 float32
+     6.04s      6.04s   4282:					for g, scale := range scales {
+         .          .   4283:						var a0, b0, c0, d0, a1, b1, c1, d1, a2, b2, c2, d2, a3, b3, c3, d3 float32
+     4.60s      4.81s   4284:						j, end := g*q8Block, min((g+1)*q8Block, in)
+     8.50s      9.03s   4285:						for ; j+4 <= end; j += 4 {
+    91.39s     94.42s   4286:							v0, v1, v2, v3 := q4Pairs[wr[j/2]][0], q4Pairs[wr[j/2]][1], q4Pairs[wr[j/2+1]][0], q4Pairs[wr[j/2+1]][1]
+    18.27s        19s   4287:							a0 += x0[j] * v0
+    11.28s     11.72s   4288:							b0 += x0[j+1] * v1
+    17.09s     17.97s   4289:							c0 += x0[j+2] * v2
+    13.71s     14.29s   4290:							d0 += x0[j+3] * v3
+    14.59s     15.21s   4291:							a1 += x1[j] * v0
+    13.69s     14.41s   4292:							b1 += x1[j+1] * v1
+    17.62s     18.62s   4293:							c1 += x1[j+2] * v2
+     3.15s      3.34s   4294:							d1 += x1[j+3] * v3
+     340ms      340ms   4295:							a2 += x2[j] * v0
+     230ms      230ms   4296:							b2 += x2[j+1] * v1
+     370ms      370ms   4297:							c2 += x2[j+2] * v2
+     690ms      700ms   4298:							d2 += x2[j+3] * v3
+     1.19s      1.19s   4299:							a3 += x3[j] * v0
+     6.28s      6.33s   4300:							b3 += x3[j+1] * v1
+     8.47s      8.97s   4301:							c3 += x3[j+2] * v2
+    19.73s     20.64s   4302:							d3 += x3[j+3] * v3
+         .          .   4303:						}
+     1.20s      1.22s   4304:						p0, p1, p2, p3 := (a0+b0)+(c0+d0), (a1+b1)+(c1+d1), (a2+b2)+(c2+d2), (a3+b3)+(c3+d3)
+     5.68s      5.95s   4305:						for ; j < end; j++ {
+         .          .   4306:							v := q4Pairs[wr[(j)/2]][(j)%2]
+         .          .   4307:							p0 += x0[j] * v
+         .          .   4308:							p1 += x1[j] * v
+         .          .   4309:							p2 += x2[j] * v
+         .          .   4310:							p3 += x3[j] * v
+         .          .   4311:						}
+      10ms       10ms   4312:						s0 += p0 * scale
+         .          .   4313:						s1 += p1 * scale
+     2.89s      3.04s   4314:						s2 += p2 * scale
+    41.45s     43.91s   4315:						s3 += p3 * scale
+         .          .   4316:					}
+     150ms      170ms   4317:					y[r*out+o], y[(r+1)*out+o] = s0, s1
+      30ms       30ms   4318:					y[(r+2)*out+o], y[(r+3)*out+o] = s2, s3
+         .          .   4319:				} else {
+         .          .   4320:					row := r
+         .          .   4321:					if row+2 <= n {
+         .          .   4322:						x0, x1 := x[row*in:(row+1)*in], x[(row+1)*in:(row+2)*in]
+         .          .   4323:						var s0, s1 float32
+     290ms      290ms   4324:						for g, scale := range scales {
+         .          .   4325:							j, end := g*q8Block, min((g+1)*q8Block, in)
+         .          .   4326:							if end-j == 64 {
+      60ms      1.18s   4327:								p0, p1 := dotQ4PairBlock64((*[64]float32)(x0[j:end]), (*[64]float32)(x1[j:end]), (*[32]byte)(wr[j/2:end/2]))
+         .          .   4328:								s0 += p0 * scale
+         .          .   4329:								s1 += p1 * scale
+         .          .   4330:								continue
+         .          .   4331:							}
+         .          .   4332:							var a0, b0, c0, d0, a1, b1, c1, d1 float32
+         .          .   4333:							for ; j+4 <= end; j += 4 {
+         .          .   4334:								v0, v1 := q4Pairs[wr[j/2]][0], q4Pairs[wr[j/2]][1]
+         .          .   4335:								v2, v3 := q4Pairs[wr[j/2+1]][0], q4Pairs[wr[j/2+1]][1]
+      30ms       30ms   4336:								a0 += x0[j] * v0
+         .          .   4337:								b0 += x0[j+1] * v1
+         .          .   4338:								c0 += x0[j+2] * v2
+         .          .   4339:								d0 += x0[j+3] * v3
+         .          .   4340:								a1 += x1[j] * v0
+         .          .   4341:								b1 += x1[j+1] * v1
+         .          .   4342:								c1 += x1[j+2] * v2
+         .          .   4343:								d1 += x1[j+3] * v3
+         .          .   4344:							}
+         .          .   4345:							p0, p1 := (a0+b0)+(c0+d0), (a1+b1)+(c1+d1)
+         .          .   4346:							for ; j < end; j++ {
+         .          .   4347:								v := q4Pairs[wr[j/2]][j%2]
+         .          .   4348:								p0 += x0[j] * v
+         .          .   4349:								p1 += x1[j] * v
+         .          .   4350:							}
+         .          .   4351:							s0 += p0 * scale
+         .          .   4352:							s1 += p1 * scale
+         .          .   4353:						}
+      20ms       20ms   4354:						y[row*out+o], y[(row+1)*out+o] = s0, s1
+         .          .   4355:						row += 2
+         .          .   4356:					}
+      30ms       30ms   4357:					for ; row < min(r+4, n); row++ {
+      10ms       10ms   4358:						xr := x[row*in : (row+1)*in]
+         .          .   4359:						var sum float32
+     210ms      210ms   4360:						for g, scale := range scales {
+         .          .   4361:							j, end := g*q8Block, min((g+1)*q8Block, in)
+         .          .   4362:							if end-j == 64 {
+         .          .   4363:								// Safe array views check the complete block once, without copying.
+      50ms      870ms   4364:								sum += dotQ4Block64((*[64]float32)(xr[j:end]), (*[32]byte)(wr[j/2:end/2])) * scale
+         .          .   4365:								continue
+         .          .   4366:							}
+         .          .   4367:							var a, b, c, d float32
+         .          .   4368:							for ; j+4 <= end; j += 4 {
+      10ms       10ms   4369:								v0, v1 := q4Pairs[wr[j/2]][0], q4Pairs[wr[j/2]][1]
+         .          .   4370:								v2, v3 := q4Pairs[wr[j/2+1]][0], q4Pairs[wr[j/2+1]][1]
+         .          .   4371:								a += xr[j] * v0
+         .          .   4372:								b += xr[j+1] * v1
+         .          .   4373:								c += xr[j+2] * v2
+         .          .   4374:								d += xr[j+3] * v3
+         .          .   4375:							}
+         .          .   4376:							part := (a + b) + (c + d)
+         .          .   4377:							for ; j < end; j++ {
+         .          .   4378:								part += xr[j] * q4Pairs[wr[(j)/2]][(j)%2]
+         .          .   4379:							}
+         .          .   4380:							sum += part * scale
+         .          .   4381:						}
+      20ms       20ms   4382:						y[row*out+o] = sum
+         .          .   4383:					}
+         .          .   4384:				}
+         .          .   4385:			}
+         .          .   4386:		}
+         .          .   4387:	})

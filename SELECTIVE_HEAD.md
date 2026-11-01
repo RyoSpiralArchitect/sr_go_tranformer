@@ -88,3 +88,40 @@ variant, with no warmups or confidence intervals. All trials, including the
 long-case regression, are retained. The four-token input fits one chunk and
 already needed only one head. The native fixture's larger relative head cost
 must not be extrapolated to this pretrained model or concurrent serving.
+
+## Where the 275-token prefill spends CPU time
+
+The [post-load Mistral probe](validation/performance/mistral-postload-20261101.json)
+ran three fresh processes on an Apple M4 with four Go threads, Q4-mixed
+Mistral v0.3 and context 1,024. Each generated the same token, ID 1117, after
+the same 275-token prompt. The uninstrumented call took 107.646 seconds and
+allocated 80,821,480 bytes. This is one observation. The CPU and execution-trace
+runs are diagnostics and their allocation counters include capture overhead.
+
+The [CPU profile](validation/performance/mistral-postload-cpu-20261101.txt)
+collected 353.30 sampled CPU seconds across workers. The Q4 projection
+callback accounted for 316.16 s flat (89.49%) and 331.69 s cumulative
+(93.88%). The attention core accounted for 3.34 s cumulative (0.95%).
+[Annotated lines](validation/performance/mistral-postload-q4-lines-20261101.txt)
+place 91.39 flat seconds on the four-row packed-weight lookup line. Sampling
+attributes instruction locations to source lines; it does not time individual
+Go expressions. These results suggest testing the four-row Q4 projection.
+
+The [scheduler trace](validation/performance/mistral-postload-scheduler-20261101.txt)
+recorded 0.573 s of aggregate scheduling delay. The
+[synchronization report](validation/performance/mistral-postload-sync-20261101.txt)
+includes 100.225 s accumulated at the owner's kernel joins while workers
+compute, plus idle workers and trace infrastructure. Its summed goroutine
+waits cannot be subtracted from request latency. This single-source profile
+does not isolate the cause of the earlier before/after difference.
+
+```sh
+python3 -S scripts/profile_prompt_prefill.py --model PATH_TO_MISTRAL_7B \
+  --output runs/postload-prefill
+```
+
+The runner requires a fresh output directory, checks the catalog hashes before
+and after, and retains the raw profiles locally. The first source listing could
+not resolve the module's trimmed path. The published listing was regenerated
+from the same raw profile with the frozen build source. Both listing hashes
+and the original receipt hash are recorded.
