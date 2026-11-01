@@ -697,3 +697,18 @@ An unrelated compiler was observed at 670% CPU during the first candidate
 process. Intermittent [host observations](validation/performance/mistral-q4-prefill-host-20261101.json)
 began partway through that process. The host was a shared Apple M4, and these
 two long trials per variant cannot isolate the cause of the difference.
+
+The [balanced decode control](validation/performance/mistral-q4-prefill-decode-20261101.json)
+uses six seven-call samples per variant and session count. One-session median
+decode time increased from 3.290 to 3.946 s (+20.0%, above the 5% ceiling).
+Two sessions measured 4.422 to 4.283 s (-3.1%, within the ceiling). All four
+processes agreed on every generated ID, logit digest, used-KV digest and
+workspace size. The [decision](validation/performance/mistral-q4-prefill-decision-20261101.json)
+records three failed timing gates out of four. These shared-host observations
+apply to this workload; the failed gates stand without a retry.
+
+The [exactness log](validation/performance/mistral-q4-prefill-exact-20261101/go-test.jsonl)
+and [test receipt](validation/performance/mistral-q4-prefill-exact-20261101/receipt.json)
+bind the candidate source to the race-enabled Q4 checks, including all packed
+byte values, every tail length through width 193, row remainders, and extreme
+activations.
