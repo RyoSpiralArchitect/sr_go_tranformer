@@ -107,17 +107,13 @@ func TestPrefixSnapshotSharedPagesAndDivergentTails(t *testing.T) {
 		frozen[i] = append([]float32(nil), p.Data...)
 	}
 	query := append(append([]int(nil), ids[:64]...), 17, 18, 19)
-	n := snapshot.match(m, query)
-	if n != 2 {
-		t.Fatalf("matched %d pages", n)
-	}
 	a, b := m.NewCache(), m.NewCache()
 	defer a.Close()
 	defer b.Close()
-	a.shared, a.sharedPages = &snapshot, n
-	snapshot.borrowers++
-	a.Pages = append(a.Pages, snapshot.pages[:n]...)
-	a.Pos = n * pageTokens
+	snapshot.restore(a, query)
+	if a.sharedPages != 2 || a.Pos != 64 {
+		t.Fatal("unexpected page match", a.sharedPages, a.Pos)
+	}
 	if a.Pages[0] != snapshot.pages[0] {
 		t.Fatal("snapshot pages copied per hit")
 	}
@@ -142,19 +138,25 @@ func TestPrefixSnapshotSharedPagesAndDivergentTails(t *testing.T) {
 		}
 	}
 	// Exact IDs, model identity and revision all participate in lookup.
+	matched := func(m *Model, query []int) int {
+		c := m.NewCache()
+		defer c.Close()
+		snapshot.restore(c, query)
+		return c.Pos
+	}
 	query[40]++
-	if snapshot.match(m, query) != 1 {
+	if matched(m, query) != pageTokens {
 		t.Fatal("divergence inside second page reused")
 	}
-	if snapshot.match(m, ids[:64]) != 1 {
+	if matched(m, ids[:64]) != pageTokens {
 		t.Fatal("full prompt reused without a logits forward")
 	}
 	other := workerTestModel(t, 2)
-	if snapshot.match(other, ids) != 0 {
+	if matched(other, ids) != 0 {
 		t.Fatal("foreign model matched")
 	}
 	m.Revision++
-	if snapshot.match(m, ids) != 0 {
+	if matched(m, ids) != 0 {
 		t.Fatal("stale revision matched")
 	}
 	m.Revision--
@@ -173,7 +175,7 @@ func TestPrefixSnapshotSharedPagesAndDivergentTails(t *testing.T) {
 		exactWorkerFloats(t, frozen[i], p.Data)
 	}
 	snapshot.clear()
-	if len(snapshot.pages) == 0 || snapshot.match(m, ids) != 0 {
+	if len(snapshot.pages) == 0 || matched(m, ids) != 0 {
 		t.Fatal("live clear broke ownership")
 	}
 	a.Close()
@@ -283,13 +285,15 @@ func TestPrefixBudgetAndFlags(t *testing.T) {
 		t.Fatal("sub-page prefix accepted")
 	}
 	for _, action := range []string{"chat", "serve"} {
-		for _, args := range [][]string{{"-prefix-cache-mib", "-1"}, {"-prefix-cache-mib", "1099511627776"}, {"-kv-mib", "4", "-prefix-cache-mib", "4"}} {
+		for _, args := range [][]string{{"-prefix-cache-tail"}, {"-prefix-cache-mib", "-1"}, {"-prefix-cache-mib", "1099511627776"}, {"-kv-mib", "4", "-prefix-cache-mib", "4"}} {
 			if err := runInferenceAction(context.Background(), action, args, true); err == nil {
 				t.Fatal("bad prefix flags accepted", action, args)
 			}
 		}
-		if err := runInferenceAction(context.Background(), action, []string{"-kv-mib", "4", "-prefix-cache-mib", "1"}, true); err != nil {
-			t.Fatal(err)
+		for _, tail := range []string{"-prefix-cache-tail=false", "-prefix-cache-tail"} {
+			if err := runInferenceAction(context.Background(), action, []string{"-kv-mib", "4", "-prefix-cache-mib", "1", tail}, true); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 }

@@ -217,6 +217,7 @@ One goroutine owns sessions and KV pages. HTTP handlers drain bounded event chan
 | `-queue` | 32 | Pending request capacity. |
 | `-kv-mib` | 256 | KV page budget; full request capacity is reserved before execution. |
 | `-prefix-cache-mib` | 0 | Optional single-prefix retention, carved out of the KV budget; reuses immutable full pages. |
+| `-prefix-cache-tail` | false | With a prefix budget, copy matching rows of a partial KV page into the requesting session. |
 | `-prefill-chunk` | 16 | Maximum prompt tokens per session per scheduling tick. Set 1 for sequential prefill. |
 | `-mixed-prefill-chunk` | 1 | Prompt tokens per session when any session is already generating; capped by `prefill-chunk`. |
 | `-token-budget` | `max(max-batch, 64)` | Total tokens processed in a tick, between `max-batch` and 1,024. |

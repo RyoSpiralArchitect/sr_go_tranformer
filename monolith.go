@@ -5715,23 +5715,49 @@ func (p *pagePool) acquire() *kvPage {
 // A prefix snapshot is private to one engine actor. Its pages are immutable
 // while borrowed; the one-entry cache never creates a second live generation.
 type prefixSnapshot struct {
-	model     *Model
-	revision  uint64
-	ids       []int
-	pages     []*kvPage
-	borrowers int
+	model       *Model
+	revision    uint64
+	ids         []int
+	pages       []*kvPage
+	borrowers   int
+	includeTail bool
 }
 
-func (p *prefixSnapshot) match(m *Model, ids []int) int {
-	if p.model != m || p.revision != m.Revision || len(ids) < 2 {
-		return 0
+// Restore the exact prefix into a newly admitted cache. The last prompt ID
+// must run through the model because this snapshot stores no logits.
+func (p *prefixSnapshot) restore(c *KVCache, ids []int) {
+	if p.model != c.Model || p.revision != c.Revision || len(ids) < 2 {
+		return
 	}
 	n := min(len(p.ids), len(ids)-1)
-	i := 0
-	for i < n && p.ids[i] == ids[i] {
-		i++
+	matched := 0
+	for matched < n && p.ids[matched] == ids[matched] {
+		matched++
 	}
-	return i / pageTokens
+	full := matched / pageTokens
+	if full > 0 {
+		c.Pages = append(c.Pages, p.pages[:full]...)
+		c.shared, c.sharedPages = p, full
+		p.borrowers++
+	}
+	c.Pos = full * pageTokens
+	if tail := matched % pageTokens; p.includeTail && tail > 0 {
+		c.ensurePages(matched)
+		copyKVPrefixRows(c.Pages[full], p.pages[full], c.Model.Config.KVDim(), tail)
+		c.Pos = matched
+	}
+}
+
+// Each layer stores separate contiguous key and value planes of 32 rows.
+func copyKVPrefixRows(dst, src *kvPage, kvDim, rows int) {
+	if rows == pageTokens {
+		copy(dst.Data, src.Data)
+		return
+	}
+	for offset := 0; offset < len(src.Data); offset += pageTokens * kvDim {
+		end := offset + rows*kvDim
+		copy(dst.Data[offset:end], src.Data[offset:end])
+	}
 }
 func (p *prefixSnapshot) clear() {
 	p.ids = nil
@@ -5741,7 +5767,7 @@ func (p *prefixSnapshot) clear() {
 	}
 }
 
-// Retain only successful, committed full pages after the actor joins compute.
+// Retain only successful, committed positions after the actor joins compute.
 // The finishing cache may be the sole borrower of this snapshot: its immutable
 // shared prefix stays in place while its completed suffix is copied. Other
 // borrowers prevent replacement. Prefix allocation stays in its own allowance.
@@ -5750,7 +5776,12 @@ func (p *prefixSnapshot) capture(m *Model, c *KVCache, ids []int, limit int) {
 	if (p.borrowers != 0 && !soleBorrower) || c.Revision != m.Revision {
 		return
 	}
-	n := min(limit, c.Pos/pageTokens)
+	positions := c.Pos
+	if !p.includeTail {
+		positions -= positions % pageTokens
+	}
+	n := min(limit, (positions+pageTokens-1)/pageTokens)
+	positions = min(positions, n*pageTokens)
 	if n == 0 {
 		return
 	}
@@ -5758,10 +5789,12 @@ func (p *prefixSnapshot) capture(m *Model, c *KVCache, ids []int, limit int) {
 		p.pages = append(p.pages, &kvPage{Data: make([]float32, 2*pageTokens*m.Config.KVDim()*m.Config.Layers)})
 	}
 	for i := 0; i < n; i++ {
-		copy(p.pages[i].Data, c.Pages[i].Data)
+		if p.pages[i] != c.Pages[i] {
+			copyKVPrefixRows(p.pages[i], c.Pages[i], m.Config.KVDim(), min(pageTokens, positions-i*pageTokens))
+		}
 	}
 	// Retained spare pages remain charged even when the new prefix is shorter.
-	p.ids = append(p.ids[:0], ids[:n*pageTokens]...)
+	p.ids = append(p.ids[:0], ids[:positions]...)
 	p.model, p.revision = m, m.Revision
 }
 
@@ -7424,6 +7457,7 @@ type EngineConfig struct {
 	CacheBytes                                                 int64
 	StreamBuffer, PrefillChunk, MixedPrefillChunk, TokenBudget int
 	PrefixCacheBytes                                           int64 // Carved out of CacheBytes; 0 disables prefix retention.
+	PrefixCacheTail                                            bool  // Also retain and copy exact sub-page matches.
 	KernelWorkers                                              int   // 0 captures min(GOMAXPROCS,256); 1 runs inline.
 }
 
@@ -7785,6 +7819,9 @@ func normalizeEngineConfig(c EngineConfig) (EngineConfig, error) {
 	if c.PrefixCacheBytes < 0 || c.PrefixCacheBytes >= c.CacheBytes {
 		return c, errors.New("prefix cache must be nonnegative and smaller than total KV budget")
 	}
+	if c.PrefixCacheTail && c.PrefixCacheBytes == 0 {
+		return c, errors.New("prefix cache tail reuse requires a positive prefix cache budget")
+	}
 	if c.KernelWorkers < 1 || c.KernelWorkers > 256 {
 		return c, errors.New("invalid kernel worker count (1..256, or 0 for automatic)")
 	}
@@ -7820,7 +7857,7 @@ func newEngine(m *Model, tok inferenceTokenizer, c EngineConfig) (*Engine, error
 		return nil, errors.New("cache budget cannot hold one KV page")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	e := &Engine{Model: m, Tokenizer: tok, Config: c, queue: make(chan *engineRequest, c.Queue), admission: make(chan struct{}, c.Queue+c.MaxBatch), httpSlots: make(chan struct{}, c.Queue+c.MaxBatch), ctx: ctx, cancel: cancel, done: make(chan struct{}), pool: pagePool{PageElements: elements, Limit: limit}, prefixLimit: prefixLimit, clearPrefix: make(chan chan struct{}), pieces: tok.Pieces()}
+	e := &Engine{Model: m, Tokenizer: tok, Config: c, queue: make(chan *engineRequest, c.Queue), admission: make(chan struct{}, c.Queue+c.MaxBatch), httpSlots: make(chan struct{}, c.Queue+c.MaxBatch), ctx: ctx, cancel: cancel, done: make(chan struct{}), pool: pagePool{PageElements: elements, Limit: limit}, prefix: prefixSnapshot{includeTail: c.PrefixCacheTail}, prefixLimit: prefixLimit, clearPrefix: make(chan chan struct{}), pieces: tok.Pieces()}
 	return e, nil
 }
 func (e *Engine) Stats() EngineStats {
@@ -8136,12 +8173,8 @@ func (e *Engine) run() {
 			cache := e.Model.NewCache()
 			cache.pool, cache.reserved = &e.pool, pages
 			e.pool.Reserved += pages
-			shared := e.prefix.match(e.Model, r.IDs)
-			if shared > 0 {
-				cache.shared, cache.sharedPages = &e.prefix, shared
-				cache.Pages = append(cache.Pages, e.prefix.pages[:shared]...)
-				cache.Pos = shared * pageTokens
-				e.prefix.borrowers++
+			e.prefix.restore(cache, r.IDs)
+			if cache.Pos > 0 {
 				e.stats.PrefixHits.Add(1)
 				e.stats.PrefixTokens.Add(int64(cache.Pos))
 			}
@@ -9492,6 +9525,7 @@ func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	system := f.String("system", "", "system message; empty uses the model template default")
 	memory := f.Int64("kv-mib", 256, "KV cache budget in MiB")
 	prefixMemory := f.Int64("prefix-cache-mib", 0, "immutable prefix cache allowance within -kv-mib; 0 disables")
+	prefixTail := f.Bool("prefix-cache-tail", false, "reuse matching tokens within a partial KV page; requires -prefix-cache-mib")
 	workers := f.Int("kernel-workers", 0, "fixed kernel workers; 0 selects automatically")
 	threads := threadFlag(f)
 	s := defaultSampling()
@@ -9502,7 +9536,8 @@ func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	if err := s.Validate(Config{Context: 32768}); err != nil {
 		return err
 	}
-	if _, err := normalizeEngineConfig(EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: *memory << 20, PrefixCacheBytes: *prefixMemory << 20, KernelWorkers: *workers}); err != nil {
+	engineConfig := EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: *memory << 20, PrefixCacheBytes: *prefixMemory << 20, PrefixCacheTail: *prefixTail, KernelWorkers: *workers}
+	if _, err := normalizeEngineConfig(engineConfig); err != nil {
 		return err
 	}
 	if validateOnly {
@@ -9528,7 +9563,7 @@ func runChat(ctx context.Context, args []string, validateOnly bool) error {
 	if err != nil {
 		return err
 	}
-	e, err := NewEngine(m, tok, EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: *memory << 20, PrefixCacheBytes: *prefixMemory << 20, KernelWorkers: *workers})
+	e, err := NewEngine(m, tok, engineConfig)
 	if err != nil {
 		return err
 	}
@@ -9751,13 +9786,14 @@ func runServe(ctx context.Context, args []string, validateOnly bool) (err error)
 	queue := f.Int("queue", 32, "bounded request queue capacity")
 	memory := f.Int64("kv-mib", 256, "hard KV page budget in MiB")
 	prefixMemory := f.Int64("prefix-cache-mib", 0, "immutable prefix cache allowance within -kv-mib; 0 disables")
+	prefixTail := f.Bool("prefix-cache-tail", false, "reuse matching tokens within a partial KV page; requires -prefix-cache-mib")
 	tracePath := f.String("trace", "", "new Go execution trace file for this serve invocation (process-wide)")
 	workers := f.Int("kernel-workers", 0, "reusable compute workers per engine (1..256); 0 captures min(threads,256), 1 runs inline")
 	threads := threadFlag(f)
 	if err := parseInferenceAction(f, args, validateOnly); err != nil {
 		return err
 	}
-	engineConfig := EngineConfig{MaxBatch: *batch, Queue: *queue, CacheBytes: *memory << 20, PrefixCacheBytes: *prefixMemory << 20, PrefillChunk: *chunk, MixedPrefillChunk: *mixedChunk, TokenBudget: *budget, StreamBuffer: *buffer, KernelWorkers: *workers}
+	engineConfig := EngineConfig{MaxBatch: *batch, Queue: *queue, CacheBytes: *memory << 20, PrefixCacheBytes: *prefixMemory << 20, PrefixCacheTail: *prefixTail, PrefillChunk: *chunk, MixedPrefillChunk: *mixedChunk, TokenBudget: *budget, StreamBuffer: *buffer, KernelWorkers: *workers}
 	if _, err := normalizeEngineConfig(engineConfig); err != nil {
 		return err
 	}
