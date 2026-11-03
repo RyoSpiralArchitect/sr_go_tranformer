@@ -179,6 +179,9 @@ func TestPrefixTailTwoReadersCancelAndClear(t *testing.T) {
 	waitLifecycle(t, canceled.Released())
 	got, err := live.Wait()
 	waitLifecycle(t, live.Released())
+	if stats := e.Stats(); stats.PrefixBytes != 0 || stats.KVReservedBytes != 0 {
+		t.Fatal("last reader retained the invalidated prefix or reservation", stats)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
