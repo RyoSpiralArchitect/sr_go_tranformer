@@ -194,3 +194,25 @@ A separate compiler was observed in 19 of 95 periodic [host snapshots](validatio
 Across the two processes per mode, peak RSS including loading was 3.881–3.902 GiB disabled, 3.883–3.910 GiB fixed, and 3.909–3.910 GiB growing.
 
 All measured inputs match commit `1791cf8`. The subsequent change to comparison-driver error reporting from #49 does not change the tested chat runtime or the isolated Go environment settings. Use the recorded commit to reproduce the exact inputs.
+
+## Comparing exact tail reuse
+
+Run the page-only and tail policies with the same production binary and local
+Mistral v0.3 weights. Each fresh process runs one conversation, in page, tail,
+tail, page order. Both policies use four Go threads and the same 512 MiB KV
+budget with 128 MiB set aside for retention.
+
+```sh
+python3 -S scripts/compare_prefix_chat.py --comparison tail \
+  --model PATH_TO_MISTRAL_7B --output runs/mistral-prefix-tail
+```
+
+Every turn records time through the first streamed token, the terminal reply,
+actually computed and reused inputs, and KV payload after release. Each warm
+latency sample sums turns 2–5 of one conversation. Compare the median of the
+two sums per policy. The limits are at least 25% fewer computed input rows
+across all five turns, at most one additional 8 MiB page at the observed KV
+peak, and at least 10% less warm first-token time. The driver checks every
+prompt, streamed reply and completion before applying those limits. A
+completed disagreement retains the trial reports and skips ratios for unequal
+trajectories. Interrupted runs leave their per-turn journals on disk.

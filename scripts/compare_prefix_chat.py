@@ -49,6 +49,10 @@ def fixed_control(source, old_source, growing_source):
     return source.replace(current, current.replace(before, after, 1), 1)
 
 
+class ObservationMismatch(ValueError):
+    """A complete trial observed behavior inconsistent with the policy."""
+
+
 def check_report(report, mode):
     turns = report["turns"]
     if (
@@ -69,22 +73,22 @@ def check_report(report, mode):
         ttft, end = t["first_token_seconds"], t["completion_seconds"]
         prefix, kv = t["retained_prefix_bytes"], t["allocated_kv_bytes"]
         output = t["completion"]["token_ids"]
+        if not (math.isfinite(end) and 0 < ttft <= end):
+            raise ValueError(f"invalid timing at {mode} turn {i + 1}")
         if t["stream_ids"] != output or t["stream_text"] != t["completion"]["text"]:
-            raise ValueError(f"incomplete displayed reply at {mode} turn {i + 1}")
+            raise ObservationMismatch(f"incomplete displayed reply at {mode} turn {i + 1}")
         if (
             not (0 < computed <= n)
             or computed + reused != n
             or reused < 0
-            or (i == 0 or mode == "disabled")
-            and reused != 0
+            or (reused != 0 and (i == 0 or mode == "disabled"))
             or n != t["completion"]["prompt_tokens"]
             or not 1 <= len(output) <= 8
             or len(output) != t["completion"]["completion_tokens"]
-            or not (math.isfinite(end) and 0 < ttft <= end)
             or not (0 <= prefix <= kv <= 512 << 20)
             or prefix > (0 if mode == "disabled" else 128 << 20)
         ):
-            raise ValueError(f"invalid time, tokens or budget at {mode} turn {i + 1}")
+            raise ObservationMismatch(f"invalid tokens or budget at {mode} turn {i + 1}")
         # Check the *observed* hits against the actual re-encoded transcript.
         # Mistral v0.3 has 8 MiB per 32-token page, 16 pages in the allowance.
         common = 0
@@ -94,7 +98,7 @@ def check_report(report, mode):
             common += 1
         expected = common if mode == "tail" else common // 32 * 32
         if reused != expected:
-            raise ValueError(f"prefix hit differs from exact IDs on turn {i + 1}")
+            raise ObservationMismatch(f"prefix hit differs from exact IDs on turn {i + 1}")
         if mode in ("growing", "tail") or (mode == "fixed" and reused == 0):
             committed = t["prompt_ids"] + output[:-1]
             positions = min(512, len(committed))
@@ -104,7 +108,7 @@ def check_report(report, mode):
                 snapshot = committed[:positions]
                 retained = max(retained, ((positions + 31) // 32) * (8 << 20))
         if prefix != retained:
-            raise ValueError(f"unexpected snapshot payload at {mode} turn {i + 1}")
+            raise ObservationMismatch(f"unexpected snapshot payload at {mode} turn {i + 1}")
     return (
         report["plan"],
         report["sampling"],
@@ -129,7 +133,7 @@ def summary(reports, schedule):
                 "allocated_kv_bytes",
             ):
                 if turns[0][key] != turns[1][key]:
-                    raise ValueError(f"non-deterministic {mode} {key}")
+                    raise ObservationMismatch(f"non-deterministic {mode} {key}")
                 row[key] = turns[0][key]
             row["first_token_seconds"] = statistics.median(t["first_token_seconds"] for t in turns)
             row["completion_seconds"] = statistics.median(t["completion_seconds"] for t in turns)
@@ -160,6 +164,41 @@ def tail_result(reports, rows):
                     kv=extra <= TAIL_LIMITS["extra_kv_bytes_max"],
                     warm_ttft=warm <= TAIL_LIMITS["warm_ttft_ratio_max"]),
     )
+
+
+def finish_comparison(out, receipt):
+    reports, schedule = receipt["reports"], receipt["protocol"]["schedule"]
+    if [r["mode"] for r in reports] != list(schedule):
+        raise ValueError("missing or misordered process reports")
+    errors, signatures = [], []
+    for i, trial in enumerate(reports):
+        try:
+            signatures.append(check_report(trial["report"], trial["mode"]))
+        except ObservationMismatch as exc:
+            errors.append(f"trial {i} ({trial['mode']}): {exc}")
+
+    # Do not aggregate incomparable trajectories. Preserve every completed
+    # observation, including a negative verdict, before returning to the CLI.
+    receipt["exact_transcript"] = None
+    if not errors:
+        receipt["exact_transcript"] = all(s == signatures[0] for s in signatures)
+        if not receipt["exact_transcript"]:
+            errors.append("model, prompt IDs or completions differ between trials")
+    if not errors:
+        try:
+            receipt["summary"] = summary(reports, schedule)
+        except ObservationMismatch as exc:
+            errors.append(str(exc))
+    if not errors and receipt["protocol"]["comparison"] == "tail":
+        result = tail_result(reports, receipt["summary"])
+        receipt["tail_result"] = result
+        errors.extend(f"failed {key} gate" for key, ok in result["checks"].items() if not ok)
+
+    receipt["validation_errors"] = errors
+    (out / "receipt.json").write_text(json.dumps(receipt, indent=2, allow_nan=False) + "\n")
+    (out / "status.tmp").write_text(json.dumps(dict(complete=True, accepted=not errors)) + "\n")
+    (out / "status.tmp").replace(out / "status.json")
+    return not errors
 
 
 def main():
@@ -204,14 +243,15 @@ def main():
         total_kv_mib=512,
         prefix_cache_mib=128,
         hash_inputs=hashes,
-
         scope="Fresh processes, one sequential conversation per process. TTFT from template "
         "formatting through first token-ID event, excludes model load. Five actual "
         "assistant completions are appended as text. Keep all timings and cache misses.",
     )
     if args.comparison == "tail":
         protocol["limits"] = TAIL_LIMITS
-        protocol["warm_ttft"] = "Sum first-token time over turns 2 through 5 per process, then take the median per mode."
+        protocol["warm_ttft"] = (
+            "Sum first-token time over turns 2 through 5 per process, then take the median per mode."
+        )
     else:
         protocol.update(fixed_capture_ref=FIXED, growing_capture_ref=GROWING)
     (out / "protocol.json").write_text(json.dumps(protocol, indent=2) + "\n")
@@ -295,24 +335,12 @@ def main():
     for name, files in builds.items():
         if any(sha(out / name / n) != h for n, h in files.items()):
             raise ValueError("build changed during measurement")
-    signatures = [check_report(r["report"], r["mode"]) for r in reports]
-    exact = all(sig == signatures[0] for sig in signatures)
-    rows = summary(reports, schedule)
     receipt = dict(
-        protocol=protocol,
-        builds=builds,
-        reports=reports,
-        summary=rows,
-        exact_transcript=exact,
+        protocol=protocol, builds=builds, reports=reports,
         host=platform.system() + "/" + platform.machine(),
         go_version=subprocess.check_output([go, "version"], env=env, text=True).strip(),
     )
-    if args.comparison == "tail":
-        receipt["tail_result"] = tail_result(reports, rows)
-    (out / "receipt.json").write_text(json.dumps(receipt, indent=2, allow_nan=False) + "\n")
-    (out / "status.tmp").write_text('{"complete":true}\n')
-    (out / "status.tmp").replace(out / "status.json")
-    if not exact or ("tail_result" in receipt and not all(receipt["tail_result"]["checks"].values())):
+    if not finish_comparison(out, receipt):
         raise SystemExit("comparison complete, one or more acceptance checks failed")
 
 

@@ -1,8 +1,11 @@
 # Copyright 2026 RyoSpiralArchitect
 # SPDX-License-Identifier: Apache-2.0
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from compare_prefix_chat import check_report, fixed_control, tail_result
+from compare_prefix_chat import TAIL_SCHEDULE, check_report, finish_comparison, fixed_control, tail_result
 
 
 class ChatComparisonTests(unittest.TestCase):
@@ -84,6 +87,44 @@ class ChatComparisonTests(unittest.TestCase):
         rows["tail"][0]["allocated_kv_bytes"] += 1
         rows["tail"][0]["computed_input_tokens"] += 1
         self.assertEqual(tail_result(reports, rows)["checks"], dict(computed=False, kv=False, warm_ttft=False))
+
+    def test_completed_negative_comparisons_keep_all_trials(self):
+        def report(mode):
+            turns = []
+            for i in range(5):
+                reused = int(mode == "tail" and i > 0)
+                retained = (8 << 20) if mode == "tail" else 0
+                turns.append(dict(
+                    prompt_ids=[1, 2], computed_input_tokens=2 - reused, reused_input_tokens=reused,
+                    retained_prefix_bytes=retained, allocated_kv_bytes=(8 << 20) + retained,
+                    first_token_seconds=1, completion_seconds=2, stream_ids=[7], stream_text="cat",
+                    completion=dict(token_ids=[7], text="cat", prompt_tokens=2, completion_tokens=1),
+                ))
+            trial = dict(mode=mode, tail_enabled=mode == "tail", build_policy="growing", threads=4,
+                         plan={"weight_format": "q4-mixed"}, questions=["q"] * 5, sampling={}, turns=turns)
+            return dict(mode=mode, report=trial)
+
+        for mismatch in ("trajectory", "hit", "allocations"):
+            with self.subTest(mismatch=mismatch), tempfile.TemporaryDirectory() as tmp:
+                trials = [report(m) for m in TAIL_SCHEDULE]
+                last = trials[-1]["report"]["turns"][-1]
+                if mismatch == "trajectory":
+                    last["prompt_ids"].append(3)
+                    last["completion"]["prompt_tokens"] = last["computed_input_tokens"] = 3
+                elif mismatch == "hit":
+                    last = trials[1]["report"]["turns"][-1]
+                    last.update(reused_input_tokens=0, computed_input_tokens=2)
+                else:
+                    last["allocated_kv_bytes"] += 8 << 20
+                receipt = dict(protocol=dict(comparison="tail", schedule=TAIL_SCHEDULE), reports=trials)
+                self.assertFalse(finish_comparison(Path(tmp), receipt))
+                saved = json.loads((Path(tmp) / "receipt.json").read_text())
+                self.assertEqual(saved["reports"], trials)
+                expected_parity = {"trajectory": False, "hit": None, "allocations": True}
+                self.assertIs(saved["exact_transcript"], expected_parity[mismatch])
+                self.assertTrue(saved["validation_errors"])
+                self.assertNotIn("tail_result", saved)
+                self.assertEqual(json.loads((Path(tmp) / "status.json").read_text()), dict(complete=True, accepted=False))
 
     def test_unforwarded_token_cannot_complete_a_page_and_fixed_hits_do_not_extend(self):
         report = dict(
