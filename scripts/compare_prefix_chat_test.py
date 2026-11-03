@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import unittest
 
-from compare_prefix_chat import check_report, fixed_control
+from compare_prefix_chat import check_report, fixed_control, tail_result
 
 
 class ChatComparisonTests(unittest.TestCase):
@@ -54,6 +54,36 @@ class ChatComparisonTests(unittest.TestCase):
         report["turns"][2]["prompt_ids"][0] = 456
         with self.assertRaisesRegex(ValueError, "prefix hit"):
             check_report(report, "growing")
+
+    def test_partial_hits_stop_at_divergence_and_the_last_forwarded_position(self):
+        report = dict(mode="tail", build_policy="growing", tail_enabled=True, threads=4,
+                      plan={"weight_format": "q4-mixed"}, questions=["q"] * 5, sampling={}, turns=[])
+        prompts = [list(range(n)) for n in (31, 32, 63, 64, 70)]
+        prompts[3][35] = 200  # Diverge within the second page twice.
+        for ids, reused, pages in zip(prompts, (0, 31, 32, 35, 35), (1, 1, 2, 2, 3)):
+            report["turns"].append(dict(
+                prompt_ids=ids, computed_input_tokens=len(ids) - reused, reused_input_tokens=reused,
+                retained_prefix_bytes=pages << 23, allocated_kv_bytes=(pages + 2) << 23,
+                first_token_seconds=1, completion_seconds=2, stream_ids=[123], stream_text="cat",
+                completion=dict(token_ids=[123], text="cat", completion_tokens=1, prompt_tokens=len(ids))))
+        check_report(report, "tail")
+        report["turns"][3].update(reused_input_tokens=36, computed_input_tokens=28)
+        with self.assertRaisesRegex(ValueError, "prefix hit"):
+            check_report(report, "tail")
+
+    def test_tail_decision_excludes_cold_turn_and_uses_process_totals(self):
+        reports = []
+        for mode, tts in [("growing", [1, 1, 2, 3, 4]), ("tail", [200, 1, 2, 2, 4]),
+                          ("tail", [200, 1, 2, 3, 3]), ("growing", [1, 1, 2, 3, 4])]:
+            reports.append(dict(mode=mode, report=dict(turns=[{"first_token_seconds": x} for x in tts])))
+        rows = {m: [dict(computed_input_tokens=n, reused_input_tokens=100-n, allocated_kv_bytes=b)]
+                for m, n, b in [("growing", 80, 56 << 20), ("tail", 60, 64 << 20)]}
+        result = tail_result(reports, rows)
+        self.assertEqual(result["checks"], dict(computed=True, kv=True, warm_ttft=True))
+        reports[1]["report"]["turns"][2]["first_token_seconds"] += 5
+        rows["tail"][0]["allocated_kv_bytes"] += 1
+        rows["tail"][0]["computed_input_tokens"] += 1
+        self.assertEqual(tail_result(reports, rows)["checks"], dict(computed=False, kv=False, warm_ttft=False))
 
     def test_unforwarded_token_cannot_complete_a_page_and_fixed_hits_do_not_extend(self):
         report = dict(

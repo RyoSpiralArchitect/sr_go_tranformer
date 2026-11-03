@@ -93,6 +93,12 @@ func TestHFMistralGrowingChat(t *testing.T) {
 	cfg := EngineConfig{MaxBatch: 1, Queue: 1, CacheBytes: 512 << 20, KernelWorkers: 4}
 	switch mode {
 	case "disabled":
+	case "tail":
+		if prefixChatBuildPolicy != "growing" {
+			t.Fatal("tail mode requires the production capture policy")
+		}
+		cfg.PrefixCacheTail = true
+		cfg.PrefixCacheBytes = 128 << 20
 	case "fixed", "growing":
 		if mode != prefixChatBuildPolicy {
 			t.Fatalf("requested %s cache on %s build", mode, prefixChatBuildPolicy)
@@ -155,7 +161,7 @@ func TestHFMistralGrowingChat(t *testing.T) {
 	if shutdown.PrefixBytes != 0 || shutdown.KVReservedBytes != 0 || shutdown.AdmissionUsed != 0 || shutdown.KernelWorkers != 0 {
 		t.Fatal("prefix, reservation or active workers survived engine close", shutdown)
 	}
-	report := map[string]any{"mode": mode, "build_policy": prefixChatBuildPolicy, "threads": runtime.GOMAXPROCS(0), "plan": plan, "sampling": s,
+	report := map[string]any{"mode": mode, "build_policy": prefixChatBuildPolicy, "tail_enabled": e.Config.PrefixCacheTail, "threads": runtime.GOMAXPROCS(0), "plan": plan, "sampling": s,
 		"questions": prefixChatQuestions, "turns": turns, "shutdown": shutdown}
 	f, err := os.OpenFile(output, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {

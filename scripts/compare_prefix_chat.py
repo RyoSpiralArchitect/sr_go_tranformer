@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright 2026 RyoSpiralArchitect
 # SPDX-License-Identifier: Apache-2.0
-"""Replay five real chat turns with prefix reuse off, fixed, and growing."""
+"""Replay five real Mistral chat turns across prefix-cache policies."""
 
 import argparse
 import json
@@ -19,6 +19,8 @@ from quant_quality import run_measured, sha
 FIXED = "152bb6fd0c01c93a591cdb61531858000e58740f"
 GROWING = "fceaaa737965007751fda507bd4feba36f5be8bf"
 SCHEDULE = ("disabled", "fixed", "growing", "growing", "fixed", "disabled")
+TAIL_SCHEDULE = ("growing", "tail", "tail", "growing")
+TAIL_LIMITS = dict(computed_ratio_max=0.75, extra_kv_bytes_max=8 << 20, warm_ttft_ratio_max=0.90)
 
 
 def capture_method(source):
@@ -54,6 +56,7 @@ def check_report(report, mode):
         or report["threads"] != 4
         or len(turns) != 5
         or report["build_policy"] != ("fixed" if mode == "fixed" else "growing")
+        or report.get("tail_enabled", False) != (mode == "tail")
         or report["plan"]["weight_format"] != "q4-mixed"
         or len(report["questions"]) != 5
     ):
@@ -72,7 +75,6 @@ def check_report(report, mode):
             not (0 < computed <= n)
             or computed + reused != n
             or reused < 0
-            or reused % 32
             or (i == 0 or mode == "disabled")
             and reused != 0
             or n != t["completion"]["prompt_tokens"]
@@ -90,14 +92,17 @@ def check_report(report, mode):
             if saved != actual:
                 break
             common += 1
-        if reused != common // 32 * 32:
+        expected = common if mode == "tail" else common // 32 * 32
+        if reused != expected:
             raise ValueError(f"prefix hit differs from exact IDs on turn {i + 1}")
-        if mode == "growing" or (mode == "fixed" and reused == 0):
+        if mode in ("growing", "tail") or (mode == "fixed" and reused == 0):
             committed = t["prompt_ids"] + output[:-1]
-            pages = min(16, len(committed) // 32)
-            if pages:
-                snapshot = committed[: pages * 32]
-                retained = max(retained, pages * (8 << 20))
+            positions = min(512, len(committed))
+            if mode != "tail":
+                positions -= positions % 32
+            if positions:
+                snapshot = committed[:positions]
+                retained = max(retained, ((positions + 31) // 32) * (8 << 20))
         if prefix != retained:
             raise ValueError(f"unexpected snapshot payload at {mode} turn {i + 1}")
     return (
@@ -108,9 +113,9 @@ def check_report(report, mode):
     )
 
 
-def summary(reports):
+def summary(reports, schedule):
     out = {}
-    for mode in dict.fromkeys(SCHEDULE):
+    for mode in dict.fromkeys(schedule):
         trials = [r["report"]["turns"] for r in reports if r["mode"] == mode]
         if len(trials) != 2:
             raise ValueError("missing replicate")
@@ -133,11 +138,38 @@ def summary(reports):
     return out
 
 
+def tail_result(reports, rows):
+    # Aggregate within each real conversation before taking the median of the
+    # two conversations. Turn 1 starts with an empty cache in both modes.
+    def metrics(mode):
+        trials = [r["report"]["turns"] for r in reports if r["mode"] == mode]
+        return dict(
+            computed=sum(t["computed_input_tokens"] for t in rows[mode]),
+            reused=sum(t["reused_input_tokens"] for t in rows[mode]),
+            peak_kv_bytes=max(t["allocated_kv_bytes"] for t in rows[mode]),
+            warm_ttft_seconds=[sum(t["first_token_seconds"] for t in turn_list[1:]) for turn_list in trials],
+        )
+
+    page, tail = metrics("growing"), metrics("tail")
+    computed = tail["computed"] / page["computed"]
+    extra = tail["peak_kv_bytes"] - page["peak_kv_bytes"]
+    warm = statistics.median(tail["warm_ttft_seconds"]) / statistics.median(page["warm_ttft_seconds"])
+    return dict(
+        page=page, tail=tail, computed_ratio=computed, extra_kv_bytes=extra, warm_ttft_ratio=warm,
+        checks=dict(computed=computed <= TAIL_LIMITS["computed_ratio_max"],
+                    kv=extra <= TAIL_LIMITS["extra_kv_bytes_max"],
+                    warm_ttft=warm <= TAIL_LIMITS["warm_ttft_ratio_max"]),
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--comparison", choices=("historical", "tail"), default="historical",
+                        help="historical off/fixed/growing or a page-versus-tail ABBA run")
     args = parser.parse_args()
+    schedule = TAIL_SCHEDULE if args.comparison == "tail" else SCHEDULE
     root = Path(__file__).resolve().parents[1]
     model, out = args.model.resolve(), args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -164,19 +196,24 @@ def main():
         files=pinned["files"],
         revision=pinned["revision"],
         repo=pinned["repo"],
-        schedule=SCHEDULE,
+        comparison=args.comparison,
+        schedule=schedule,
         context=512,
         threads=4,
         max_tokens=8,
         total_kv_mib=512,
         prefix_cache_mib=128,
         hash_inputs=hashes,
-        fixed_capture_ref=FIXED,
-        growing_capture_ref=GROWING,
+
         scope="Fresh processes, one sequential conversation per process. TTFT from template "
         "formatting through first token-ID event, excludes model load. Five actual "
         "assistant completions are appended as text. Keep all timings and cache misses.",
     )
+    if args.comparison == "tail":
+        protocol["limits"] = TAIL_LIMITS
+        protocol["warm_ttft"] = "Sum first-token time over turns 2 through 5 per process, then take the median per mode."
+    else:
+        protocol.update(fixed_capture_ref=FIXED, growing_capture_ref=GROWING)
     (out / "protocol.json").write_text(json.dumps(protocol, indent=2) + "\n")
 
     def verify_model():
@@ -194,10 +231,10 @@ def main():
     go = str(Path(goroot.strip()) / "bin/go")
     source = (root / "monolith.go").read_bytes()
     builds = {}
-    for name, contents in [
-        ("current", source),
-        ("fixed", fixed_control(source, source_at(FIXED), source_at(GROWING))),
-    ]:
+    variants = [("current", source)]
+    if "fixed" in schedule:
+        variants.append(("fixed", fixed_control(source, source_at(FIXED), source_at(GROWING))))
+    for name, contents in variants:
         build = out / name
         build.mkdir()
         for item in inputs[:4]:
@@ -218,8 +255,8 @@ def main():
             check=True,
         )
         builds[name] = {n: sha(build / n) for n in inputs[:4] + ["probe.test"]}
-    reports, reference = [], None
-    for i, mode in enumerate(SCHEDULE):
+    reports = []
+    for i, mode in enumerate(schedule):
         variant = "fixed" if mode == "fixed" else "current"
         output = out / f"{i}-{mode}.json"
         run_env = dict(
@@ -250,10 +287,6 @@ def main():
         ]
         if journal != report["turns"]:
             raise ValueError("turn journal differs from terminal report")
-        sig = check_report(report, mode)
-        if reference is not None and reference != sig:
-            raise ValueError("prompt IDs, transcript, model or completions changed")
-        reference = sig
         reports.append(dict(mode=mode, report=report, process_resources=resources))
         print("finished", i, mode, flush=True)
     verify_model()
@@ -262,19 +295,25 @@ def main():
     for name, files in builds.items():
         if any(sha(out / name / n) != h for n, h in files.items()):
             raise ValueError("build changed during measurement")
-    rows = summary(reports)
+    signatures = [check_report(r["report"], r["mode"]) for r in reports]
+    exact = all(sig == signatures[0] for sig in signatures)
+    rows = summary(reports, schedule)
     receipt = dict(
         protocol=protocol,
         builds=builds,
         reports=reports,
         summary=rows,
-        exact_transcript=True,
+        exact_transcript=exact,
         host=platform.system() + "/" + platform.machine(),
         go_version=subprocess.check_output([go, "version"], env=env, text=True).strip(),
     )
+    if args.comparison == "tail":
+        receipt["tail_result"] = tail_result(reports, rows)
     (out / "receipt.json").write_text(json.dumps(receipt, indent=2, allow_nan=False) + "\n")
     (out / "status.tmp").write_text('{"complete":true}\n')
     (out / "status.tmp").replace(out / "status.json")
+    if not exact or ("tail_result" in receipt and not all(receipt["tail_result"]["checks"].values())):
+        raise SystemExit("comparison complete, one or more acceptance checks failed")
 
 
 if __name__ == "__main__":
