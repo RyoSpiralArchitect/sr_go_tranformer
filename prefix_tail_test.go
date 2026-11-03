@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"slices"
 	"strings"
@@ -125,5 +126,73 @@ func TestPrefixTailEngineSubpageHitAndReset(t *testing.T) {
 	}
 	if e.Stats().PrefixBytes != 0 {
 		t.Fatal("reset left a partial page")
+	}
+}
+
+// Both requests borrow a complete page and own a different copy of the 17-row
+// tail. Cancel one and invalidate the snapshot while the other's batch is live.
+func TestPrefixTailTwoReadersCancelAndClear(t *testing.T) {
+	m := promptPrefillTestModel(t, "q4")
+	cfg := prefixEngineConfig(m)
+	cfg.PrefixCacheTail = true
+	cfg.PrefillChunk = 8 // The first tick stays inside each copied page.
+	tok := fixedStepGenerateTokenizer{}
+	e, err := newEngine(m, tok, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.clearPrefix = make(chan chan struct{}, 1)
+	common := strings.Repeat("a", 48)
+	ids := tok.Encode(common, true, false)
+	source := m.NewCache()
+	defer source.Close()
+	if _, err := m.PrefillBatch(context.Background(), []*KVCache{source}, [][]int{ids}); err != nil {
+		t.Fatal(err)
+	}
+	e.prefix.capture(m, source, ids, e.prefixLimit)
+	kept := slices.Clone(e.prefix.pages)
+	ctx := streamTestContext(t)
+	cancelCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	s := prefixSampling()
+	canceled, err := e.Stream(cancelCtx, common+strings.Repeat("x", 40), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt := common + strings.Repeat("y", 40)
+	live, err := e.Stream(ctx, prompt, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gate := startGatedEngine(t, e)
+	if stats := e.Stats(); stats.PrefixTokens != 2*49 || stats.Computing != 2 || e.prefix.borrowers != 2 || e.pool.Allocated != 2 {
+		t.Fatal("expected two readers and two allocated private pages", stats)
+	}
+	cancel()
+	done := make(chan struct{})
+	e.clearPrefix <- done
+	gate.open()
+	waitLifecycle(t, done)
+	if _, err = canceled.Wait(); !errors.Is(err, context.Canceled) {
+		t.Fatal("expected cancellation", err)
+	}
+	waitLifecycle(t, canceled.Released())
+	got, err := live.Wait()
+	waitLifecycle(t, live.Released())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := Generate(ctx, m, tok, prompt, s)
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatal("surviving reader diverged", got, want, err)
+	}
+	e.Close()
+	if e.prefix.borrowers != 0 || len(e.prefix.pages) != 0 || e.Stats().KVReservedBytes != 0 || len(e.pool.Free) != e.pool.Allocated {
+		t.Fatal("leaked prefix or request pages", e.Stats())
+	}
+	for _, page := range kept {
+		if slices.Contains(e.pool.Free, page) {
+			t.Fatal("invalidated shared page entered the private pool")
+		}
 	}
 }
