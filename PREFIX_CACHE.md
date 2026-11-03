@@ -194,3 +194,58 @@ A separate compiler was observed in 19 of 95 periodic [host snapshots](validatio
 Across the two processes per mode, peak RSS including loading was 3.881–3.902 GiB disabled, 3.883–3.910 GiB fixed, and 3.909–3.910 GiB growing.
 
 All measured inputs match commit `1791cf8`. The subsequent change to comparison-driver error reporting from #49 does not change the tested chat runtime or the isolated Go environment settings. Use the recorded commit to reproduce the exact inputs.
+
+## Comparing exact tail reuse
+
+Run the page-only and tail policies with the same production binary and local
+Mistral v0.3 weights. Each fresh process runs one conversation, in page, tail,
+tail, page order. Both policies use four Go threads and the same 512 MiB KV
+budget with 128 MiB set aside for retention.
+
+```sh
+python3 -S scripts/compare_prefix_chat.py --comparison tail \
+  --model PATH_TO_MISTRAL_7B --output runs/mistral-prefix-tail
+```
+
+Every turn records time through the first streamed token, the terminal reply,
+actually computed and reused inputs, and KV payload after release. Each warm
+latency sample sums turns 2–5 of one conversation. Compare the median of the
+two sums per policy. The limits are at least 25% fewer computed input rows
+across all five turns, at most one additional 8 MiB page at the observed KV
+peak, and at least 10% less warm first-token time. The driver checks every
+prompt, streamed reply and completion before applying those limits. A
+completed disagreement retains the trial reports and skips ratios for unequal
+trajectories. Interrupted runs leave their per-turn journals on disk.
+
+### Pinned Mistral result
+
+On an Apple M4 with 24 GiB, Go 1.27.1 and Q4-mixed Mistral-7B-Instruct-v0.3,
+the two policies produced identical prompt IDs, streamed token IDs, displayed
+text and terminal completions on all 20 turns. These also matched the
+cache-disabled transcript from the [earlier five-turn run](#five-turn-results).
+The table gives the median of two first-token times per policy, in seconds.
+
+| Turn | Input positions | Page-only, s | With tail, s | Inputs reused (page / tail) | Allocated KV MiB (page / tail) |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 56 | 20.467 | 20.797 | 0 / 0 | 24 / 32 |
+| 2 | 80 | 18.627 | 6.726 | 32 / 63 | 32 / 40 |
+| 3 | 103 | 15.411 | 6.426 | 64 / 87 | 40 / 48 |
+| 4 | 126 | 12.517 | 6.218 | 96 / 110 | 48 / 56 |
+| 5 | 155 | 11.218 | 8.752 | 128 / 133 | 56 / 64 |
+
+Of 520 input positions, page-only computed 200 and tail computed 127 (36.5%
+fewer). Warm first-token totals per process were 57.672 and 57.873 s for
+page-only, and 28.307 and 27.937 s for tail. Their medians were 57.772 and
+28.122 s (51.3% less). Peak observed KV payload increased by one 8 MiB page.
+Final retained prefix payload was 40 and 48 MiB respectively. Process lifetime
+peak RSS, including model loading, was 3.889 GiB for both page-only processes
+and 3.883–3.890 GiB with tail reuse. Both policies released the retained prefix
+and reservations on shutdown.
+
+All three predeclared limits passed on this one conversation with at most
+eight generated tokens per turn. The first turn used an empty cache. Every
+sample is included in the [four-process receipt](validation/performance/mistral-five-turn-tail-20261103.json).
+It records the model revision and file digests, binary and source hashes,
+per-turn journals as collected into the reports, and process resources. Check
+out `3ad0b2c` to reproduce the measured inputs. Subsequent driver changes
+preserve negative outcomes and leave the measured Go runtime and probe intact.
