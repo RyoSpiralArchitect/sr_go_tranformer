@@ -135,6 +135,7 @@ func TestPrefixTailTwoReadersCancelAndClear(t *testing.T) {
 	m := promptPrefillTestModel(t, "q4")
 	cfg := prefixEngineConfig(m)
 	cfg.PrefixCacheTail = true
+	cfg.PrefillChunk = 8 // The first tick stays inside each copied page.
 	tok := fixedStepGenerateTokenizer{}
 	e, err := newEngine(m, tok, cfg)
 	if err != nil {
