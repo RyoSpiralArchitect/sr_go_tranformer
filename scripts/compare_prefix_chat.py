@@ -15,7 +15,7 @@ from compare_inference import isolated_go_environment
 from quant_quality import run_measured, sha
 
 # Compare policies within the same production revision: only the fixed binary
-# gets the historical capture method. Refuse to do this to a changed method.
+# gets the historical borrower guard. Refuse to modify a changed guard.
 FIXED = "152bb6fd0c01c93a591cdb61531858000e58740f"
 GROWING = "fceaaa737965007751fda507bd4feba36f5be8bf"
 SCHEDULE = ("disabled", "fixed", "growing", "growing", "fixed", "disabled")
@@ -28,11 +28,23 @@ def capture_method(source):
 
 
 def fixed_control(source, old_source, growing_source):
+    # The historical policies differ only in the initial borrower guard. Keep
+    # the current snapshot storage and replace just that guard in the control.
+    def guard(method):
+        start = method.index(b"\n") + 1
+        end = method.index(b"\n\t}", start) + len(b"\n\t}")
+        return method[start:end]
+
     current = capture_method(source)
-    old = capture_method(old_source)
-    if current != capture_method(growing_source) or old == current or source.count(current) != 1:
-        raise ValueError("capture method differs from pinned growth policy")
-    return source.replace(current, old, 1)
+    growing = capture_method(growing_source)
+    fixed = capture_method(old_source)
+    before, after = guard(growing), guard(fixed)
+    if (
+        before == after or growing.replace(before, after, 1) != fixed
+        or guard(current) != before or source.count(current) != 1
+    ):
+        raise ValueError("capture guard differs from pinned growth policy")
+    return source.replace(current, current.replace(before, after, 1), 1)
 
 
 def check_report(report, mode):

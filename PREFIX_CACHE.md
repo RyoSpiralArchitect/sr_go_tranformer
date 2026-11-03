@@ -24,12 +24,16 @@ Model weights and the tokenizer must remain immutable during engine use.
 
 ## Ownership and memory
 
-The engine actor copies committed complete 32-token pages from a successfully
+By default, the engine actor copies committed complete 32-token pages from a successfully
 completed session into its one-entry snapshot. Failed, canceled, and
 slow-consumer sessions never publish a snapshot. A cache hit lends the matching
 full pages read-only to the new session. It always leaves at least one input
 token to forward, because it does not cache logits. The mutable suffix belongs
 to the new session and can never write into the shared pages.
+
+Add `-prefix-cache-tail` to `chat` or `serve` to retain committed positions between page boundaries. Full matching pages are still lent read-only. For a partial match the actor copies only the matching key and value rows into one private page from the new request’s reservation. This also works when two prompts diverge inside a previously full page. A one-token prompt always runs through the model, so it can produce logits.
+
+The tail can retain up to one additional 32-token page within the configured prefix allowance. The allowance continues to bound snapshot storage when the last page is partial. Only recorded token IDs can match. A request that copies fewer than 32 matching tokens holds no snapshot reference after admission.
 
 Snapshot replacement occurs with no outstanding borrowers, or when the
 successfully finishing session is the current snapshot's sole borrower. The
@@ -73,7 +77,7 @@ the snapshot and all borrower references.
 
 `Engine.Stats()` and HTTP `/metrics` expose:
 
-- `prefix_hits` / `monolith_prefix_hits_total`: requests that reused full pages.
+- `prefix_hits` / `monolith_prefix_hits_total`: requests that reused at least one input token.
 - `prefix_tokens_reused` / `monolith_prefix_tokens_reused_total`: input positions
   skipped through reuse.
 - `prefix_bytes` / `monolith_prefix_bytes`: retained snapshot payload, including
@@ -154,7 +158,7 @@ python3 -S scripts/compare_prefix_chat.py --model PATH_TO_MISTRAL_7B \
 ```
 
 The runner needs both historical capture revisions in the local Git history.
-It builds the current source and a control that replaces only the capture method
+It builds the current source and a control that replaces only the borrower guard
 with its pre-growth implementation. The fixed binary has a separate test label
 checked before the model loads. Each fresh process runs one conversation. The
 six runs use disabled, fixed, growing, growing, fixed, disabled order with four

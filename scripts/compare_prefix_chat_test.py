@@ -6,17 +6,19 @@ from compare_prefix_chat import check_report, fixed_control
 
 
 class ChatComparisonTests(unittest.TestCase):
-    def test_control_replaces_only_the_pinned_capture_function(self):
+    def test_control_replaces_only_the_pinned_capture_guard(self):
         def src(guard):
-            return b"prefix\nfunc (p *prefixSnapshot) capture() {\n" + guard + b"\n}\nsuffix"
+            return b"prefix\nfunc (p *prefixSnapshot) capture() {\n" + guard + b"\n\t}\n\tstore()\n}\nsuffix"
 
         old, grow = src(b"old"), src(b"grow")
-        production = grow + b" independently optimized runtime"
+        production = grow.replace(b"store()", b"newStore()")
         self.assertEqual(
-            fixed_control(production, old, grow), old + b" independently optimized runtime"
+            fixed_control(production, old, grow), old.replace(b"store()", b"newStore()")
         )
         with self.assertRaises(ValueError):
             fixed_control(src(b"changed"), old, grow)
+        with self.assertRaises(ValueError):
+            fixed_control(production, old.replace(b"store()", b"different()"), grow)
 
     def test_claimed_growth_requires_matching_prompt_ids(self):
         # Five monotonically growing prompts; the unforwarded output token has
