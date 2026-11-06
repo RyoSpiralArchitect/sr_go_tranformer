@@ -247,3 +247,23 @@ Run it in three fresh processes with distinct receipt names. The driver copies
 both complete runtimes into temporary comparison packages; this does not split
 the production monolith. The frozen receipt tests verify file fingerprints and
 recompute paired medians without pinning future runtime sources to old receipts.
+
+## Direct workspace metadata and KV directories (2026-11-06)
+
+Fresh single-session direct generation does not need duplicate-cache detection
+or pooled-page reservation aggregation. Those maps are now initialized only for
+multiple sessions or an actual page pool, respectively. Reused workspace maps
+are still cleared after each call, including failures. Duplicate-cache,
+reservation and budget checks are unchanged.
+
+Bulk KV growth reserves the page-pointer directory once for the actual required
+page count. Payload pages remain lazy and separately allocated; there is no
+cross-request pool or speculative allocation for future generated tokens.
+A fresh 32-page fixture drops from 70 to 65 allocation objects. Standard Go slice
+growth can change directory capacity; this is not a promise about peak RSS.
+
+The [source-bound receipt](../validation/performance/direct-kv-20261106.json)
+retains three Linux paired-generation processes with exact completion-JSON
+comparisons. Condition medians were approximately -1.7% to +0.7%; no uniform
+latency, serving-throughput or model-quality improvement is established.
+Attention callback reuse is deliberately separate from this bookkeeping change.

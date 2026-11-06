@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -5897,7 +5898,11 @@ func (c *KVCache) ensurePage() {
 	c.ensurePages(c.Pos + 1)
 }
 func (c *KVCache) ensurePages(end int) {
-	for len(c.Pages) < (end+pageTokens-1)/pageTokens {
+	needed := (end + pageTokens - 1) / pageTokens
+	if needed > len(c.Pages) {
+		c.Pages = slices.Grow(c.Pages, needed-len(c.Pages))
+	}
+	for len(c.Pages) < needed {
 		var p *kvPage
 		if c.pool != nil {
 			p = c.pool.acquire()
@@ -6110,10 +6115,7 @@ func (m *Model) prefillSelected(ctx context.Context, caches []*KVCache, chunks [
 		return nil, err
 	}
 	defer w.clearReferences()
-	if w.pools == nil {
-		w.pools = make(map[*pagePool]decodePoolUse)
-	}
-	if w.seen == nil {
+	if sessions > 1 && w.seen == nil {
 		w.seen = make(map[*KVCache]bool, sessions)
 	}
 	pools, seen := w.pools, w.seen
@@ -6165,12 +6167,18 @@ func (m *Model) prefillSelected(ctx context.Context, caches []*KVCache, chunks [
 			if p.PageElements != pageElements || p.Limit < 1 || p.Allocated < 0 || p.Allocated > p.Limit || len(p.Free) > p.Allocated || p.Reserved > p.Limit || cache.reserved < 1 || pages > cache.reserved || len(cache.Pages) > cache.reserved {
 				return nil, errors.New("invalid KV page reservation")
 			}
+			if pools == nil {
+				pools = make(map[*pagePool]decodePoolUse)
+				w.pools = pools
+			}
 			use := pools[p]
 			use.pages += max(0, pages-len(cache.Pages))
 			use.reserved += cache.reserved
 			pools[p] = use
 		}
-		seen[cache] = true
+		if seen != nil {
+			seen[cache] = true
+		}
 		n += len(chunk)
 		maxPos = max(maxPos, end)
 	}
