@@ -400,7 +400,7 @@ func TestHFQualityProbe(t *testing.T) {
 			rssBytes = n * 1024
 		}
 	}
-	sourceBytes, err := os.ReadFile("monolith.go")
+	sourceBytes, err := os.ReadFile("cmd/monolith/monolith.go")
 	if err != nil {
 		t.Fatal(err)
 	}

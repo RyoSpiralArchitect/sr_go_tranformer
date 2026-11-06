@@ -33,13 +33,13 @@ implementation before this change (parent commit `40a31d6`).
 
 Allocation counts fall from 8 to 0 with penalty 1, or to 3 with penalty 1.1.
 These are sampler microbenchmarks, not tokens/second or process RSS results.
-[Raw trials](validation/performance/greedy-20261024.txt) include the native
+[Raw trials](../validation/performance/greedy-20261024.txt) include the native
 258-token vocabulary and all measured penalty settings.
 
 Reproduce:
 
 ```sh
-GOMAXPROCS=4 ./scripts/go.sh test -run '^$' \
+GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' \
   -bench '^BenchmarkGreedySampling$' -benchmem -benchtime=300ms -count=3 -cpu=4
 ```
 
@@ -74,20 +74,20 @@ dimension 64, hidden size 100, 2 layers, 4 heads / 2 KV heads, context 128,
 258 vocabulary entries, a 33-token prompt and 8 greedy output tokens.
 Both versions already have the greedy scan. The measured allocation reduction
 is about 30%; the duration ranges overlap, so this does not establish a speedup.
-Raw trials: [before](validation/performance/engine-before-20261024.txt),
-[after](validation/performance/engine-after-20261024.txt).
+Raw trials: [before](../validation/performance/engine-before-20261024.txt),
+[after](../validation/performance/engine-after-20261024.txt).
 
 The batch comparison runs both the public pooled/copying path and the internal
 owned/borrowing path in the new implementation, with four sessions, 96-token
 prefixes and one new row per session. It uses the same synthetic geometry but
 50,257 vocabulary entries. Thus it isolates the result copy and pool access,
 not all changes relative to the parent. Other vocabulary/chunk shapes are in
-the [raw batch trials](validation/performance/workspace-20261024.txt).
+the [raw batch trials](../validation/performance/workspace-20261024.txt).
 
 ```sh
-GOMAXPROCS=4 ./scripts/go.sh test -run '^$' \
+GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' \
   -bench '^BenchmarkEngineWorkspaceRequest$' -benchmem -benchtime=500ms -count=3 -cpu=4
-GOMAXPROCS=4 ./scripts/go.sh test -run '^$' \
+GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' \
   -bench '^BenchmarkInferenceWorkspace$' -benchmem -benchtime=300ms -count=3 -cpu=4
 ```
 
@@ -102,8 +102,8 @@ Tests cover mixed shapes, capacity trimming, immutable public results, forced
 GC, failed validation, cancellation/retry, shared models and independent engine
 shutdown. Pinned real GPT-2 and SmolLM2-135M also passed CLI, HTTP, concurrent
 SSE and resource-release checks against Transformers in offline mode.
-Receipts: [GPT-2](validation/performance/gpt2-workspace-reference.json),
-[SmolLM2-135M](validation/performance/smol-workspace-reference.json).
+Receipts: [GPT-2](../validation/performance/gpt2-workspace-reference.json),
+[SmolLM2-135M](../validation/performance/smol-workspace-reference.json).
 
 ## Combined GPT-2 serving check
 
@@ -129,7 +129,7 @@ shutdown. Source loading and warmup are outside the timed interval. This is
 one CPU/model/workload, not a general throughput guarantee. It does not isolate
 the two optimizations or establish reduced resident weight memory.
 
-The [raw serving receipt](validation/performance/gpt2-serving-20261024.json)
+The [raw serving receipt](../validation/performance/gpt2-serving-20261024.json)
 records binary and source hashes, exact settings, latency distributions,
 sampled Go heap/GC metrics and drain results. Sampling peaks are neither
 continuous peaks nor process RSS.
@@ -176,12 +176,12 @@ The 8,960 × 1,536 case reduced two-row time by 30.1% and three-row time by
 19.8%. One/four-row controls remain close; no speedup is claimed for them.
 The kernel retains 112 B and one callback allocation per call. Desktop/thermal
 activity was uncontrolled, so these samples are workload/host-specific.
-[Raw samples](validation/performance/q4-pair-kernels-20261026.txt) and the
-[aggregate/build manifest](validation/performance/q4-pair-kernels-20261026.json)
+[Raw samples](../validation/performance/q4-pair-kernels-20261026.txt) and the
+[aggregate/build manifest](../validation/performance/q4-pair-kernels-20261026.json)
 retain every trial, including regressions.
 
 ```sh
-GOMAXPROCS=4 ./scripts/go.sh test -run '^$' -bench '^BenchmarkQ4Pair$' \
+GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkQ4Pair$' \
   -benchmem -benchtime=300ms -count=3 -cpu=4
 ```
 
@@ -251,17 +251,17 @@ No RSS reduction or minimum-RAM claim is made; OS residency and allocated
 weight payload are different quantities, as in the
 [earlier 7B quality comparison](QUALITY_INFERENCE.md#measured-7b-results).
 
-The [complete comparison receipt](validation/performance/qwen7b-q4-pair-20261026.json)
+The [complete comparison receipt](../validation/performance/qwen7b-q4-pair-20261026.json)
 retains all times, numerical signatures, resource counts and build/model hashes.
 It was produced before the runner's Go-environment isolation fix. The host's
 effective GOFLAGS/GOEXPERIMENT were empty; rebuilding both binaries under the
 final isolated settings produced **identical binary and input hashes** to those
-measured. The [isolation verification receipt](validation/performance/q4-pair-build-isolation-20261026.json)
+measured. The [isolation verification receipt](../validation/performance/q4-pair-build-isolation-20261026.json)
 records those builds, effective settings and a successful SmolLM2-360M pilot.
 The original 7B receipt keeps its actual runner hash rather than replacing it
 with the later script's identity.
 
-The final [7B serving check](validation/performance/qwen7b-q4-pair-serving-20261026.json)
+The final [7B serving check](../validation/performance/qwen7b-q4-pair-serving-20261026.json)
 matched CLI, HTTP and concurrent SSE output for plain text and chat, including
 the previous 7B trial's exact eight-token completions. One load-test request
 completed and one was canceled; the server observed that cancellation. All six
@@ -303,13 +303,13 @@ The existing `BenchmarkQ4Pair` harness supplies the same-binary comparison.
 Its retained reference is from `167adfb4`, whose one/four-row paths are also
 unchanged in this optimization's parent `6b94640`. Only those row counts are
 used here; the historical `pair` label runs the current production kernel.
-[Raw samples](validation/performance/q4-block-kernels-20261027.txt) and the
-[build manifest and aggregates](validation/performance/q4-block-kernels-20261027.json)
+[Raw samples](../validation/performance/q4-block-kernels-20261027.txt) and the
+[build manifest and aggregates](../validation/performance/q4-block-kernels-20261027.json)
 retain all 48 trials and their full ranges.
 
 ```sh
 GOENV=off GOTOOLCHAIN=local GOFLAGS= GOEXPERIMENT= GOMAXPROCS=4 \
-  ./scripts/go.sh test -run '^$' \
+  ./scripts/go.sh test ./cmd/monolith -run '^$' \
   -bench '^BenchmarkQ4Pair$/^(8960x1536|18944x3584)$/^rows(1|4)$' \
   -benchmem -benchtime=500ms -count=3 -cpu=4
 ```
@@ -332,7 +332,7 @@ new language-quality evaluation or an HTTP throughput measurement.
 The pinned SmolLM2-360M pilot completed all four processes. Single-session
 decode medians were 0.244 → 0.183 s (25.1% less time); the two-session control
 was 0.348 → 0.338 s with overlapping ranges. The
-[full pilot receipt](validation/performance/smol360-q4-block-20261027.json)
+[full pilot receipt](../validation/performance/smol360-q4-block-20261027.json)
 contains every sample, numerical signature, build hash and per-process RSS.
 
 ### Qwen2.5-7B single-session result
@@ -361,8 +361,8 @@ A follow-up same-binary two-row control retains the complete ordinary kernel
 from `6b94640`. At 18,944 × 3,584 its median was 12.940 → 12.993 ms; at
 8,960 × 1,536 it was 3.036 → 3.166 ms, both with overlapping ranges. These
 separate measurements do not establish the cause of the 7B slowdown or erase
-it. [Raw control trials](validation/performance/q4-block-control-20261027.txt)
-and the [control build manifest](validation/performance/q4-block-control-20261027.json)
+it. [Raw control trials](../validation/performance/q4-block-control-20261027.txt)
+and the [control build manifest](../validation/performance/q4-block-control-20261027.json)
 can be reproduced with `BenchmarkQ4BlockControl` using the same environment,
 500 ms duration and three samples as the kernel command above.
 
@@ -373,7 +373,7 @@ two, including KV pages, hashing and token bookkeeping. Per-child lifetime
 peak RSS was 4.133/4.113 GiB before and 4.141/4.105 GiB after. These values do
 not establish an RSS reduction or a minimum-RAM requirement.
 
-The [complete 7B comparison receipt](validation/performance/qwen7b-q4-block-20261027.json)
+The [complete 7B comparison receipt](../validation/performance/qwen7b-q4-block-20261027.json)
 contains all samples and source/build/model identities. The earlier microkernel
 manifest records the original `8efe156` test source; the following test-only
 formatting fix did not change runtime or forward-probe source.
@@ -384,7 +384,7 @@ python3 -S scripts/compare_inference.py --model PATH_TO_QWEN_7B \
   --output-dir runs/qwen7b-block-comparison
 ```
 
-The final [7B serving receipt](validation/performance/qwen7b-q4-block-serving-20261027.json)
+The final [7B serving receipt](../validation/performance/qwen7b-q4-block-serving-20261027.json)
 confirms identical CLI, HTTP and concurrent SSE completions for plain text and
 chat, also matching the previous PR's exact completions. The load test completed
 one request and canceled one; the server observed that cancellation. All six
@@ -441,14 +441,14 @@ with one allocation per call in every sample. These are synthetic projection
 timings, not model throughput or a new memory saving. The shared
 callback can compile differently even for unchanged paths, so the real-model
 single-session control remains necessary. Host activity and thermal state
-were uncontrolled. [Raw samples](validation/performance/q4-pair-block-kernels-20261027.txt)
-and the [manifest](validation/performance/q4-pair-block-kernels-20261027.json)
+were uncontrolled. [Raw samples](../validation/performance/q4-pair-block-kernels-20261027.txt)
+and the [manifest](../validation/performance/q4-pair-block-kernels-20261027.json)
 retain full ranges, inputs, binary identity and effective Go settings.
 
 ```sh
 GOENV=off GOTOOLCHAIN=local GOFLAGS= GOEXPERIMENT= GOWORK=off \
   GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=4 \
-  ./scripts/go.sh test -run '^$' -bench '^BenchmarkQ4PairBlock$' \
+  ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkQ4PairBlock$' \
   -benchmem -benchtime=300ms -count=3 -cpu=4
 ```
 
@@ -457,13 +457,13 @@ GOENV=off GOTOOLCHAIN=local GOFLAGS= GOEXPERIMENT= GOWORK=off \
 Both runtime builds use the PR33 balanced protocol: process order
 before/after/after/before, case order 1→2/1→2/2→1/2→1, one warmup and three
 measured trials per case/process, eight prefix tokens and seven decode calls.
-The [pre-recorded experiment plan](validation/performance/q4-pair-block-protocol-20261027.json)
+The [pre-recorded experiment plan](../validation/performance/q4-pair-block-protocol-20261027.json)
 sets practical 7B adoption thresholds: identical numerical signatures and
 workspace, at most +5% single-session median time, and at least 10% less
 two-session time. These are bounded engineering criteria, not significance
 tests or guarantees for other hosts/workloads.
 
-The pinned [360M pilot](validation/performance/smol360-q4-pair-block-20261027.json)
+The pinned [360M pilot](../validation/performance/smol360-q4-pair-block-20261027.json)
 matched every logit/KV digest, generated ID, plan and workspace capacity.
 Two-session decode medians were 0.333→0.235 s (29.5% shorter); the one-session
 control was 0.186→0.193 s (+3.9%), with overlapping ranges of 0.181–0.198 and
@@ -499,8 +499,8 @@ Weight storage remains 4,829,927,424 bytes; retained workspace remains
 include KV pages, hashing and bookkeeping; median bytes remain approximately
 3,919,000 / 7,589,000. Process peak RSS was 4.120/4.114 GiB before and
 4.108/4.115 GiB after. This is not a resident-memory reduction or a minimum-RAM
-claim. [Full 7B trials](validation/performance/qwen7b-q4-pair-block-20261027.json)
-and the [acceptance calculation](validation/performance/q4-pair-block-acceptance-20261027.json)
+claim. [Full 7B trials](../validation/performance/qwen7b-q4-pair-block-20261027.json)
+and the [acceptance calculation](../validation/performance/q4-pair-block-acceptance-20261027.json)
 retain all measurements and the pre-recorded thresholds.
 
 ```sh
@@ -510,7 +510,7 @@ python3 -S scripts/compare_inference.py --model PATH_TO_QWEN_7B \
 ```
 
 
-The [7B serving check](validation/performance/qwen7b-q4-pair-block-serving-20261027.json)
+The [7B serving check](../validation/performance/qwen7b-q4-pair-block-serving-20261027.json)
 matched plain-text and chat completions across CLI, HTTP and concurrent SSE,
 and matched the previous single-row PR's saved completions and model plan.
 The cancellation workload completed one request and canceled one; the server
@@ -547,15 +547,15 @@ MLP projection produced these medians (three 250 ms samples in each run order):
 The single/four-row controls do not establish an independent speedup.
 Kernel callbacks still allocate: median 112 B and one allocation per call.
 These are projection timings, not model throughput.
-[Raw samples](validation/performance/q8-pair-kernels-20261029.txt) and
-[all measurements and source hashes](validation/performance/q8-pair-kernels-20261029.json)
+[Raw samples](../validation/performance/q8-pair-kernels-20261029.txt) and
+[all measurements and source hashes](../validation/performance/q8-pair-kernels-20261029.json)
 retain the full ranges. Desktop activity and thermal state were uncontrolled;
 no concurrent build, profiler or heavy test was run during timed probes.
 
-An [earlier candidate](validation/performance/q8-rejected-single-20261029.json)
+An [earlier candidate](../validation/performance/q8-rejected-single-20261029.json)
 also specialized single rows. It missed its predeclared 10% single-row
 microbenchmark target (3.9% reduction), so that path was removed. The
-[narrowed protocol](validation/performance/q8-pair-protocol-20261029.json)
+[narrowed protocol](../validation/performance/q8-pair-protocol-20261029.json)
 requires a pair-kernel improvement, exact numerical results and unchanged
 plan/workspace, no more than 5% single-session regression, at least 5% faster
 Q8 paired decode, and no more than 5% regression in either Q4-mixed control.
@@ -586,7 +586,7 @@ capacity agrees between variants. This is core-forward timing only: loading,
 tokenization, sampling and HTTP/SSE are excluded. It does not measure language
 quality or end-to-end request throughput.
 
-[Full Q8 trials](validation/performance/mistral7b-q8-pair-20261029.json) include
+[Full Q8 trials](../validation/performance/mistral7b-q8-pair-20261029.json) include
 all prefill/decode timings, allocation totals, process peak RSS, source hashes
 and build identity. The weight payload remains 7,701,807,104 bytes. No additional
 weight compression or resident-memory reduction is claimed.
@@ -594,7 +594,7 @@ weight compression or resident-memory reduction is claimed.
 ```sh
 GOENV=off GOTOOLCHAIN=local GOFLAGS= GOEXPERIMENT= GOWORK=off \
   GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=4 \
-  ./scripts/go.sh test -run '^$' -bench '^BenchmarkQ8Blocks$' \
+  ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkQ8Blocks$' \
   -benchmem -benchtime=250ms -count=3 -cpu=4
 python3 -S scripts/compare_inference.py --model PATH_TO_MISTRAL_7B \
   --id mistral-7b-v03 --baseline-ref cfdca31 --weight-format q8 \
@@ -629,8 +629,8 @@ Measured-loop allocations include KV pages, hashing and token bookkeeping;
 median allocated bytes remain approximately 8.67 MB / 17.06 MB for one/two
 sessions. Prefill controls overlap; no prefill improvement is claimed.
 
-[Full Q4-mixed trials](validation/performance/mistral7b-q4mixed-q8-pair-20261029.json)
-and the [acceptance calculation](validation/performance/q8-pair-acceptance-20261029.json)
+[Full Q4-mixed trials](../validation/performance/mistral7b-q4mixed-q8-pair-20261029.json)
+and the [acceptance calculation](../validation/performance/q8-pair-acceptance-20261029.json)
 retain all results, limits and decision checks. All adoption checks passed.
 The earlier Q8-relative [quality and local serving checks](MISTRAL_INFERENCE.md)
 remain separate evidence; these exact-output comparisons introduce no new
@@ -644,7 +644,7 @@ a fixed-size Go array view to each complete 64-value block. It shares the two
 decoded pairs across the four input rows and keeps each row's four independent
 partial sums. Partial blocks and single/two-row cases retain their own paths.
 
-The [protocol](validation/performance/mistral-q4-prefill-protocol-20261101.json)
+The [protocol](../validation/performance/mistral-q4-prefill-protocol-20261101.json)
 pins baseline `06535fb`, candidate runtime `6b13cd5`, their source digests,
 the model revision and the exact-test harnesses. Prompt time includes direct
 generation through one output token. The 1/2-session controls measure seven
@@ -681,7 +681,7 @@ parity probes sequentially.
 ### Four-row candidate disposition
 
 Both prompt gates failed. The shipping kernel remains byte-identical to
-`06535fb`. The [candidate patch](validation/performance/mistral-q4-four-row-candidate.patch)
+`06535fb`. The [candidate patch](../validation/performance/mistral-q4-four-row-candidate.patch)
 includes the proposed runtime change and its four-row test. The patch can also
 be applied to that exact baseline with `git apply --unidiff-zero`.
 
@@ -690,30 +690,30 @@ be applied to that exact baseline with `git apply --unidiff-zero`.
 | 275 / 1 | 115.300 s | 129.224 s | 1.121 | 0.95 |
 | 4 / 1 | 1.612 s | 2.402 s | 1.490 | 1.05 |
 
-The [full prompt receipt](validation/performance/mistral-q4-prefill-prompt-20261101.json)
+The [full prompt receipt](../validation/performance/mistral-q4-prefill-prompt-20261101.json)
 contains all trials in before/after/after/before order. The long times were
 133.715, 142.312, 116.136 and 96.885 s. All returned the same completion.
 An unrelated compiler was observed at 670% CPU during the first candidate
-process. Intermittent [host observations](validation/performance/mistral-q4-prefill-host-20261101.json)
+process. Intermittent [host observations](../validation/performance/mistral-q4-prefill-host-20261101.json)
 began partway through that process. The host was a shared Apple M4, and these
 two long trials per variant cannot isolate the cause of the difference.
 
-The [balanced decode control](validation/performance/mistral-q4-prefill-decode-20261101.json)
+The [balanced decode control](../validation/performance/mistral-q4-prefill-decode-20261101.json)
 uses six seven-call samples per variant and session count. One-session median
 decode time increased from 3.290 to 3.946 s (+20.0%, above the 5% ceiling).
 Two sessions measured 4.422 to 4.283 s (-3.1%, within the ceiling). All four
 processes agreed on every generated ID, logit digest, used-KV digest and
-workspace size. The [decision](validation/performance/mistral-q4-prefill-decision-20261101.json)
+workspace size. The [decision](../validation/performance/mistral-q4-prefill-decision-20261101.json)
 records three failed timing gates out of four. These shared-host observations
 apply to this workload; the failed gates stand without a retry.
 
-The [exactness log](validation/performance/mistral-q4-prefill-exact-20261101/go-test.jsonl)
-and [test receipt](validation/performance/mistral-q4-prefill-exact-20261101/receipt.json)
+The [exactness log](../validation/performance/mistral-q4-prefill-exact-20261101/go-test.jsonl)
+and [test receipt](../validation/performance/mistral-q4-prefill-exact-20261101/receipt.json)
 bind the candidate source to the race-enabled Q4 checks, including all packed
 byte values, every tail length through width 193, row remainders, and extreme
 activations.
 
-The [separate 275-token bit probe](validation/performance/mistral-q4-prefill-bits-20261101.json)
+The [separate 275-token bit probe](../validation/performance/mistral-q4-prefill-bits-20261101.json)
 matched both exact runtime revisions on the prompt IDs, output token 1117,
 all 32,768 final logits and all 18,022,400 committed KV floats. It used
 16-token chunks and four workers. Its process durations are excluded from the

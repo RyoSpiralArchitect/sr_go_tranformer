@@ -25,7 +25,7 @@ Validation commands passed:
 ```sh
 go test -race -count=1 ./...
 go vet ./...
-CGO_ENABLED=0 go build -trimpath -o monolith .
+CGO_ENABLED=0 go build -trimpath -o monolith ./cmd/monolith
 ./scripts/smoke.sh
 ```
 
@@ -116,7 +116,7 @@ long-running RSS plateau.
 
 ## Reproduction and receipts
 
-[Machine-readable receipts](benchmarks/serving-2026-10-03.json) contain per-trial
+[Machine-readable receipts](../benchmarks/serving-2026-10-03.json) contain per-trial
 summaries, metrics snapshots, sampled RSS, model configuration and SHA-256
 fingerprints, tied to measured source commit `c3f9deb`. Individual generated text and local machine paths are omitted.
 The JSON's `runs/` fingerprints identify local generated artifacts; those
@@ -124,7 +124,7 @@ binaries and checkpoints are not distributed.
 
 ```sh
 mkdir -p runs/serving
-CGO_ENABLED=0 go build -trimpath -o runs/serving/monolith .
+CGO_ENABLED=0 go build -trimpath -o runs/serving/monolith ./cmd/monolith
 go build -trimpath -o runs/serving/loadtest ./tools/loadtest
 runs/serving/monolith train -data examples/tiny.txt -preset small \
   -steps 1 -warmup 0 -batch 1 -seq 8 -threads 4 \
@@ -151,13 +151,13 @@ runs/serving/loadtest -url http://127.0.0.1:8080 \
 
 Restart the server between trials. Rotate the sequential, bulk and default
 settings as recorded in the receipts. For separate adversity runs, use the
-reader/cancellation flags documented in [the load client](tools/loadtest/README.md).
+reader/cancellation flags documented in [the load client](../tools/loadtest/README.md).
 The client reports Go heap usage; collect process RSS separately if needed.
 
 Earlier kernel-only tests also measured chunked prefill with `demo` and `tiny`:
 
 ```sh
-go test -run '^$' -bench BenchmarkPrefillSequentialVsChunk \
+go test ./cmd/monolith -run '^$' -bench BenchmarkPrefillSequentialVsChunk \
   -benchmem -benchtime=5x -count=5 -cpu=4
 ```
 

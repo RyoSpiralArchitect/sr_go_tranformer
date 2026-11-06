@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 import argparse,json,subprocess,sys,statistics,platform
 from pathlib import Path
+from quant_quality import git_source, source_path
 p=argparse.ArgumentParser();p.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);p.add_argument('--model',type=Path,required=True);p.add_argument('--harness',type=Path);p.add_argument('--output',type=Path,required=True);p.add_argument('--baseline',default='68ee4d8406b907c6bf6c77fdd364146da4aac7cf');p.add_argument('--long-ratio-max',type=float,default=.95);a=p.parse_args()
 if not 0 < a.long_ratio_max <= 2:p.error('--long-ratio-max must be in (0, 2]')
-root=a.root.resolve();a.harness=a.harness or root/'prompt_prefill_perf_test.go';out=a.output.resolve();out.mkdir(exist_ok=False,parents=True)
+root=a.root.resolve();a.harness=a.harness or source_path(root, 'prompt_prefill_perf_test.go');out=a.output.resolve();out.mkdir(exist_ok=False,parents=True)
 sys.path.insert(0,str(root/'scripts'))
 from quant_quality import sha,run_measured
 from compare_inference import isolated_go_environment, write_parity_receipt
@@ -19,10 +20,10 @@ source=next(x for x in json.loads((root/'validation/hf/model-profiles.json').rea
 def verify_model():
  for n,h in source['files'].items():
   if sha(a.model/n)!=h:raise RuntimeError('model mismatch '+n)
-verify_model();builds={};inputs={n:sha(root/n) for n in ['monolith.go','go.mod','go.sum']}
+verify_model();builds={};inputs={n:sha(source_path(root, n)) for n in ['monolith.go','go.mod','go.sum']}
 for variant in ('before','after'):
  d=out/variant;d.mkdir()
- for n in inputs:(d/n).write_bytes(subprocess.check_output(['git','show',baseline+':'+n],cwd=root) if variant=='before' else (root/n).read_bytes())
+ for n in inputs:(d/n).write_bytes(git_source(root, baseline, n) if variant=='before' else source_path(root, n).read_bytes())
  (d/'prompt_real_test.go').write_bytes(a.harness.read_bytes());binary=d/'probe.test'
  with (d/'build.log').open('w') as log:subprocess.run([go,'test','-c','-trimpath','-o',str(binary),'.'],cwd=d,env=env,stdout=log,stderr=log,check=True)
  builds[variant]={'binary_sha256':sha(binary),'inputs_sha256':{n:sha(d/n) for n in list(inputs)+['prompt_real_test.go']}}
@@ -36,7 +37,7 @@ for i,variant in enumerate(protocol['order']):
  if reference is None:reference=sig
  same=sig==reference;matched=matched and same
  reports.append({'variant':variant,'report':r,'resources':resources});print(i,variant,'complete; completion '+('matches' if same else 'differs'),flush=True)
-verify_model();assert inputs=={n:sha(root/n) for n in inputs}
+verify_model();assert inputs=={n:sha(source_path(root, n)) for n in inputs}
 for v,b in builds.items():
  assert sha(out/v/'probe.test')==b['binary_sha256']
  assert b['inputs_sha256']=={n:sha(out/v/n) for n in b['inputs_sha256']}

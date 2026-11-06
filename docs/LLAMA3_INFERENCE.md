@@ -25,9 +25,9 @@ instruction-following one.
 The original numerical experiment below prepared IDs with pinned Tokenizers;
 all model loading, matrix computation, KV storage and generation ran in Go.
 The new text path is independently checked against that same pinned tokenizer.
-The [real tokenizer oracle](validation/llama3/text-tokenizer.json) has 173
+The [real tokenizer oracle](../validation/llama3/text-tokenizer.json) has 173
 encoding and nine decoding cases; all match, including bytewise streaming.
-The [text CLI receipt](validation/llama3/text-cli.json) reproduces the first
+The [text CLI receipt](../validation/llama3/text-cli.json) reproduces the first
 eight-token continuation from the earlier token-ID trial.
 The Llama Split letter, number and whitespace classes are pinned to Tokenizers
 0.22.2 rather than the Go toolchain's Unicode release. Their ranges are generated
@@ -40,12 +40,12 @@ The measured source is `mlx-community/Llama-3.2-3B-bf16`, revision
 `60a99aaf43164077157d64bf909b7b61143c6a6d`: two BF16 Safetensors shards totaling
 6,425,528,971 bytes. It is a **base model**, not an instruction-tuned model.
 The export contains ordinary HF tensor names; MLX is not used to execute it.
-[Source hashes](validation/hf/model-profiles.json) identify every input file.
+[Source hashes](../validation/hf/model-profiles.json) identify every input file.
 The model's Llama license is separate from this repository's Apache-2.0 license;
 pretrained weights are not redistributed here.
 
 ```sh
-CGO_ENABLED=0 go build -trimpath -o monolith .
+CGO_ENABLED=0 go build -trimpath -o monolith ./cmd/monolith
 ./monolith inspect-hf -hf-model PATH_TO_LLAMA32_3B -context 128 \
   -weight-format q4-mixed -weight-mib 2000
 # Already-framed IDs for "The capital of France is", including BOS 128000.
@@ -114,11 +114,11 @@ The pinned 3B Instruct metadata at revision
 `6d88ba43024fef71b10e52e101c7cd4598322601` has identical tokenizer and template
 files to the 1B profile. Its 159 encoding, seven chat and nine decoding cases
 match the same oracle; this metadata check does not execute the 3B Instruct
-weights. [Tokenizer verification](validation/llama3/chat-tokenizer-validation.json)
+weights. [Tokenizer verification](../validation/llama3/chat-tokenizer-validation.json)
 records both sources. Base models and
 unrecognized templates retain only their supported plain-text paths.
 
-The [1B Instruct real-model receipt](validation/llama3/chat-model-reference.json)
+The [1B Instruct real-model receipt](../validation/llama3/chat-model-reference.json)
 compares Go FP32 with Transformers 4.57.1 / Torch 2.8.0 CPU eager attention.
 For two bounded requests, generated IDs and final text match at prefill chunks
 1 and 16; maximum absolute logit error is `0.000129313` (tolerance `0.002`).
@@ -128,7 +128,7 @@ tokens. CLI, HTTP and concurrent SSE agree, all four serving requests release
 their reservations, and shutdown is clean. This validates these entry paths and
 numerical cases, not general instruction-following quality. The 3B Instruct
 profile above is checked at the tokenizer level only.
-The [CLI smoke receipt](validation/llama3/chat-cli-smoke.json) separately checks
+The [CLI smoke receipt](../validation/llama3/chat-cli-smoke.json) separately checks
 stdin text/message input, interactive reset and an idle-stdin SIGINT exit using
 the same real weights and expected completion.
 
@@ -140,7 +140,7 @@ HF_HUB_OFFLINE=1 python scripts/hf_model_reference.py \
 # The same published tokenizer oracle also checks pinned 3B Instruct metadata.
 MONOLITH_HF_MODEL=PATH_TO_LLAMA32_3B_INSTRUCT \
   MONOLITH_HF_TOKENIZER_REFERENCE=validation/llama3/chat-tokenizer.json \
-  go test -run '^TestHFLocalTokenizerReference$' -count=1 .
+  go test -run '^TestHFLocalTokenizerReference$' -count=1 ./cmd/monolith
 ```
 
 The FP32 reference run uses a 5,100 MiB weight budget and releases the Torch
@@ -190,7 +190,7 @@ weights; they do not impose FP32 equality.
 # Install scripts/hf_reference_requirements.txt in an isolated reference venv.
 HF_HUB_OFFLINE=1 python scripts/hf_reference.py \
   --fixtures testdata/hf-llama3 --llama3
-go test -run 'Test(HFLlamaTransformersReference|Llama3ConfigBoundaries|QualityExternalTokenBoundaries)' .
+go test -run 'Test(HFLlamaTransformersReference|Llama3ConfigBoundaries|QualityExternalTokenBoundaries)' ./cmd/monolith
 ```
 
 The real 3B trial reuses the six original passages and 96 teacher-forced positions
@@ -255,10 +255,10 @@ FP32/Q8/mixed continued ` named Tigger was born in a forest`, while Q4 produced
 in the mixed path; that does not imply equality on other prompts or positions.
 A separate public `infer-hf` CLI run reproduced the mixed first continuation.
 
-[Raw quality receipt](validation/llama3/quality.json),
-[framed input IDs](validation/llama3/inputs.json),
-[external text rendering](validation/llama3/text.json),
-[CLI receipt](validation/llama3/cli.json), and
-[environment](validation/llama3/environment.json) retain hashes, per-position
+[Raw quality receipt](../validation/llama3/quality.json),
+[framed input IDs](../validation/llama3/inputs.json),
+[external text rendering](../validation/llama3/text.json),
+[CLI receipt](../validation/llama3/cli.json), and
+[environment](../validation/llama3/environment.json) retain hashes, per-position
 measurements and raw generated IDs. The 7B model was not evaluated in this run;
 its source transfer was deferred when the connection remained too slow.

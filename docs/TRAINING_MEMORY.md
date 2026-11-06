@@ -78,7 +78,7 @@ The CLI budget applies to `train`, including its validation passes and resume. S
 
 ## Validation
 
-The [recorded plan matrix](benchmarks/memory-plan-2026-10-15/plans.json) uses `examples/tiny.txt`, batch 2, sequence 64, byte vocabulary and default training settings:
+The [recorded plan matrix](../benchmarks/memory-plan-2026-10-15/plans.json) uses `examples/tiny.txt`, batch 2, sequence 64, byte vocabulary and default training settings:
 
 | Preset | Planned working set (MiB) |
 | --- | ---: |
@@ -89,10 +89,10 @@ The [recorded plan matrix](benchmarks/memory-plan-2026-10-15/plans.json) uses `e
 
 These are analytic estimates, obtained without allocating those models. The base plan is rejected with a 1024 MiB budget. The matrix also records batch/sequence scaling, unchanged live memory for accumulation 16, and dataset depth/worker changes.
 
-Tests compare plan components with actual tensor/workspace capacities, cover the byte-exact budget boundary and integer overflow, preserve existing hard guards, and check a case where validation is the larger phase. Text tests cover retained slice capacity with byte and BPE tokenizers. CLI tests inspect/reject a roughly 50 MiB training checkpoint with less than 4 MiB of cumulative allocations, assert no output files are created, reject corruption, and replace a checkpoint path between metadata inspection and tensor loading. See [allocation-check.txt](benchmarks/memory-plan-2026-10-15/allocation-check.txt).
+Tests compare plan components with actual tensor/workspace capacities, cover the byte-exact budget boundary and integer overflow, preserve existing hard guards, and check a case where validation is the larger phase. Text tests cover retained slice capacity with byte and BPE tokenizers. CLI tests inspect/reject a roughly 50 MiB training checkpoint with less than 4 MiB of cumulative allocations, assert no output files are created, reject corruption, and replace a checkpoint path between metadata inspection and tensor loading. See [allocation-check.txt](../benchmarks/memory-plan-2026-10-15/allocation-check.txt).
 
-Budget-disabled, budget-enabled, and resumed text/dataset runs produce byte-identical checkpoints, including changed budget and IO settings. The CLI smoke covers the same paths. The full race suite, vet, cgo-free build and smoke pass; [checks](benchmarks/memory-plan-2026-10-15/checks.txt) and [provenance](benchmarks/memory-plan-2026-10-15/provenance.json) record their scope.
+Budget-disabled, budget-enabled, and resumed text/dataset runs produce byte-identical checkpoints, including changed budget and IO settings. The CLI smoke covers the same paths. The full race suite, vet, cgo-free build and smoke pass; [checks](../benchmarks/memory-plan-2026-10-15/checks.txt) and [provenance](../benchmarks/memory-plan-2026-10-15/provenance.json) record their scope.
 
-The separate [baseline/candidate comparison](benchmarks/memory-plan-2026-10-15/comparison.json) uses merged PR #9 as baseline, two alternating pairs per preset, tiny for 160 steps and small for 40. All four checkpoints per preset match exactly, as do standalone evaluation receipts. Raw timings are retained without a speed claim; this change adds preallocation checks and does not optimize model arithmetic. Synthetic/authored fixtures establish implementation equivalence, not general model quality.
+The separate [baseline/candidate comparison](../benchmarks/memory-plan-2026-10-15/comparison.json) uses merged PR #9 as baseline, two alternating pairs per preset, tiny for 160 steps and small for 40. All four checkpoints per preset match exactly, as do standalone evaluation receipts. Raw timings are retained without a speed claim; this change adds preallocation checks and does not optimize model arithmetic. Synthetic/authored fixtures establish implementation equivalence, not general model quality.
 
 To repeat the comparison, build the baseline and candidate binaries at the recorded revisions/source hash, then run `./scripts/go.sh run ./tools/trainbench` with the arguments in the provenance file. Its prepared dataset can be reused with the exact `train -memory-plan` arguments stored in the plan matrix.

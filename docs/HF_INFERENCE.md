@@ -37,7 +37,7 @@ because its FP32 payload alone is 28.370 GiB.
 GPT-2 can be fetched and run directly:
 
 ```sh
-go run . infer local -repo openai-community/gpt2 \
+go run ./cmd/monolith infer local -repo openai-community/gpt2 \
   -revision 607a30d783dfa663caf39e06633721c8d4cfcd7e \
   -context 512 -weight-mib 600 \
   generate -prompt 'Once upon a time, a small cat' \
@@ -71,8 +71,8 @@ hf download Qwen/Qwen2.5-0.5B-Instruct \
   generation_config.json \
   --revision 7ae557604adf67be50417f59c2c2f167def9a775 \
   --local-dir runs/qwen25
-go run . check-hf -hf-model runs/qwen25 -chat
-go run . chat -hf-model runs/qwen25
+go run ./cmd/monolith check-hf -hf-model runs/qwen25 -chat
+go run ./cmd/monolith chat -hf-model runs/qwen25
 ```
 
 The HF CLI is optional: `infer local -repo Qwen/Qwen2.5-0.5B-Instruct chat`
@@ -89,7 +89,7 @@ hf download HuggingFaceTB/SmolLM2-135M-Instruct \
   special_tokens_map.json generation_config.json \
   --revision 12fd25f77366fa6b3b4b768ec3050bf629380bac \
   --local-dir runs/smollm2
-go run . inspect-hf -hf-model runs/smollm2 -context 512 -weight-mib 600
+go run ./cmd/monolith inspect-hf -hf-model runs/smollm2 -context 512 -weight-mib 600
 ```
 
 `inspect-hf` validates metadata and file extents without allocating model
@@ -143,7 +143,7 @@ Its Apache-2.0 model license is separate from this repository's license.
 ## Token-ID inference and numerical validation
 
 ```sh
-go run . infer-hf -hf-model runs/smollm2 -context 512 \
+go run ./cmd/monolith infer-hf -hf-model runs/smollm2 -context 512 \
   -ids 504,3575,282,4649,314 -max-tokens 8 -prefill-chunk 16 -threads 4
 ```
 
@@ -162,7 +162,7 @@ chunk sizes 1/4/16/35, a page boundary, decode, ragged batches and worker
 counts 1/2/4 with absolute tolerance `2e-5`. Tiny fixtures exercise these call
 paths; they do not establish throughput scaling.
 
-The checked-in [real-model receipt](validation/hf/smollm2-numerical.json)
+The checked-in [real-model receipt](../validation/hf/smollm2-numerical.json)
 compares two short prompts, eight greedy tokens each and chunk sizes 1/16.
 All generated IDs matched; the largest absolute logit error was
 `5.340576171875e-5`, below the predefined `0.002` bound. This establishes
@@ -175,7 +175,7 @@ Reproduce outside the Go runtime using an isolated Python 3.11 environment:
 ```sh
 python -m pip install -r scripts/hf_reference_requirements.txt
 python scripts/hf_reference.py --fixtures testdata/hf-llama
-go build -o monolith .
+go build -o monolith ./cmd/monolith
 python scripts/hf_reference.py --model runs/smollm2 \
   --binary ./monolith --output runs/hf-numerical.json
 ```
@@ -203,11 +203,11 @@ instead of receiving different token IDs; this affects long combining-mark
 sequences. Other size/token limits still apply.
 
 ```sh
-go run . tokenize-hf -hf-model runs/smollm2 -prompt 'Goと猫 🐈‍⬛ 2026'
-go run . generate -hf-model runs/smollm2 -context 512 \
+go run ./cmd/monolith tokenize-hf -hf-model runs/smollm2 -prompt 'Goと猫 🐈‍⬛ 2026'
+go run ./cmd/monolith generate -hf-model runs/smollm2 -context 512 \
   -prompt 'The capital of France is' -max-tokens 8 \
   -temperature 0 -repeat-penalty 1 -json
-go run . generate -hf-model runs/smollm2 -context 512 \
+go run ./cmd/monolith generate -hf-model runs/smollm2 -context 512 \
   -chat -prompt 'Write one short sentence about cats.' \
   -max-tokens 32 -temperature 0 -repeat-penalty 1 -json
 ```
@@ -237,9 +237,9 @@ stream instead.
 
 ```sh
 printf '%s\n' 'Goの並行処理を一文で説明して。' | \
-  go run . generate -hf-model runs/qwen25 -chat -prompt-file -
+  go run ./cmd/monolith generate -hf-model runs/qwen25 -chat -prompt-file -
 printf '%s\n' '[{"role":"user","content":"Explain a goroutine."}]' | \
-  go run . generate -hf-model runs/qwen25 -messages - -json
+  go run ./cmd/monolith generate -hf-model runs/qwen25 -messages - -json
 ```
 
 Plain `generate -chat` and `-messages` output contains only the assistant reply;
@@ -249,7 +249,7 @@ existing completion object with generated IDs, text and token counts.
 ### Interactive chat
 
 ```sh
-go run . chat -hf-model runs/qwen25 -system 'Answer concisely.' \
+go run ./cmd/monolith chat -hf-model runs/qwen25 -system 'Answer concisely.' \
   -threads 4 -kernel-workers 2 -max-tokens 64
 ```
 
@@ -290,7 +290,7 @@ input, unlike the native tokenizer.
 ## Serve the imported model
 
 ```sh
-go run . serve -hf-model runs/smollm2 -context 512 -weight-mib 600 \
+go run ./cmd/monolith serve -hf-model runs/smollm2 -context 512 -weight-mib 600 \
   -threads 4 -kernel-workers 2 -max-batch 2 -queue 4 -kv-mib 64
 
 curl -N http://127.0.0.1:8080/v1/completions \
@@ -309,14 +309,14 @@ KV page pool, cancellation, slow-consumer handling and shutdown lifecycle as
 native models. No Python, cgo, external server or ML runtime participates in
 Go inference.
 
-The [text-serving receipt](validation/hf/smollm2-serving.json) records matching
+The [text-serving receipt](../validation/hf/smollm2-serving.json) records matching
 CLI, HTTP and two concurrent SSE outputs against Transformers for a raw prompt
 and a 37-token chat prompt, with eight generated tokens each. All four HTTP
 requests released admission and KV reservations; retained allocated pages are
 reusable pool storage. Server shutdown completed normally. This small probe is
 a compatibility/lifecycle check, not a production load benchmark.
 
-The [tokenizer reference](validation/hf/smollm2-tokenizer.json) contains
+The [tokenizer reference](../validation/hf/smollm2-tokenizer.json) contains
 147 encoding cases, three chat cases and six decoding cases, including numbers,
 whitespace, contractions, Japanese, emoji, combining marks, special tokens and
 missing byte entries. All matched Go locally. CI runs equivalent tests on a
@@ -328,7 +328,7 @@ python scripts/hf_tokenizer_reference.py --model runs/smollm2 \
   --output runs/tokenizer-reference.json
 MONOLITH_HF_MODEL=runs/smollm2 \
 MONOLITH_HF_TOKENIZER_REFERENCE=runs/tokenizer-reference.json \
-  go test -race -run TestHFLocalTokenizerReference -v .
+  go test -race -run TestHFLocalTokenizerReference -v ./cmd/monolith
 python scripts/hf_serving_reference.py --model runs/smollm2 \
   --binary ./monolith --output runs/hf-serving.json
 ```
@@ -344,7 +344,7 @@ row across worker counts, chunk sizes, a page boundary and ragged sessions
 with absolute tolerance `2e-5`. A synthetic Qwen tokenizer exercises NFC,
 regex boundaries, ordinary added tokens, special tokens and padding IDs.
 
-The [model manifest](validation/hf/model-profiles.json) binds files by SHA-256;
+The [model manifest](../validation/hf/model-profiles.json) binds files by SHA-256;
 weight hashes are checked against the Hub's LFS metadata. Real-model probes
 use two short prompts and eight greedy tokens per prompt, chunk sizes 1/16,
 CLI, HTTP and two concurrent SSE requests. These are bounded compatibility
@@ -360,24 +360,24 @@ python scripts/hf_model_reference.py --id qwen25 --model runs/qwen25 \
 Use `--id smollm2-360m` for the pinned 360M model. These offline scripts never
 fetch models. The oracle requires `scripts/hf_reference_requirements.txt`.
 
-The [Qwen2.5 receipt](validation/hf/qwen25-serving.json) records a maximum
+The [Qwen2.5 receipt](../validation/hf/qwen25-serving.json) records a maximum
 absolute logit error of `8.296966552734375e-5` (limit `0.002`) and matching CLI,
-HTTP and concurrent SSE output. Its [tokenizer oracle](validation/hf/qwen25-tokenizer.json)
+HTTP and concurrent SSE output. Its [tokenizer oracle](../validation/hf/qwen25-tokenizer.json)
 covers 159 encodings, three chats and six decode cases.
 
-The [SmolLM2-360M receipt](validation/hf/smollm2-360m-serving.json) records
+The [SmolLM2-360M receipt](../validation/hf/smollm2-360m-serving.json) records
 maximum absolute logit error `5.054473876953125e-05` (limit `0.002`), matching text on
 all three interfaces, and released request resources. Its
-[tokenizer oracle](validation/hf/smollm2-360m-tokenizer.json) covers the same 159/3/6 cases.
+[tokenizer oracle](../validation/hf/smollm2-360m-tokenizer.json) covers the same 159/3/6 cases.
 
-The [CLI receipt](validation/hf/qwen25-cli.json) checks Qwen with the default
+The [CLI receipt](../validation/hf/qwen25-cli.json) checks Qwen with the default
 context and weight budget, text and JSON from stdin, streamed interactive
 replies, `/reset`, and SIGINT while stdin remains open. It binds the model,
 reference receipt and tested executable by SHA-256. These short probes do not
 establish long-context accuracy.
 
 ```sh
-go build -trimpath -o monolith .
+go build -trimpath -o monolith ./cmd/monolith
 python scripts/hf_cli_smoke.py --model runs/qwen25 --binary ./monolith \
   --reference validation/hf/qwen25-serving.json --output runs/qwen25-cli.json
 ```
@@ -388,15 +388,15 @@ broken output streams, and request-resource release using small fixtures.
 
 ## GPT-2 validation
 
-The [GPT-2 receipt](validation/hf/gpt2-serving.json) compares the pinned base
+The [GPT-2 receipt](../validation/hf/gpt2-serving.json) compares the pinned base
 model against Transformers with two short raw prompts, eight greedy tokens
 each, and prefill chunks of 1/16. Generated IDs and CLI/HTTP/concurrent SSE text
 matched. The maximum absolute logit error was `0.0003814697265625` against
 the predefined `0.002` limit. All four HTTP requests released admission and KV
 reservations, and shutdown completed normally.
 
-The [tokenizer oracle](validation/hf/gpt2-tokenizer.json) covers 159 encodings
-and six decoding cases. The [source receipt](validation/hf/gpt2-source.json)
+The [tokenizer oracle](../validation/hf/gpt2-tokenizer.json) covers 159 encodings
+and six decoding cases. The [source receipt](../validation/hf/gpt2-source.json)
 records automatic pinned fetching and an offline grouped-CLI replay matching
 the numerical receipt. This does not establish long-context accuracy, remote
 provider output or production throughput.

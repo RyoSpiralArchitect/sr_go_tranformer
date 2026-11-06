@@ -94,7 +94,7 @@ maximum context.
 
 ## Bounded original-model check
 
-The [pinned local Mistral receipt](validation/hf/mistral-long-context-20261030.json)
+The [pinned local Mistral receipt](../validation/hf/mistral-long-context-20261030.json)
 loads all original Q4-mixed weights with an 8,192-position context and an
 explicit 2 GiB direct KV budget. A 275-token prompt and one greedy output
 matched the same request at context 1,024 exactly (token 1117, text `is`, usage

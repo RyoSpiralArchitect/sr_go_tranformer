@@ -24,7 +24,7 @@ def main():
     protocol = json.loads(args.protocol.read_text())
 
     def hashes():
-        return {p.name: sha(p) for p in sorted(root.glob("*.go"))}
+        return {p.name: sha(p) for p in sorted((root / "cmd/monolith").glob("*.go"))}
 
     sources = hashes()
     inputs = {n: sha(root / n) for n in ("go.mod", "go.sum")}
@@ -42,7 +42,7 @@ def main():
         pattern = "^(" + "|".join(re.escape(n) for n in names) + ")$"
         with log.open("x") as dst:
             run = subprocess.run(
-                [root / "scripts/go.sh", "test", "-json", "-race", "-count=1", "-run", pattern, "."],
+                [root / "scripts/go.sh", "test", "-json", "-race", "-count=1", "-run", pattern, "./cmd/monolith"],
                 cwd=root,
                 env=env,
                 stdout=dst,

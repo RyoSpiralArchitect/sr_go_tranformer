@@ -1,6 +1,6 @@
 .tools/
 runs/
-monolith
+/monolith
 *.mglm
 *.prof
 coverage.out

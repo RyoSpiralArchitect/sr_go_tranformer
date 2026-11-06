@@ -60,8 +60,8 @@ positions vary across rows. It is not an execution of the complete 7B model.
 | 8,192 | 16 | 421.517 | 429.363 | -1.9% |
 
 These are medians, not confidence intervals. Six samples per variant/case and
-all regressions are retained in the [raw output](validation/performance/attention-lanes-20261030.txt)
-and [summary](validation/performance/attention-lanes-20261030.json). Already
+all regressions are retained in the [raw output](../validation/performance/attention-lanes-20261030.txt)
+and [summary](../validation/performance/attention-lanes-20261030.json). Already
 parallel 16-row controls do not establish a speedup. Desktop activity and
 thermal state were uncontrolled. No concurrent heavy tests, builds or profiler
 ran during the timed kernel/model probes. The 8,192-position microbenchmark
@@ -70,13 +70,13 @@ does not establish that a full 7B model is admitted at that context.
 ```sh
 GOENV=off GOTOOLCHAIN=local GOWORK=off GOFLAGS= GOEXPERIMENT= \
   GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=4 \
-  ./scripts/go.sh test -run '^$' -bench '^BenchmarkAttentionLanes$' \
+  ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkAttentionLanes$' \
   -benchmem -benchtime=150ms -count=3 -cpu=4
 ```
 
 ## Real-model comparison protocol
 
-The [frozen plan](validation/performance/long-generation-protocol-20261030.json)
+The [frozen plan](../validation/performance/long-generation-protocol-20261030.json)
 uses pinned local Mistral-7B-Instruct-v0.3, Q4-mixed, context 1,024 and four
 threads/workers. The original model files are checked before and after the
 run. Baseline `7167259` and candidate use identical standalone test harnesses
@@ -108,10 +108,10 @@ python3 -S scripts/compare_long_generation.py \
 ## Measured Mistral 7B result
 
 Candidate `a459cb4` passed the frozen adoption gates. The full
-[receipt](validation/performance/mistral7b-long-generation-20261030.json)
+[receipt](../validation/performance/mistral7b-long-generation-20261030.json)
 contains model/source/build hashes, every per-token interval, output IDs,
 logit/KV digests and per-process resource measurements. The
-[acceptance summary](validation/performance/long-generation-acceptance-20261030.json)
+[acceptance summary](../validation/performance/long-generation-acceptance-20261030.json)
 retains the frozen plan and aggregated checks.
 
 | Core forward interval | Before median | Candidate median | Change |
@@ -177,15 +177,15 @@ teardown, sampling and KV cleanup. Exact completions are checked before timing.
 For 128 output tokens, allocated bytes fell 40.4% and allocation count fell
 60.5%; median time fell 2.1%. These are synthetic native-model measurements,
 not a 7B speed or process-memory claim. The
-[frozen gates](validation/performance/generate-workers-protocol-20261030.json),
-[all samples and acceptance checks](validation/performance/generate-workers-20261030.json)
-and [raw benchmark output](validation/performance/generate-workers-20261030.txt)
+[frozen gates](../validation/performance/generate-workers-protocol-20261030.json),
+[all samples and acceptance checks](../validation/performance/generate-workers-20261030.json)
+and [raw benchmark output](../validation/performance/generate-workers-20261030.txt)
 retain the limits and source hashes. Both short and long timing gates passed.
 
 ```sh
 GOENV=off GOTOOLCHAIN=local GOWORK=off GOFLAGS= GOEXPERIMENT= \
   GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=4 \
-  ./scripts/go.sh test -run '^$' -bench '^BenchmarkOwnedGenerate$' \
+  ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkOwnedGenerate$' \
   -benchmem -benchtime=250ms -count=3 -cpu=4
 ```
 
@@ -196,7 +196,7 @@ cancellation after generation has begun, retry and six concurrent requests
 sharing one model under the race detector. Existing real-tokenizer EOS tests
 continue to check ordinary stopping semantics.
 
-A separate [real Mistral chat check](validation/hf/mistral-owned-generation-20261030.json)
+A separate [real Mistral chat check](../validation/hf/mistral-owned-generation-20261030.json)
 loads the pinned local Q4-mixed model at context 512, four threads, temperature
 zero, seed 19 and repeat penalty one. The same black-cat/lighthouse prompt
 produced exactly the same 134-token completion and natural EOS before and
@@ -215,7 +215,7 @@ HF_HUB_OFFLINE=1 ./monolith infer local \
   -max-tokens 256 -temperature 0 -threads 4
 ```
 
-Build `monolith` first with `./scripts/go.sh build -trimpath -o monolith .`.
+Build `monolith` first with `./scripts/go.sh build -trimpath -o monolith ./cmd/monolith`.
 Prompt tokens plus the output budget must fit the selected context. The
 existing model/KV guards still apply; these changes do not admit arbitrary
 context lengths or add GPU execution.

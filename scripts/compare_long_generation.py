@@ -14,7 +14,7 @@ import platform
 import subprocess
 
 from compare_inference import isolated_go_environment
-from quant_quality import run_measured, sha
+from quant_quality import git_source, run_measured, sha, source_path
 
 
 def signature(report):
@@ -64,7 +64,7 @@ def main():
     inputs=['monolith.go','go.mod','go.sum','inference_perf_test.go','long_generation_perf_test.go',
             'scripts/compare_long_generation.py','scripts/compare_inference.py','scripts/quant_quality.py',
             'scripts/go.sh','validation/quality/corpus.json','validation/hf/model-profiles.json']
-    hashes={name:sha(root/name) for name in inputs}
+    hashes={name:sha(source_path(root, name)) for name in inputs}
     env=isolated_go_environment()
     env.update(MONOLITH_PERF_MODEL=str(model),MONOLITH_PERF_CORPUS=str(root/'validation/quality/corpus.json'))
     goroot=subprocess.check_output([str(root/'scripts/go.sh'),'env','GOROOT'],cwd=root,env=env,text=True).strip()
@@ -77,10 +77,10 @@ def main():
     for variant in ('before','after'):
         build=output/variant;build.mkdir()
         for name in ('monolith.go','go.mod','go.sum'):
-            data=subprocess.check_output(['git','show',baseline+':'+name],cwd=root) if variant=='before' else (root/name).read_bytes()
+            data=git_source(root, baseline, name) if variant=='before' else source_path(root, name).read_bytes()
             (build/name).write_bytes(data)
         for name in ('inference_perf_test.go','long_generation_perf_test.go'):
-            (build/name).write_bytes((root/name).read_bytes())
+            (build/name).write_bytes(source_path(root, name).read_bytes())
         binary=build/'probe.test'
         with (build/'build.log').open('w') as log:
             subprocess.run([go,'test','-c','-trimpath','-o',str(binary),'.'],cwd=build,env=env,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=300)
@@ -98,7 +98,7 @@ def main():
         elif reference!=current: raise RuntimeError('Changed numerical signature, KV allocation or non-score workspace')
         reports.append(dict(variant=variant,process_index=index,report=report,process_resources=resources))
         print(index,variant,'complete; identical numerical signature',flush=True)
-    if hashes!={name:sha(root/name) for name in inputs}: raise RuntimeError('Source changed during run')
+    if hashes!={name:sha(source_path(root, name)) for name in inputs}: raise RuntimeError('Source changed during run')
     for name,expected in source['files'].items():
         if sha(model/name)!=expected: raise RuntimeError('Model changed during run: '+name)
     for variant,manifest in builds.items():

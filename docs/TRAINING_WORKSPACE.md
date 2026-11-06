@@ -46,7 +46,7 @@ Additional checks reject incompatible owners/configurations/shapes/storage befor
 
 Measurements and reproduction instructions follow below. Allocation totals, current heap, retained scratch and wall time have different scopes; none is a peak-RSS measurement.
 
-Apple M4, darwin/arm64, Go 1.27.1, cgo disabled, 2026-10-14. Baseline is main `094c0b83480dd0e158b9d6bfad70e59ae0db34e2`; source/binary/profile hashes are in [provenance.json](benchmarks/workspace-2026-10-14/provenance.json). Both executables use the same [authored holdout](TRAINING_VALIDATION.md), seed 73, batch 2, sequence 64, accumulation 1, four compute threads, two input workers and prefetch depth four.
+Apple M4, darwin/arm64, Go 1.27.1, cgo disabled, 2026-10-14. Baseline is main `094c0b83480dd0e158b9d6bfad70e59ae0db34e2`; source/binary/profile hashes are in [provenance.json](../benchmarks/workspace-2026-10-14/provenance.json). Both executables use the same [authored holdout](TRAINING_VALIDATION.md), seed 73, batch 2, sequence 64, accumulation 1, four compute threads, two input workers and prefetch depth four.
 
 Separate profiled full runs record process-wide allocation/GC deltas since observer startup, including validation, saving and observation overhead:
 
@@ -55,9 +55,9 @@ Separate profiled full runs record process-wide allocation/GC deltas since obser
 | tiny / 160 | 923,039,288 | 492,411,016 | 46.7% | 178 → 95 |
 | small / 40 | 1,521,131,064 | 948,521,688 | 37.6% | 24 → 15 |
 
-These are single profiled runs per implementation/preset. Raw JSONL counters and sampled allocation summaries are in [the evidence directory](benchmarks/workspace-2026-10-14). Sampled profiles and exact allocation counters have different scopes and need not match. Current heap at the final record was higher in the workspace runs (tiny 5.34 → 9.16 MB; small 76.06 → 103.67 MB); GC timing and retained scratch affect that snapshot. Reduced cumulative allocation does not establish a reduced peak heap or RSS.
+These are single profiled runs per implementation/preset. Raw JSONL counters and sampled allocation summaries are in [the evidence directory](../benchmarks/workspace-2026-10-14). Sampled profiles and exact allocation counters have different scopes and need not match. Current heap at the final record was higher in the workspace runs (tiny 5.34 → 9.16 MB; small 76.06 → 103.67 MB); GC timing and retained scratch affect that snapshot. Reduced cumulative allocation does not establish a reduced peak heap or RSS.
 
-The [isolated backward benchmark](benchmarks/workspace-2026-10-14/workspace-bench.txt) uses three repetitions of twenty calls with a fixed tape. Median allocated bytes per call fall from 2,715,405 to 19,872 for tiny and from 14,390,080 to 29,504 for small. Warm allocation counts are 372 and 552 per call, respectively, mostly associated with parallel dispatch. Construction is measured separately: 598,368 bytes / 11 allocations for tiny and 1,810,784 bytes / 11 allocations for small, including allocation overhead. Constructor and warm measurements must not be combined as though construction recurs per microbatch. These grouped microbenchmarks are allocation evidence, not a speed comparison.
+The [isolated backward benchmark](../benchmarks/workspace-2026-10-14/workspace-bench.txt) uses three repetitions of twenty calls with a fixed tape. Median allocated bytes per call fall from 2,715,405 to 19,872 for tiny and from 14,390,080 to 29,504 for small. Warm allocation counts are 372 and 552 per call, respectively, mostly associated with parallel dispatch. Construction is measured separately: 598,368 bytes / 11 allocations for tiny and 1,810,784 bytes / 11 allocations for small, including allocation overhead. Constructor and warm measurements must not be combined as though construction recurs per microbatch. These grouped microbenchmarks are allocation evidence, not a speed comparison.
 
 Five alternating, unprofiled full-process pairs per preset include source verification, model initialization, initial/final validation and checkpoint saving:
 
@@ -66,7 +66,7 @@ Five alternating, unprofiled full-process pairs per preset include source verifi
 | tiny | 1.491 (1.483–1.562) | 1.475 (1.458–1.563) |
 | small | 4.980 (4.947–5.199) | 5.062 (4.953–6.479) |
 
-There is no demonstrated general speed improvement: tiny's median is about 1.1% lower, while small's is about 1.6% higher, with a slower candidate sample retained in the report. The change targets allocation volume. [All raw timings](benchmarks/workspace-2026-10-14/comparison.json) are retained. All twenty timed checkpoints matched by complete SHA-256 within each preset; standalone baseline/candidate evaluation receipts matched byte for byte. Both profiled checkpoint pairs matched as well. This verifies trajectory preservation on the fixed fixture, not general language quality.
+There is no demonstrated general speed improvement: tiny's median is about 1.1% lower, while small's is about 1.6% higher, with a slower candidate sample retained in the report. The change targets allocation volume. [All raw timings](../benchmarks/workspace-2026-10-14/comparison.json) are retained. All twenty timed checkpoints matched by complete SHA-256 within each preset; standalone baseline/candidate evaluation receipts matched byte for byte. Both profiled checkpoint pairs matched as well. This verifies trajectory preservation on the fixed fixture, not general language quality.
 
 ## Reproduce
 
@@ -79,11 +79,11 @@ mkdir "$workspace_run/baseline-source"
 git archive 094c0b83480dd0e158b9d6bfad70e59ae0db34e2 | \
   tar -x -C "$workspace_run/baseline-source"
 CGO_ENABLED=0 go -C "$workspace_run/baseline-source" build -trimpath -o ../baseline .
-CGO_ENABLED=0 go build -trimpath -o "$workspace_run/candidate" .
+CGO_ENABLED=0 go build -trimpath -o "$workspace_run/candidate" ./cmd/monolith
 go run ./tools/trainbench -baseline "$workspace_run/baseline" \
   -candidate "$workspace_run/candidate" -out "$workspace_run/results" -repeats 5
 GOMAXPROCS=4 go test -run '^$' -bench '^BenchmarkBackwardWorkspace' \
-  -benchtime=20x -count=3 .
+  -benchtime=20x -count=3 ./cmd/monolith
 ```
 
 For profiled allocation runs, use the same training arguments recorded in `comparison.json` and add `-metrics` and `-alloc-profile`, each with a new output path. Keep these runs separate from the unprofiled timing comparison. Raw profile binaries remain local; compact summaries, JSONL counters and their profile hashes are committed.

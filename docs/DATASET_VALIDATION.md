@@ -24,7 +24,7 @@ Apple M4, darwin/arm64, Go 1.27.1. One fresh test process per input size; byte t
 Reproduce with a Go test binary, running the two commands separately:
 
 ```sh
-go test -c -o runs/prefetch.test .
+go test -c -o runs/prefetch.test ./cmd/monolith
 /usr/bin/time -l runs/prefetch.test -test.run '^$' \
   -test.bench '^BenchmarkTokenPrefetchCorpusSize/documents_4096$' -test.benchtime=100x
 /usr/bin/time -l runs/prefetch.test -test.run '^$' \

@@ -76,8 +76,8 @@ match exactly. Workspace remains 3,033,344 / 6,066,688 bytes for one/two session
 Process peak RSS was 4.11–4.15 GiB before and 4.10–4.11 GiB after; no resident
 memory reduction is claimed. Receipts retain per-step durations, process order,
 model/build hashes, isolated effective Go settings and child resource usage:
-[7B comparison](validation/performance/qwen7b-balanced-20261027.json) and
-[360M protocol pilot](validation/performance/smol360-balanced-20261027.json).
+[7B comparison](../validation/performance/qwen7b-balanced-20261027.json) and
+[360M protocol pilot](../validation/performance/smol360-balanced-20261027.json).
 
 ## Locating the remaining work
 
@@ -101,8 +101,8 @@ unprofiled case; their times are excluded from the comparison table.
 This points to testing a complete-block specialization for the paired Q4 loop,
 with the single-row path as a regression control, before changing worker
 ownership or scheduling. It does **not** resolve a unique cause for the earlier
-7.1% result. [Profile summaries](validation/performance/qwen7b-diagnostics-20261027.txt)
-and the [diagnostic manifest](validation/performance/qwen7b-diagnostics-20261027.json)
+7.1% result. [Profile summaries](../validation/performance/qwen7b-diagnostics-20261027.txt)
+and the [diagnostic manifest](../validation/performance/qwen7b-diagnostics-20261027.json)
 retain the capture hashes, reports and interpretation limits. Raw profiles and
 trace remain local under the ignored run directory; the manifest does not
 pretend they are available from the public repository.

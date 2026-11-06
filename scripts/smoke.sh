@@ -6,7 +6,7 @@ set -eu
 cd "$(dirname "$0")/.."
 smoke_dir=${MONOLITH_SMOKE_DIR:-runs/cli-smoke}
 mkdir -p "$smoke_dir"
-CGO_ENABLED=0 ./scripts/go.sh build -trimpath -o "$smoke_dir/monolith" .
+CGO_ENABLED=0 ./scripts/go.sh build -trimpath -o "$smoke_dir/monolith" ./cmd/monolith
 "$smoke_dir/monolith" tokenizer -data examples/tiny.txt -vocab 280 \
   -out "$smoke_dir/tokenizer.json" 2> "$smoke_dir/tokenizer.log"
 "$smoke_dir/monolith" train -data examples/tiny.txt -preset demo \
