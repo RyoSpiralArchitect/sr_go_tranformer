@@ -1,0 +1,67 @@
+{
+  "format": "monolith-fp32-dispatch-pointer-experiment-v1",
+  "baseline_commit": "6fd5f0127cd6c3f1898e98f2c34f81e848e83009",
+  "baseline_runtime_sha256": "ceee29e9178175466dc7314d5370f50f17c0a1815584b428ed01f95c567fe8d0",
+  "candidate_runtime_sha256": "a33a61122569bf29ba01427e9556ad1625a2c4a863f29c9040437e0c2aabda10",
+  "paired_test_sha256": "1e7ab3d2565771ce8ceaa6fe7a22d5bf0ca6df5d8b3170739b28cad7247be624",
+  "go_version": "go1.27.3",
+  "goos": "linux",
+  "goarch": "amd64",
+  "cgo_enabled": false,
+  "cpu": "Intel Core Ultra 9 285K",
+  "gomaxprocs": 4,
+  "cpu_affinity": "0-3",
+  "baseline_binary_sha256": "a3f29d383bf0e82f22e7ec43f5e4db5c2b70b8d6f6b9b6cf1adddcb6445d3f1b",
+  "candidate_binary_sha256": "80880660e131cecb501b9ca570180ad82a0d0b9705e350727b064f3f01734fc2",
+  "binary_checksums_verified_on_receiver": true,
+  "scope": "Synthetic FP32 projection fixtures; not real-model or HTTP serving measurements.",
+  "paired_protocol": {
+    "processes": 3,
+    "trials_per_case_per_process": 24,
+    "variant_order": "before/after on even trials, after/before on odd trials",
+    "case_iterations": "max(1, 1048576 / (rows * columns * outputs))",
+    "executors": ["nil (workers0 label)", "inline worker count 1", "fixed worker count 4"],
+    "shapes_rows_columns_outputs": [[1, 256, 704], [4, 256, 704], [64, 256, 704], [1, 1536, 8960], [4, 1536, 8960]],
+    "reference": "originalFP32Dispatch copies the baseline FP32 reduction body into the test binary; it is not a second full model implementation.",
+    "validation": "Exact finite FP32 output bits checked before and after timing in every case. Current standalone fallback, inline execution and fixed workers run in the same process as their reference.",
+    "allocation_measurement": "testing.AllocsPerRun(20) after warmup; Go runs this measurement at GOMAXPROCS=1. Timed pairs use GOMAXPROCS=4.",
+    "raw_receipts": {
+      "fp32-paired-pointer-run1.json": "e171346f569c20c8454815673757feb097c452cc67b63836cfe3168f84a69146",
+      "fp32-paired-pointer-run2.json": "3ddb8c0b35a8fa2fb13e018e1146c7aeca3cce6b85ec26465d3c643981782836",
+      "fp32-paired-pointer-run3.json": "20cdadbd24a5cc505fd4928acf146ab375be51dc9ebbf51e0899a4d856965bc6"
+    }
+  },
+  "generation_protocol": {
+    "build_receipt": "fp32-generation-paired-build-20261106.json",
+    "binary_sha256": "c34a3aec9f46d67aef6660cd939cb49823d9e14f9fefc37d5763a6ffef18e86c",
+    "verified_rebuild_and_receiver_checksums_match": true,
+    "method": "Package-renamed complete baseline and candidate runtimes execute in one process. Three fresh processes, 24 alternating-order pairs per case, identical seed-19 synthetic models. Fixed-step tokenizer disables EOS. Every completion JSON matches; serialization is outside timing. Interface adapters add common boxing overhead inside timing.",
+    "cases_prefix_outputs": [[3, 1], [129, 1], [257, 1], [33, 8], [33, 128]],
+    "raw_receipts": {
+      "fp32-generation-paired-run1.json": "de04d350828aa8b020adb3f8dd579a0849512e28a16bf1d194118dbeb8d00788",
+      "fp32-generation-paired-run2.json": "a6eed42acf0844d480e47d5d536a7ffa6163cfbc6d6e0184cc8c22abfc5f85bd",
+      "fp32-generation-paired-run3.json": "6454e913cd74f64bbeb691c21dfb1cc61356d21b69d9406ed985457039fc55df"
+    },
+    "interpretation": "Across-process medians of paired ratios are approximately within -1.5% to +1.3% for all five conditions. Individual process medians include +3.0%. This supports allocation-focused adoption, not a claim of universal latency improvement.",
+    "separate_process_comparison": "fp32-dispatch-pointer-process-20261106.json",
+    "separate_process_caveat": "ABBA process-level timing includes slower prefill observations (about 7-9%) and larger excursions in unchanged quantized controls. Those samples are retained, not reclassified as improvements; the paired full-runtime experiment was added to reduce cross-process clock/scheduling confounding."
+  },
+  "hypotheses": [
+    {"name": "caller participates in worker computation", "disposition": "Not selected: small synthetic kernels regressed and larger kernels did not establish a general benefit."},
+    {"name": "reduce parallelism for small projections", "disposition": "Not selected: worker-width exploration showed slower serial execution for the measured 256-to-704 projection shapes. Existing thresholds unchanged."},
+    {"name": "send a typed FP32 job through the shared worker mailbox", "disposition": "Rejected: lower allocations but unfavorable timing, including quantized controls. Full negative comparison is fp32-dispatch-20261106.json."},
+    {"name": "cache one FP32 callback on the request-owned executor", "disposition": "Promising for allocations, but the first extracted kernel with many scalar/slice arguments regressed the large single-row case in paired timing."},
+    {"name": "cached callback with a pointer-based FP32 invocation descriptor", "disposition": "Selected as an allocation reduction, with unchanged arithmetic and worker thresholds. Inline kernels bypass dispatch; shared mailbox layout is unchanged. One callback is allocated at executor startup, and invocation references are cleared after every joined kernel."}
+  ],
+  "conclusions": [
+    "Warm executor-owned FP32 kernels allocate zero objects per invocation, versus one previously. The default regression test verifies worker counts 1, 2 and 4 and non-tile-aligned dimensions.",
+    "Three paired processes preserve this allocation result across all owned-executor cases; nil fallback keeps its allocation count rather than promising zero allocations.",
+    "Median paired ratios across the three processes for each condition are approximately within -2.2% to +2.0%. Individual process medians include a +5.7% case; all raw samples are retained.",
+    "No uniform latency speedup, peak RSS decrease, lower GC frequency, real-model throughput gain or quantized-kernel speedup is established. Startup incurs one cached callback allocation and bounded descriptor storage."
+  ],
+  "reproduction": [
+    "CGO_ENABLED=0 ./scripts/go.sh test -c -trimpath -o probe.test ./cmd/monolith",
+    "GOMAXPROCS=4 MONOLITH_DISPATCH_COMPARE_OUTPUT=paired.json ./probe.test -test.run=^TestFP32DispatchPairedTiming$ -test.v -test.timeout=5m",
+    "Repeat in three fresh processes; use taskset -c 0-3 only on a compatible Linux CPU topology. On other platforms omit taskset and record the host."
+  ]
+}

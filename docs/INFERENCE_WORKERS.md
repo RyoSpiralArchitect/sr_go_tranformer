@@ -176,3 +176,74 @@ go run ./tools/loadtest -requests 72 -concurrency 8 -max-tokens 24 \
 The receipt retains all six run summaries, the complete kernel samples and raw
 artifact fingerprints, including regressions. Binaries, the checkpoint and
 individual request details remain local generated artifacts.
+
+## FP32 invocation reuse (2026-11-06)
+
+The historical worker table above predates FP32 invocation reuse. A live executor
+now holds one FP32 descriptor and one callback allocated at construction, rather
+than allocating a projection closure for every kernel. The descriptor borrows
+input/output slices and immutable weights only until all worker completions have
+joined, then is cleared. Inline kernels use a stack descriptor directly. The
+shared mailbox layout, worker counts, thresholds, Q4/Q8 kernels and reduction
+order are unchanged. The nil-executor fallback remains independent and does not
+promise allocation-free dispatch.
+
+A warmed owned FP32 projection now allocates zero objects per call. This is an
+allocation-volume result, not a peak RSS, GC-frequency or serving-throughput
+claim. Startup adds a callback allocation and bounded descriptor storage. The
+[source-bound experiment index](../validation/performance/fp32-dispatch-pointer-20261106.json)
+retains three paired timing processes and the rejected alternatives, including
+an unfavorable [typed-job comparison](../validation/performance/fp32-dispatch-20261106.json).
+
+The paired fixture alternates reference/candidate order within one process,
+checks exact finite output bits, and covers nil dispatch, one worker, four
+workers and five matrix shapes. All samples are retained. Condition medians
+across three processes were approximately within -2.2% to +2.0%; one individual
+process median was 5.7% slower. These results do not establish a uniform latency
+improvement or real-model/HTTP performance. `AllocsPerRun` temporarily uses one
+Go execution thread; paired timing uses four.
+
+The separate-process ABBA comparison also retains slower prefill observations
+(about 7–9%) and larger excursions in unchanged quantized controls. To reduce
+cross-process clock/scheduler confounding, a second driver puts package-renamed
+copies of the complete baseline and candidate runtimes into one executable.
+Across three fresh processes, five generation cases and 24 alternating pairs per
+case, all completion JSON matched. Condition medians across processes were
+approximately within -1.5% to +1.3%; individual process medians include +3.0%.
+This does not erase the unfavorable ABBA samples or establish an HTTP/real-model
+speedup. The driver includes common result-interface boxing in timing and keeps
+JSON equality checks outside timing.
+
+```sh
+./scripts/go.sh test -run 'TestWorkerLinearSteadyAllocation' -count=1 ./cmd/monolith
+CGO_ENABLED=0 ./scripts/go.sh test -c -trimpath -o runs/fp32-paired.test ./cmd/monolith
+GOMAXPROCS=4 MONOLITH_DISPATCH_COMPARE_OUTPUT=runs/fp32-paired.json \
+  runs/fp32-paired.test -test.run '^TestFP32DispatchPairedTiming$' -test.v
+python3 -S scripts/compare_fp32_dispatch.py --baseline-ref 6fd5f01 \
+  --output runs/fp32-dispatch-comparison --benchtime 1s --count 3
+```
+
+Use a fresh output directory for the process-level comparison. It compiles the
+same shared tests with each runtime in isolated flat modules and uses ABBA
+process order. Its output retains all samples, source/binary fingerprints and
+process resources. Synthetic completion checks are included; untimed fixture
+setup and benchmark reference calls also contribute to process RSS. Do not
+interpret benchmark `after` names as a second runtime revision: those names
+select the existing production-path variant inside each binary. Cross-compiled
+Linux logs can be imported with `scripts/assess_dispatch_logs.py`; the rejected
+comparison records why source-level allocation savings alone are insufficient.
+
+To build the same-process full-generation driver (use `--target linux-amd64`
+only when cross-compiling for Linux):
+
+```sh
+python3 -S scripts/compare_generation_pair.py --baseline-ref 6fd5f01 \
+  --output runs/generation-pair-comparison
+runs/generation-pair-comparison/generation-pair \
+  -output runs/generation-pair-comparison/run1.json -trials 24
+```
+
+Run it in three fresh processes with distinct receipt names. The driver copies
+both complete runtimes into temporary comparison packages; this does not split
+the production monolith. The frozen receipt tests verify file fingerprints and
+recompute paired medians without pinning future runtime sources to old receipts.
