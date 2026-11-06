@@ -111,5 +111,81 @@ class ByteDecodeReceiptTests(unittest.TestCase):
                     self.assertLessEqual(abs(median - expected[row['Name']][run]), 0.000050001)
 
 
+class WholeGenerationReceiptTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.index = receipt('tokenizer-full-generation-assessment-20261107.json')
+
+    def check_row(self, before, after, ratios, reported, count):
+        for values in (before, after, ratios):
+            self.assertEqual(len(values), count)
+            self.assertTrue(all(math.isfinite(x) and x > 0 for x in values))
+        for old, new, ratio in zip(before, after, ratios):
+            self.assertTrue(math.isclose(new / old, ratio, rel_tol=1e-12))
+        self.assertTrue(math.isclose(statistics.median(ratios), reported, rel_tol=1e-12))
+
+    def test_build_bindings(self):
+        full, control = [receipt(name) for name in self.index['build_receipts']]
+        self.assertEqual(full['baseline'], self.index['baseline'])
+        self.assertEqual(control['baseline'], self.index['candidate'])
+        self.assertEqual(full['driver_sha256'], control['driver_sha256'])
+        for build in (full, control):
+            self.assertEqual(build['candidate_runtime_sha256'], self.index['candidate_runtime_sha256'])
+            self.assertRegex(build['binary_sha256'], r'^[0-9a-f]{64}$')
+
+    def test_full_and_identical_runtime_control(self):
+        for group in ('full', 'self'):
+            expected = self.index[f'{group}_process_median_ratios']
+            names = self.index[f'{group}_receipts']
+            self.assertEqual(len(names), 3)
+            pair_count = 0
+            for run, name in enumerate(names):
+                rows = receipt(name)
+                self.assertEqual(len(rows), 5)
+                self.assertEqual({f"prefix{x['prefix']}/outputs{x['outputs']}" for x in rows}, set(expected))
+                for row in rows:
+                    key = f"prefix{row['prefix']}/outputs{row['outputs']}"
+                    self.check_row(row['before_ns'], row['after_ns'], row['ratios'], row['median_ratio'], 64)
+                    self.assertEqual(len(expected[key]), 3)
+                    self.assertEqual(row['median_ratio'], expected[key][run])
+                    pair_count += len(row['ratios'])
+                    if group == 'full' and key == 'prefix33/outputs128':
+                        elapsed = self.index['full_128_elapsed_process_medians_ms']
+                        self.assertAlmostEqual(statistics.median(row['before_ns']) / 1e6, elapsed['before'][run])
+                        self.assertAlmostEqual(statistics.median(row['after_ns']) / 1e6, elapsed['after'][run])
+            self.assertEqual(pair_count, self.index['timed_pairs'][group])
+            if group == 'full':
+                for key, medians in expected.items():
+                    self.assertAlmostEqual(100 * (statistics.median(medians) - 1),
+                                           self.index['full_median_delta_percent'][key])
+
+    def test_stage_comparison(self):
+        names = self.index['stage_receipts']
+        self.assertEqual(len(names), 3)
+        hashes = None
+        pair_count = 0
+        expected_names = {f'fixture{fixture}/prefix{prefix}/outputs{outputs}'
+                          for fixture in (0, 1)
+                          for prefix, outputs in ((3, 1), (129, 1), (257, 1), (33, 8), (33, 128))}
+        for run, name in enumerate(names):
+            data = receipt(name)
+            self.assertEqual(data['Protocol'], 'decode-only-generation-v1')
+            self.assertEqual(data['Trials'], 24)
+            self.assertEqual(data['Procs'], 4)
+            self.assertEqual(data['Hashes']['monolith.go'], self.index['candidate_runtime_sha256'])
+            if hashes is None:
+                hashes = data['Hashes']
+            self.assertEqual(data['Hashes'], hashes)
+            self.assertEqual(len(data['Results']), 10)
+            self.assertEqual({row['Name'] for row in data['Results']}, expected_names)
+            for row in data['Results']:
+                self.check_row(row['BeforeNS'], row['AfterNS'], row['Ratios'], row['MedianRatio'], 24)
+                pair_count += len(row['Ratios'])
+                if row['Name'].endswith('/prefix33/outputs128'):
+                    label = 'byte' if row['Name'].startswith('fixture0/') else 'unchanged_merged_control'
+                    self.assertEqual(row['MedianRatio'], self.index['stage_128_process_median_ratios'][label][run])
+        self.assertEqual(pair_count, self.index['timed_pairs']['stage'])
+
+
 if __name__ == '__main__':
     unittest.main()

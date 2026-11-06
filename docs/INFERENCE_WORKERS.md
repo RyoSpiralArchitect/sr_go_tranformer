@@ -340,6 +340,18 @@ seven logical allocations and 7 KB versus the packed Decode reference, separate
 from the preceding Pieces-only reduction. Output ownership, concurrency and
 255/256/257-byte spill boundaries with sparse/invalid IDs are covered by tests.
 
+The [whole-generation qualification](../validation/performance/tokenizer-full-generation-assessment-20261107.json)
+adds three processes of 64 pairs per condition against the pre-PR runtime and
+identical-runtime controls, plus repeated stage comparisons: 2,640 timed pairs
+with matching completions. The 128-token full-runtime process medians change
+from +0.096% to -0.332%; aggregate -0.023% is not an established latency gain.
+Raw receipts and their tracked Python validation are retained for review.
+Allocation limits are compiler-sensitive upper bounds, not portable Go language
+guarantees; the integration CI checks them on Go 1.22/Linux and stable Go on
+Linux/macOS. The invalid-ID-heavy slowdown remains accepted and documented; its
+all-negative case exits after one scan, so a second scan is not its established
+cause. No additional production tuning was adopted based on these timings.
+
 ## FP32 invocation reuse (2026-11-06)
 
 The historical worker table above predates FP32 invocation reuse. A live executor

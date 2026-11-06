@@ -358,7 +358,7 @@ func TestDecodeOnlyGenerationTiming(t *testing.T) {
 			}
 			ratios := append([]float64(nil), result.Ratios...)
 			sort.Float64s(ratios)
-			result.MedianRatio = (ratios[11] + ratios[12]) / 2
+			result.MedianRatio = (ratios[(len(ratios)-1)/2] + ratios[len(ratios)/2]) / 2
 			artifact.Results = append(artifact.Results, result)
 			t.Logf("%s: median %.4f", result.Name, result.MedianRatio)
 		}
