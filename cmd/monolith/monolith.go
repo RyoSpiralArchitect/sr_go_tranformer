@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -5897,7 +5898,11 @@ func (c *KVCache) ensurePage() {
 	c.ensurePages(c.Pos + 1)
 }
 func (c *KVCache) ensurePages(end int) {
-	for len(c.Pages) < (end+pageTokens-1)/pageTokens {
+	needed := (end + pageTokens - 1) / pageTokens
+	if needed > len(c.Pages) {
+		c.Pages = slices.Grow(c.Pages, needed-len(c.Pages))
+	}
+	for len(c.Pages) < needed {
 		var p *kvPage
 		if c.pool != nil {
 			p = c.pool.acquire()
@@ -5938,11 +5943,19 @@ type decodeWorkspace struct {
 	X, N, Q, K, V, A, G, U, H, Tmp, Logits, Scores []float32
 	// Metadata has the same hard bounds as PrefillBatch. Only this workspace's
 	// owner may use it; pointer-bearing fields are cleared after kernels join.
-	rowCaches [1024]*KVCache
-	positions [1024]int
-	lastRows  [256]int
-	pools     map[*pagePool]decodePoolUse
-	seen      map[*KVCache]bool
+	rowCaches   [1024]*KVCache
+	positions   [1024]int
+	lastRows    [256]int
+	pools       map[*pagePool]decodePoolUse
+	seen        map[*KVCache]bool
+	attention   attentionKernel
+	attentionFn func(lo, hi int)
+}
+
+type attentionKernel struct {
+	w                                       *decodeWorkspace
+	dim, heads, headDim, group, layer, rows int
+	plan                                    inferenceAttentionPlan
 }
 
 func (w *decodeWorkspace) clearReferences() {
@@ -5979,23 +5992,35 @@ func planInferenceAttention(e *kernelExecutor, c Config, rows, maxPos int) infer
 }
 
 func (w *decodeWorkspace) attend(e *kernelExecutor, c Config, layer, rows int, plan inferenceAttentionPlan) {
-	d, hd, group := c.Dim, c.Dim/c.Heads, c.Heads/c.KVHeads
-	tasks := rows * c.Heads
-	e.parallel(plan.lanes, plan.work, func(lo, hi int) {
-		for lane := lo; lane < hi; lane++ {
-			scores := w.Scores[lane*plan.stride : (lane+1)*plan.stride]
-			for task := tasks * lane / plan.lanes; task < tasks*(lane+1)/plan.lanes; task++ {
-				i, h := task/c.Heads, task%c.Heads
-				cache := w.rowCaches[i]
-				kh, qi := h/group, i*d+h*hd
-				kv := func(pos int) ([]float32, []float32) {
-					k, v := cache.row(layer, pos)
-					return k[kh*hd : (kh+1)*hd], v[kh*hd : (kh+1)*hd]
-				}
-				attend(w.Q[qi:qi+hd], w.A[qi:qi+hd], scores, w.positions[i]+1, kv)
+	job := attentionKernel{w: w, dim: c.Dim, heads: c.Heads, headDim: c.Dim / c.Heads, group: c.Heads / c.KVHeads, layer: layer, rows: rows, plan: plan}
+	if plan.lanes < 2 || plan.work < 131072 || (e != nil && e.workers < 2) {
+		attentionRange(&job, 0, plan.lanes)
+		return
+	}
+	if w.attentionFn == nil {
+		w.attentionFn = func(lo, hi int) { attentionRange(&w.attention, lo, hi) }
+	}
+	w.attention = job
+	e.parallel(plan.lanes, plan.work, w.attentionFn)
+	w.attention = attentionKernel{}
+}
+
+func attentionRange(job *attentionKernel, lo, hi int) {
+	w, d, hd, group, layer, plan := job.w, job.dim, job.headDim, job.group, job.layer, job.plan
+	tasks := job.rows * job.heads
+	for lane := lo; lane < hi; lane++ {
+		scores := w.Scores[lane*plan.stride : (lane+1)*plan.stride]
+		for task := tasks * lane / plan.lanes; task < tasks*(lane+1)/plan.lanes; task++ {
+			i, h := task/job.heads, task%job.heads
+			cache := w.rowCaches[i]
+			kh, qi := h/group, i*d+h*hd
+			kv := func(pos int) ([]float32, []float32) {
+				k, v := cache.row(layer, pos)
+				return k[kh*hd : (kh+1)*hd], v[kh*hd : (kh+1)*hd]
 			}
+			attend(w.Q[qi:qi+hd], w.A[qi:qi+hd], scores, w.positions[i]+1, kv)
 		}
-	})
+	}
 }
 
 type inferenceArray struct {
@@ -6110,10 +6135,7 @@ func (m *Model) prefillSelected(ctx context.Context, caches []*KVCache, chunks [
 		return nil, err
 	}
 	defer w.clearReferences()
-	if w.pools == nil {
-		w.pools = make(map[*pagePool]decodePoolUse)
-	}
-	if w.seen == nil {
+	if sessions > 1 && w.seen == nil {
 		w.seen = make(map[*KVCache]bool, sessions)
 	}
 	pools, seen := w.pools, w.seen
@@ -6165,12 +6187,18 @@ func (m *Model) prefillSelected(ctx context.Context, caches []*KVCache, chunks [
 			if p.PageElements != pageElements || p.Limit < 1 || p.Allocated < 0 || p.Allocated > p.Limit || len(p.Free) > p.Allocated || p.Reserved > p.Limit || cache.reserved < 1 || pages > cache.reserved || len(cache.Pages) > cache.reserved {
 				return nil, errors.New("invalid KV page reservation")
 			}
+			if pools == nil {
+				pools = make(map[*pagePool]decodePoolUse)
+				w.pools = pools
+			}
 			use := pools[p]
 			use.pages += max(0, pages-len(cache.Pages))
 			use.reserved += cache.reserved
 			pools[p] = use
 		}
-		seen[cache] = true
+		if seen != nil {
+			seen[cache] = true
+		}
 		n += len(chunk)
 		maxPos = max(maxPos, end)
 	}

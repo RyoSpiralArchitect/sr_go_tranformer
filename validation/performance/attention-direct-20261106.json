@@ -1,0 +1,27 @@
+{
+  "format": "monolith-attention-direct-prototype-v1",
+  "disposition": "Draft only: do not merge attention reuse until the small Mac parallel condition is characterized under stable conditions.",
+  "baseline_commit": "2ccc47ac04d71793d4dbdfd214d66acc7a19dd7d",
+  "combined_candidate_runtime_sha256": "a71ff9dacdd4a2884dfd4155ee52719b3a385d484d31f942053a81f71bcb8a7c",
+  "attention_test_sha256": "410003c5e8a0bd44071a765f225cb69aed8e382d82396c685bfa84f5531638f2",
+  "native_kernel_binary_sha256": "a39e7aac82886a2ac6f1a6a485f6ac3b61bbcb5338549c874fe9ac993c045cc9",
+  "linux_kernel_binary_sha256": "02577489eb9d371c459403945c2e61229ec0eb4c06f1b11dd2cfedd56910e2ca",
+  "native_build": "attention-direct-build-20261106.json",
+  "linux_build": "attention-direct-linux-build-20261106.json",
+  "hosts": "Apple M4 / Darwin arm64; Intel Core Ultra 9 285K / Linux amd64. Go 1.27.3, four execution threads. Kernel binary CGO=1 on Darwin, CGO=0 on Linux; generation builds CGO=0. Linux pinned to CPUs 0-3.",
+  "kernel_protocol": "Three fresh processes per host; ten conditions; 24 alternating-order pairs each. Exact finite output float bits checked. AllocsPerRun(20) uses one execution thread and verifies warm owned execution drops from one object to zero. Kernel receipts bind the runtime and timing-test hashes, not a promise of byte-identical future test binaries after ancillary tests change.",
+  "native_kernel_receipts": ["attention-invocation-run1.json", "attention-invocation-run2.json", "attention-invocation-run3.json"],
+  "linux_kernel_receipts": ["attention-linux-invocation-run1.json", "attention-linux-invocation-run2.json", "attention-linux-invocation-run3.json"],
+  "native_generation_receipts": ["attention-direct-generation-run1.json", "attention-direct-generation-run2.json", "attention-direct-generation-run3.json"],
+  "linux_generation_receipts": ["attention-direct-linux-generation-run1.json", "attention-direct-linux-generation-run2.json", "attention-direct-linux-generation-run3.json"],
+  "generation_protocol": "Complete baseline/candidate runtimes in one process; five conditions, 24 pairs each, three fresh processes per host. Every completion JSON matches. Includes common interface boxing in timing and serialization outside timing. These prototype receipts combine attention reuse with direct bookkeeping changes; they do not isolate either component.",
+  "observations": [
+    "Linux kernel process medians range approximately 0.984 to 1.014; all ten cases reduce warm allocations from one to zero.",
+    "Mac four-worker single-row prefix128 kernel medians are 1.159, 1.090 and 0.969. The unfavorable observations are retained and are not accepted as evidence of no regression.",
+    "A diagnostic Mac steady benchmark of that shape shows the unchanged reference drifting from 1,941,359 ns/op (referenceA) to 1,045,244 ns/op (referenceB); candidate measurements also vary widely. This does not prove the cause of the paired differences.",
+    "Combined generation process medians stay approximately within -1.0% to +2.0% on Mac and -2.5% to +2.5% on Linux. This does not resolve the small Mac kernel question.",
+    "Exploratory unpaired Mac 128-token generation: before ns/op [44679883,44527100,43901733], after [49955025,49045283,48316325]; allocations before [444,445,444], after [312,314,312]. Timing is unfavorable and not used as a speedup claim."
+  ],
+  "safety": "Invocation references clear after all lanes join. A gated race test verifies the descriptor remains live while workers borrow it. No speculative KV payloads or new cross-request pool. Workspace callback storage is bounded metadata and can form a collectable self-cycle; active cache references are cleared.",
+  "next_gate": "Reproduce and bound the Mac small parallel latency difference without stopping other workloads or tuning thresholds to one fixture; only then decide whether to adopt this prototype or restrict/rework it. No RSS, GC-frequency, real-model, HTTP or uniform latency claim."
+}

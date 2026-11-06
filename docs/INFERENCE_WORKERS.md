@@ -177,6 +177,24 @@ The receipt retains all six run summaries, the complete kernel samples and raw
 artifact fingerprints, including regressions. Binaries, the checkpoint and
 individual request details remain local generated artifacts.
 
+## Attention invocation experiment (draft, 2026-11-06)
+
+This branch prototypes a workspace-owned attention callback and a cleared
+invocation descriptor. Inline attention bypasses dispatch. Warm owned calls
+allocate zero objects rather than one; scalar reduction order and lane planning
+are unchanged. Gated tests verify the descriptor is not cleared before all
+workers join. Callback storage adds bounded metadata, not a cross-request KV
+pool or speculative payload allocation.
+
+The [experiment index](../validation/performance/attention-direct-20261106.json)
+retains all kernel and full-generation paired samples on Mac and Linux. Linux
+kernel timings are near neutral, but the small Mac parallel condition includes
+unfavorable observations and large reference-control drift. Full-generation
+completion JSON matches throughout, but this does not resolve that kernel
+question. Attention reuse remains a draft pending stable Mac characterization;
+it is not a uniform latency or serving-throughput improvement claim. Direct
+validation-map and KV-directory changes are reviewed separately.
+
 ## FP32 invocation reuse (2026-11-06)
 
 The historical worker table above predates FP32 invocation reuse. A live executor
