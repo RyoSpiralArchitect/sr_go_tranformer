@@ -3677,6 +3677,14 @@ type kernelExecutor struct {
 	jobs      chan kernelJob
 	completed chan struct{}
 	lifetime  sync.WaitGroup
+	linear    fp32Kernel
+	linearFn  func(lo, hi int)
+}
+
+type fp32Kernel struct {
+	x, y []float32
+	w    *Param
+	n    int
 }
 
 type kernelJob struct {
@@ -3687,6 +3695,9 @@ type kernelJob struct {
 // Callers bound workers to 1..256. One worker runs inline on the caller.
 func newKernelExecutor(workers int) *kernelExecutor {
 	e := &kernelExecutor{workers: workers}
+	e.linearFn = func(lo, hi int) {
+		linearFP32Range(&e.linear, lo, hi)
+	}
 	if workers > 1 {
 		e.jobs = make(chan kernelJob, workers)
 		e.completed = make(chan struct{}, workers)
@@ -3720,7 +3731,7 @@ func (e *kernelExecutor) parallel(n, work int, fn func(lo, hi int)) {
 		return
 	}
 	for w := 0; w < workers; w++ {
-		e.jobs <- kernelJob{n * w / workers, n * (w + 1) / workers, fn}
+		e.jobs <- kernelJob{lo: n * w / workers, hi: n * (w + 1) / workers, fn: fn}
 	}
 	for w := 0; w < workers; w++ {
 		<-e.completed
@@ -3903,47 +3914,65 @@ func linearIntoWithExecutor(e *kernelExecutor, y, x []float32, w *Param, n int) 
 		linearQ8Into(e, y, x, w, n)
 		return
 	}
+	tasks := ((n + 3) / 4) * ((w.Rows + 31) / 32)
+	work := n * w.Cols * w.Rows
+	if e == nil {
+		parallel(tasks, work, func(lo, hi int) {
+			local := fp32Kernel{x: x, y: y, w: w, n: n}
+			linearFP32Range(&local, lo, hi)
+		})
+		return
+	}
+	job := fp32Kernel{x: x, y: y, w: w, n: n}
+	if e.workers < 2 || tasks < 2 || work < 131072 {
+		linearFP32Range(&job, 0, tasks)
+		return
+	}
+	e.linear = job
+	e.parallel(tasks, work, e.linearFn)
+	e.linear = fp32Kernel{}
+}
+
+func linearFP32Range(job *fp32Kernel, lo, hi int) {
+	y, x, w, n := job.y, job.x, job.w, job.n
 	in, out := w.Cols, w.Rows
 	// Four sequence rows share each weight load. Disjoint 4x32 output tiles can
 	// run on different goroutines, including for a single long hidden vector.
 	outTiles := (out + 31) / 32
-	tasks := ((n + 3) / 4) * outTiles
-	e.parallel(tasks, n*in*out, func(lo, hi int) {
-		for task := lo; task < hi; task++ {
-			r := (task / outTiles) * 4
-			o0 := (task % outTiles) * 32
-			o1 := min(o0+32, out)
-			if r+4 <= n {
-				x0, x1, x2, x3 := x[r*in:(r+1)*in], x[(r+1)*in:(r+2)*in], x[(r+2)*in:(r+3)*in], x[(r+3)*in:(r+4)*in]
+	for task := lo; task < hi; task++ {
+		r := (task / outTiles) * 4
+		o0 := (task % outTiles) * 32
+		o1 := min(o0+32, out)
+		if r+4 <= n {
+			x0, x1, x2, x3 := x[r*in:(r+1)*in], x[(r+1)*in:(r+2)*in], x[(r+2)*in:(r+3)*in], x[(r+3)*in:(r+4)*in]
+			for o := o0; o < o1; o++ {
+				wr := w.Data[o*in : (o+1)*in]
+				var a, b, c, d float32
+				for j, v := range wr {
+					a += x0[j] * v
+					b += x1[j] * v
+					c += x2[j] * v
+					d += x3[j] * v
+				}
+				y[r*out+o] = a
+				y[(r+1)*out+o] = b
+				y[(r+2)*out+o] = c
+				y[(r+3)*out+o] = d
+			}
+		} else {
+			for row := r; row < n; row++ {
+				xr := x[row*in : (row+1)*in]
 				for o := o0; o < o1; o++ {
 					wr := w.Data[o*in : (o+1)*in]
-					var a, b, c, d float32
-					for j, v := range wr {
-						a += x0[j] * v
-						b += x1[j] * v
-						c += x2[j] * v
-						d += x3[j] * v
+					var sum float32
+					for j, v := range xr {
+						sum += v * wr[j]
 					}
-					y[r*out+o] = a
-					y[(r+1)*out+o] = b
-					y[(r+2)*out+o] = c
-					y[(r+3)*out+o] = d
-				}
-			} else {
-				for row := r; row < n; row++ {
-					xr := x[row*in : (row+1)*in]
-					for o := o0; o < o1; o++ {
-						wr := w.Data[o*in : (o+1)*in]
-						var sum float32
-						for j, v := range xr {
-							sum += v * wr[j]
-						}
-						y[row*out+o] = sum
-					}
+					y[row*out+o] = sum
 				}
 			}
 		}
-	})
+	}
 }
 
 // Decode reads one byte per weight, with no full matrix dequantization.
