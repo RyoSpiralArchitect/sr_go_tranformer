@@ -1,0 +1,80 @@
+{
+  "format": "monolith-attention-selection-v1",
+  "decision": "Retain cached-helper as the primary integration candidate. Do not replace it with the larger captured-state loop or adopt the local-heads rewrite without convincing evidence. No production runtime edits were made in this investigation.",
+  "runtime_sha256": "a71ff9dacdd4a2884dfd4155ee52719b3a385d484d31f942053a81f71bcb8a7c",
+  "shape": "Dim4096 / Heads32 / KVHeads8 / Layers1 / Context8192 / workers4 / rows1 / prefix128",
+  "environment": "Apple M4, Darwin arm64, Go 1.27.3, CGO=0, GOMAXPROCS=4. Initial host load averages were 1.98/2.00/2.06 on ten logical CPUs, versus over 100 in the earlier failed session. Later phases became busier; per-process load snapshots are retained for callpath experiments. This is not a CPU-affinity, frequency-locked or tail-latency study.",
+  "variants": {
+    "reference": "Frozen original invocation; one newly allocated callback per call.",
+    "transient-helper": "Compact descriptor captured by value in a fresh callback; worker copies descriptor to its stack and calls the current helper. One callback allocation remains.",
+    "cached-captured": "Test-only reusable full-Config/loop state and callback with a direct loop body; state is cleared after joins. Larger descriptor than the current compact form.",
+    "cached-helper": "Current production prototype: compact workspace-owned descriptor and reusable callback, with inline dispatch bypass and state clearing after joins.",
+    "matched-helper": "Current helper with two callback-field stores per invocation, matching the experimental callback-selection wrapper; restores the original callback after each call.",
+    "matched-local-heads": "Same callback-selection wrapper and descriptor location, but a test-only helper snapshots heads before its task loop. In inline paths the production bypass remains; the snapshot helper is separately tested directly."
+  },
+  "limits": "These are diagnostic contrasts, not a perfectly isolated factorial design: descriptor layout, copying, dispatch bypass and initialization differ. No cause is inferred solely from a difference of medians. Self-controls remain variable, including approximately +5%/-6% reference medians in phase v2. Keep every process and outlier; no universal speedup, no-regression, peak-RSS, GC-frequency or real-model throughput claim.",
+  "groups": [
+    {
+      "protocol": "attention-small-controlled-v1",
+      "trials": 16,
+      "calls": 4,
+      "receipts": ["attention-control-lowload-20261106-run1.json", "attention-control-lowload-20261106-run2.json", "attention-control-lowload-20261106-run3.json"],
+      "approximate_medians": {
+        "reference/reference": [1.0245, 1.0006, 0.9881],
+        "candidate/candidate": [1.0611, 1.0051, 0.9995],
+        "reference/candidate": [1.0231, 0.9993, 1.0009]
+      }
+    },
+    {
+      "protocol": "attention-callpath-v1",
+      "trials": 32,
+      "calls": 64,
+      "receipts": ["attention-callpath-mac-20261106-run1.json", "attention-callpath-mac-20261106-run2.json", "attention-callpath-mac-20261106-run3.json"],
+      "allocations": {"reference": 1, "transient-helper": 1, "cached-captured": 0, "cached-helper": 0},
+      "approximate_medians": {
+        "reference/reference": [0.9840, 1.0055, 1.0103],
+        "cached-helper/cached-helper": [0.9844, 0.9943, 0.9973],
+        "reference/transient-helper": [0.9719, 1.0022, 1.0052],
+        "reference/cached-captured": [0.9970, 1.0044, 1.0260],
+        "reference/cached-helper": [0.9954, 0.9592, 1.0018],
+        "cached-captured/cached-helper": [1.0134, 0.9899, 1.0275]
+      }
+    },
+    {
+      "protocol": "attention-callpath-v2",
+      "trials": 32,
+      "calls": 64,
+      "receipts": ["attention-callpath-heads-mac-20261106-run1.json", "attention-callpath-heads-mac-20261106-run2.json", "attention-callpath-heads-mac-20261106-run3.json"],
+      "allocations": {"reference": 1, "transient-helper": 1, "cached-captured": 0, "cached-helper": 0, "matched-helper": 0, "matched-local-heads": 0},
+      "approximate_medians": {
+        "reference/reference": [1.0508, 1.0007, 0.9390],
+        "cached-helper/cached-helper": [1.0243, 1.0109, 1.0014],
+        "reference/transient-helper": [0.9953, 0.9523, 0.9448],
+        "reference/cached-captured": [0.9942, 1.0161, 1.0289],
+        "reference/cached-helper": [0.9914, 0.9670, 0.9753],
+        "cached-captured/cached-helper": [0.9976, 1.0267, 1.0051],
+        "cached-helper/matched-helper": [1.0101, 0.9971, 1.0246],
+        "matched-helper/matched-helper": [0.9867, 0.9515, 1.0196],
+        "matched-local-heads/matched-local-heads": [1.0031, 1.0333, 1.0159],
+        "matched-helper/matched-local-heads": [1.0059, 1.0154, 1.0240]
+      }
+    }
+  ],
+  "generation": {
+    "baseline": "9dc7d7a72876e9e34007e8b77539159c726d8a04",
+    "build_receipt": "attention-main-candidate-build-20261106.json",
+    "receipts": ["attention-main-candidate-generation-20261106-run1.json", "attention-main-candidate-generation-20261106-run2.json", "attention-main-candidate-generation-20261106-run3.json"],
+    "trials": 24,
+    "approximate_medians": {
+      "3/1": [1.008, 0.919, 0.947],
+      "129/1": [0.959, 1.017, 0.882],
+      "257/1": [1.055, 0.973, 0.947],
+      "33/8": [1.028, 0.967, 0.960],
+      "33/128": [0.990, 1.007, 1.011]
+    },
+    "interpretation": "Complete main-after-PR55 and candidate runtimes share one executable. Every timed pair's completion JSON matches outside timing. This removes the earlier combined KV/map-change attribution problem. Individual process medians include a 5.5% slower prefill case; neither a uniform improvement nor a uniform no-regression claim is justified."
+  },
+  "correctness": "Test-only variants are compared bit-exactly across MQA/GQA/MHA, page crossings, workers 1/4, rows 1/17, and both layers: 72 layer/shape combinations. Warm allocation expectations and post-join zero state are checked. Snapshot-heads arithmetic is also checked directly in inline cases.",
+  "verification": ["Complete normal Go suite passes.", "Complete race-enabled Go suite passes.", "go vet ./... passes.", "Python 40 tests pass, including frozen receipt schema, balanced trial order, allocation metadata, paired-ratio and median recomputation checks.", "Runtime source SHA-256 remains identical to the existing PR #56 prototype; only experimental tests, receipts and documentation changed in this selection study."],
+  "next": "Keep the existing compact reuse path as the main candidate for its verified allocation reduction. Priority is not merge readiness: variable controls and the slower prefill observation remain a latency gate to characterize before final adoption. Review and publish these receipts with normal CI before any merge; distinguish this choice from a latency guarantee. No merge or remote branch update is implied by this index."
+}

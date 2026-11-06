@@ -1,0 +1,1948 @@
+{
+  "Protocol": "attention-callpath-v1",
+  "StartedUTC": "2026-11-06T13:27:25.565216Z",
+  "FinishedUTC": "2026-11-06T13:27:35.042353Z",
+  "GoVersion": "go1.27.3",
+  "GOOS": "darwin",
+  "GOARCH": "arm64",
+  "LoadBefore": "22:27  up 3 days, 22 mins, 7 users, load averages: 3.49 2.69 2.34\n",
+  "LoadAfter": "22:27  up 3 days, 22 mins, 7 users, load averages: 4.10 2.84 2.40\n",
+  "CallsPerBlock": 64,
+  "TrialsPerKind": 32,
+  "Workers": 4,
+  "Procs": 4,
+  "Hashes": {
+    "attention-callpath-mac.test": "16d201d71d1e037f45a45148c2e47bd04b3dea2a32a4a46cc63ede55054e2ac4",
+    "attention_paired_test.go": "281b68d337397b7fbda417071fad5282b2da0593677efe4f293bdcbe2c8541c8",
+    "executor_experiments_test.go": "1a07b06e57f4c74cb2dd479ca4c461d3547fe483ebcde05ba13c810effeed74c",
+    "monolith.go": "a71ff9dacdd4a2884dfd4155ee52719b3a385d484d31f942053a81f71bcb8a7c"
+  },
+  "Allocations": {
+    "cached-captured": 0,
+    "cached-helper": 0,
+    "reference": 1,
+    "transient-helper": 1
+  },
+  "Samples": [
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        308151.6875,
+        302468.109375
+      ],
+      "Ratio": 0.9815559078351631
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        302359.375,
+        332944
+      ],
+      "Ratio": 1.1011532220557076
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        362195.3125,
+        361801.421875
+      ],
+      "Ratio": 0.9989124911024352
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        344953.765625,
+        368933.59375
+      ],
+      "Ratio": 1.0695160642225559
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        342405.609375,
+        343328.125
+      ],
+      "Ratio": 1.002694218785387
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        345937.5,
+        359249.34375
+      ],
+      "Ratio": 1.0384804878048781
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        357713.53125,
+        360304.6875
+      ],
+      "Ratio": 1.0072436629415316
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        337821.609375,
+        353682.296875
+      ],
+      "Ratio": 1.0469498902966679
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        382166.65625,
+        349897.125
+      ],
+      "Ratio": 0.9155616254786749
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        329138.03125,
+        336919.28125
+      ],
+      "Ratio": 1.0236412971495528
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        303634.765625,
+        301912.75
+      ],
+      "Ratio": 0.9943286612076341
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        297602.859375,
+        321636.71875
+      ],
+      "Ratio": 1.0807581601382252
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        310820.3125,
+        307891.9375
+      ],
+      "Ratio": 0.990578559758703
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        318011.71875,
+        317774.734375
+      ],
+      "Ratio": 0.9992547935782634
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        306531.90625,
+        323727.203125
+      ],
+      "Ratio": 1.0560962709734234
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        311960.9375,
+        331338.53125
+      ],
+      "Ratio": 1.0621154491497833
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        335373.046875,
+        323410.15625
+      ],
+      "Ratio": 0.9643296003168114
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        335773.4375,
+        354716.796875
+      ],
+      "Ratio": 1.056417087414784
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        403625.65625,
+        350803.375
+      ],
+      "Ratio": 0.8691305162789685
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        375300.78125,
+        412428.390625
+      ],
+      "Ratio": 1.0989276101460288
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        372977.21875,
+        344889.328125
+      ],
+      "Ratio": 0.9246927447227633
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        343472,
+        414389.96875
+      ],
+      "Ratio": 1.206473799174314
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        366365.890625,
+        361044.265625
+      ],
+      "Ratio": 0.9854745620807613
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        373406.90625,
+        397939.453125
+      ],
+      "Ratio": 1.06569923176133
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        352926.421875,
+        340179.6875
+      ],
+      "Ratio": 0.9638827427335133
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        313618.484375,
+        341171.875
+      ],
+      "Ratio": 1.0878563987703411
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        370601.5625,
+        403724.609375
+      ],
+      "Ratio": 1.0893764361152687
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        362807.296875,
+        348559.234375
+      ],
+      "Ratio": 0.9607282912369071
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        373558.59375,
+        351000.65625
+      ],
+      "Ratio": 0.9396133889638297
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        381414.0625,
+        385763.03125
+      ],
+      "Ratio": 1.0114022244525922
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        330153.65625,
+        328718.109375
+      ],
+      "Ratio": 0.9956518825467346
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        323337.890625,
+        316519.53125
+      ],
+      "Ratio": 0.9789125878138799
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        376067.71875,
+        351776.046875
+      ],
+      "Ratio": 0.9354061232489128
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        390644.53125,
+        414692.703125
+      ],
+      "Ratio": 1.0615602419879007
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        348333.984375,
+        398469.40625
+      ],
+      "Ratio": 1.143929171783097
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        370653,
+        353626.3125
+      ],
+      "Ratio": 0.9540629982760156
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        356647.796875,
+        348301.4375
+      ],
+      "Ratio": 0.9765977542883146
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        372960.28125,
+        368515.625
+      ],
+      "Ratio": 0.9880827624992574
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        368544.921875,
+        401610.671875
+      ],
+      "Ratio": 1.0897197276027453
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        405753.25,
+        408245.453125
+      ],
+      "Ratio": 1.006142164295665
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        393084.640625,
+        403791.015625
+      ],
+      "Ratio": 1.027236818469877
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        410372.40625,
+        373263.671875
+      ],
+      "Ratio": 0.9095730273043913
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        363682.9375,
+        347083.328125
+      ],
+      "Ratio": 0.954356920098843
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        354773.4375,
+        367324.859375
+      ],
+      "Ratio": 1.0353786967915264
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        367970.046875,
+        348668.609375
+      ],
+      "Ratio": 0.9475461721302638
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        399171.875,
+        360182.9375
+      ],
+      "Ratio": 0.9023254393862293
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        369747.40625,
+        405801.4375
+      ],
+      "Ratio": 1.0975098963253376
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        311039.0625,
+        336862.625
+      ],
+      "Ratio": 1.0830235350262478
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        309746.09375,
+        300764.3125
+      ],
+      "Ratio": 0.9710027618387036
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        307039.0625,
+        317166.015625
+      ],
+      "Ratio": 1.0329826213073459
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        312724.609375,
+        339085.296875
+      ],
+      "Ratio": 1.0842936139649626
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        312775.390625,
+        325322.265625
+      ],
+      "Ratio": 1.040114648965599
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        325057.296875,
+        340800.140625
+      ],
+      "Ratio": 1.0484309809419656
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        342826.828125,
+        348705.078125
+      ],
+      "Ratio": 1.0171464118842435
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        397399.734375,
+        484253.90625
+      ],
+      "Ratio": 1.2185561900578459
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        385052.734375,
+        415633.46875
+      ],
+      "Ratio": 1.079419600602596
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        350770.828125,
+        377059.90625
+      ],
+      "Ratio": 1.0749465919544248
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        391609.375,
+        363423.171875
+      ],
+      "Ratio": 0.9280246977616406
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        346699.21875,
+        401305.328125
+      ],
+      "Ratio": 1.157502833643175
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        399936.84375,
+        408251.296875
+      ],
+      "Ratio": 1.0207894152662698
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        406576.171875,
+        400707.6875
+      ],
+      "Ratio": 0.9855660887652702
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        397811.1875,
+        376976.5625
+      ],
+      "Ratio": 0.947626849986465
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        355207.03125,
+        406614.578125
+      ],
+      "Ratio": 1.1447255891700483
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        405187.5,
+        414131.515625
+      ],
+      "Ratio": 1.022073769859633
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        428289.0625,
+        382764.96875
+      ],
+      "Ratio": 0.8937070830521151
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        377751.953125,
+        425156.25
+      ],
+      "Ratio": 1.125490540771112
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        370636.0625,
+        428417.96875
+      ],
+      "Ratio": 1.1558993095821593
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        348486.984375,
+        354624.34375
+      ],
+      "Ratio": 1.0176114450472438
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        300503.25,
+        310448.5625
+      ],
+      "Ratio": 1.033095523925282
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        330227.875,
+        320816.40625
+      ],
+      "Ratio": 0.9715000777871947
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        329628.265625,
+        323791.015625
+      ],
+      "Ratio": 0.9822914154860715
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        356336.59375,
+        353790.359375
+      ],
+      "Ratio": 0.992854412317848
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        442139.984375,
+        472738.9375
+      ],
+      "Ratio": 1.0692064825764493
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        382987.640625,
+        366268.875
+      ],
+      "Ratio": 0.9563464617351188
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        373982.421875,
+        372751.3125
+      ],
+      "Ratio": 0.9967081089832306
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        365629.5625,
+        411941.40625
+      ],
+      "Ratio": 1.1266632912102124
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        415986.328125,
+        353830.71875
+      ],
+      "Ratio": 0.8505825668474306
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        347102.21875,
+        348605.46875
+      ],
+      "Ratio": 1.0043308567874143
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        332084.640625,
+        343861.96875
+      ],
+      "Ratio": 1.035464838430451
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        395223.953125,
+        357271.484375
+      ],
+      "Ratio": 0.9039722454828123
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        477472,
+        489762.375
+      ],
+      "Ratio": 1.0257405146270357
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        404078.125,
+        404593.75
+      ],
+      "Ratio": 1.0012760527435134
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        366255.859375,
+        371085.28125
+      ],
+      "Ratio": 1.0131859238600065
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        396062.5,
+        397301.4375
+      ],
+      "Ratio": 1.0031281363421176
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        395600.265625,
+        383031.90625
+      ],
+      "Ratio": 0.9682296487967632
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        370141.921875,
+        380277.34375
+      ],
+      "Ratio": 1.0273825289058256
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        396904.296875,
+        377246.09375
+      ],
+      "Ratio": 0.9504711758482396
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        343031.90625,
+        332434.25
+      ],
+      "Ratio": 0.9691059168056616
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        330373.703125,
+        403404.953125
+      ],
+      "Ratio": 1.221056486364376
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        609456.390625,
+        457310.546875
+      ],
+      "Ratio": 0.7503581124254456
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        346604.171875,
+        385716.796875
+      ],
+      "Ratio": 1.1128452228039125
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        374038.40625,
+        370966.796875
+      ],
+      "Ratio": 0.9917879840046506
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        393925.125,
+        405474.609375
+      ],
+      "Ratio": 1.0293189838424244
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        360263.015625,
+        399095.703125
+      ],
+      "Ratio": 1.1077898252548388
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        394168.609375,
+        380362.640625
+      ],
+      "Ratio": 0.9649744590978694
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        414461.59375,
+        379694.65625
+      ],
+      "Ratio": 0.9161154181128514
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        364990.890625,
+        385445.3125
+      ],
+      "Ratio": 1.056040910610055
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        410665.375,
+        400576.828125
+      ],
+      "Ratio": 0.9754336559905982
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        364382.8125,
+        422908.859375
+      ],
+      "Ratio": 1.1606169250230485
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        394704.421875,
+        388464.84375
+      ],
+      "Ratio": 0.9841917704003427
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        348999.359375,
+        374104.15625
+      ],
+      "Ratio": 1.071933647442673
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        442246.75,
+        402338.546875
+      ],
+      "Ratio": 0.9097603246943025
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        344044.921875,
+        397447.921875
+      ],
+      "Ratio": 1.1552210092477477
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        337788.40625,
+        358864.578125
+      ],
+      "Ratio": 1.062394598171618
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        408567.703125,
+        351648.4375
+      ],
+      "Ratio": 0.8606858418087302
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        456125,
+        469490.890625
+      ],
+      "Ratio": 1.029303130994793
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        376401.6875,
+        406819.671875
+      ],
+      "Ratio": 1.0808125611153112
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        395535.15625,
+        384017.578125
+      ],
+      "Ratio": 0.9708810255093475
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        410957.03125,
+        387484.375
+      ],
+      "Ratio": 0.9428829428259113
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        404852.859375,
+        405086.59375
+      ],
+      "Ratio": 1.000577331664054
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        413969.40625,
+        409156.890625
+      ],
+      "Ratio": 0.9883747070379069
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        392591.796875,
+        406634.765625
+      ],
+      "Ratio": 1.0357698985607466
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        407686.203125,
+        402713.546875
+      ],
+      "Ratio": 0.9878027359967456
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        408084.625,
+        410570.953125
+      ],
+      "Ratio": 1.006092677774861
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        364320.96875,
+        389451.828125
+      ],
+      "Ratio": 1.0689799971196414
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        409608.734375,
+        415867.1875
+      ],
+      "Ratio": 1.0152791007607527
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        362698.5625,
+        406931.640625
+      ],
+      "Ratio": 1.1219554823159796
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        378985.671875,
+        377250.65625
+      ],
+      "Ratio": 0.9954219492879081
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        356471.34375,
+        437615.890625
+      ],
+      "Ratio": 1.2276327348543006
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        353133.453125,
+        347856.125
+      ],
+      "Ratio": 0.9850557117194673
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        364941.40625,
+        426102.203125
+      ],
+      "Ratio": 1.1675907305325126
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        466761.0625,
+        423169.921875
+      ],
+      "Ratio": 0.9066093037162885
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        399726.5625,
+        426476.5625
+      ],
+      "Ratio": 1.066920746604124
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        408522.78125,
+        398364.578125
+      ],
+      "Ratio": 0.97513430439811
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        409761.71875,
+        408903.640625
+      ],
+      "Ratio": 0.9979059094938941
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        400714.1875,
+        367214.1875
+      ],
+      "Ratio": 0.9163992664971464
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        366595.703125,
+        361367.828125
+      ],
+      "Ratio": 0.9857393991379724
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        399438.8125,
+        383774.09375
+      ],
+      "Ratio": 0.9607831831564941
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        417872.40625,
+        402667.328125
+      ],
+      "Ratio": 0.9636131079784597
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        393505.859375,
+        393205.078125
+      ],
+      "Ratio": 0.9992356371758283
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        408411.46875,
+        389049.484375
+      ],
+      "Ratio": 0.9525919670320228
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        378126.953125,
+        389136.0625
+      ],
+      "Ratio": 1.0291148496133802
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        388733.0625,
+        329240.875
+      ],
+      "Ratio": 0.8469587662099104
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        374674.46875,
+        384184.90625
+      ],
+      "Ratio": 1.0253832014007493
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        346324.875,
+        388864.578125
+      ],
+      "Ratio": 1.1228317865559037
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        342006.515625,
+        354867.84375
+      ],
+      "Ratio": 1.0376055061450995
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        338693.359375,
+        338967.4375
+      ],
+      "Ratio": 1.000809222021671
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        392417.96875,
+        450503.265625
+      ],
+      "Ratio": 1.148018953005704
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        406245.453125,
+        462412.765625
+      ],
+      "Ratio": 1.1382595474433963
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        399059.890625,
+        393832.671875
+      ],
+      "Ratio": 0.986901167286411
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        396813.796875,
+        413837.890625
+      ],
+      "Ratio": 1.0429019703550346
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        400216.15625,
+        409113.28125
+      ],
+      "Ratio": 1.0222307991845345
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        404143.875,
+        408002.609375
+      ],
+      "Ratio": 1.0095479224446986
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        394665.359375,
+        410771.484375
+      ],
+      "Ratio": 1.0408095735219984
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        395393.21875,
+        407285.8125
+      ],
+      "Ratio": 1.0300778900245111
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        412990.875,
+        390134.109375
+      ],
+      "Ratio": 0.9446555190232714
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        407735.015625,
+        424639.3125
+      ],
+      "Ratio": 1.041459026640349
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        401466.796875,
+        367417.3125
+      ],
+      "Ratio": 0.9151872965833296
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        360270.1875,
+        367691.40625
+      ],
+      "Ratio": 1.0205990365217217
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        411475.90625,
+        398671.21875
+      ],
+      "Ratio": 0.9688810758892399
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        371344.40625,
+        400703.125
+      ],
+      "Ratio": 1.0790606193492378
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        326450.515625,
+        350156.25
+      ],
+      "Ratio": 1.0726166240834836
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        366621.75,
+        357324.859375
+      ],
+      "Ratio": 0.974641737362827
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        475619.140625,
+        373951.828125
+      ],
+      "Ratio": 0.7862421761109081
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        417215.5,
+        453942.703125
+      ],
+      "Ratio": 1.088029335259596
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        394828.125,
+        408331.375
+      ],
+      "Ratio": 1.0342003245082907
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        394617.84375,
+        399156.90625
+      ],
+      "Ratio": 1.0115024258833962
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        404063.8125,
+        389714.84375
+      ],
+      "Ratio": 0.9644883597439204
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        401337.890625,
+        390914.0625
+      ],
+      "Ratio": 0.9740273012628659
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        405206.375,
+        410632.15625
+      ],
+      "Ratio": 1.0133901675411696
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        396663.40625,
+        406462.890625
+      ],
+      "Ratio": 1.024704785519902
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        393083.34375,
+        405548.828125
+      ],
+      "Ratio": 1.031712064561372
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        403248.046875,
+        403331.375
+      ],
+      "Ratio": 1.0002066423523828
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        645578.125,
+        451861.328125
+      ],
+      "Ratio": 0.6999328363627563
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        478848.953125,
+        573425.125
+      ],
+      "Ratio": 1.197507316780771
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        490251.3125,
+        460122.390625
+      ],
+      "Ratio": 0.9385439240919932
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        479427.734375,
+        630597
+      ],
+      "Ratio": 1.3153118912114459
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        323026.046875,
+        405955.078125
+      ],
+      "Ratio": 1.256725524310709
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        327333.328125,
+        318986.328125
+      ],
+      "Ratio": 0.9744999995942591
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        378997.390625,
+        328561.859375
+      ],
+      "Ratio": 0.8669238034414237
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        299551.4375,
+        308286.46875
+      ],
+      "Ratio": 1.0291603716640485
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        330073.578125,
+        400438.15625
+      ],
+      "Ratio": 1.2131784631920848
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        411250.640625,
+        362349.609375
+      ],
+      "Ratio": 0.8810919025544072
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        370421.875,
+        356125.65625
+      ],
+      "Ratio": 0.9614055764120302
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        244604.171875,
+        282666.65625
+      ],
+      "Ratio": 1.1556084840386576
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        436697.921875,
+        1924940.765625
+      ],
+      "Ratio": 4.407945788613103
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        433845.703125,
+        345692.71875
+      ],
+      "Ratio": 0.7968102859149413
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        248846.359375,
+        427840.484375
+      ],
+      "Ratio": 1.719295735125721
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        245718.75,
+        269579.421875
+      ],
+      "Ratio": 1.0971056212641486
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        384940.75,
+        474464.203125
+      ],
+      "Ratio": 1.2325642404058288
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        353532.546875,
+        350500.65625
+      ],
+      "Ratio": 0.9914240127201867
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        339610.03125,
+        337817.0625
+      ],
+      "Ratio": 0.9947205070963286
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        311611.328125,
+        329916.65625
+      ],
+      "Ratio": 1.0587441035444545
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        334669.265625,
+        370460.9375
+      ],
+      "Ratio": 1.106946396192547
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        361084.640625,
+        352496.09375
+      ],
+      "Ratio": 0.9762145881914719
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        344380.203125,
+        360360.03125
+      ],
+      "Ratio": 1.0464017036403215
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        481033.203125,
+        578218.75
+      ],
+      "Ratio": 1.2020350076536102
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        394870.4375,
+        354179.03125
+      ],
+      "Ratio": 0.8969499805869868
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        381919.921875,
+        350124.359375
+      ],
+      "Ratio": 0.9167480912126744
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        419354.15625,
+        403009.109375
+      ],
+      "Ratio": 0.9610232863287617
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        396983.078125,
+        465481.125
+      ],
+      "Ratio": 1.1725465155807766
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        431427.734375,
+        390744.140625
+      ],
+      "Ratio": 0.9057000964276498
+    }
+  ]
+}

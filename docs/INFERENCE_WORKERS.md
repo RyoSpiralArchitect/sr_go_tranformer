@@ -177,7 +177,7 @@ The receipt retains all six run summaries, the complete kernel samples and raw
 artifact fingerprints, including regressions. Binaries, the checkpoint and
 individual request details remain local generated artifacts.
 
-## Attention invocation experiment (draft, 2026-11-06)
+## Attention invocation reuse (2026-11-06)
 
 This branch prototypes a workspace-owned attention callback and a cleared
 invocation descriptor. Inline attention bypasses dispatch. Warm owned calls
@@ -191,9 +191,80 @@ retains all kernel and full-generation paired samples on Mac and Linux. Linux
 kernel timings are near neutral, but the small Mac parallel condition includes
 unfavorable observations and large reference-control drift. Full-generation
 completion JSON matches throughout, but this does not resolve that kernel
-question. Attention reuse remains a draft pending stable Mac characterization;
+question. The initial prototype remained a draft pending stable Mac characterization;
 it is not a uniform latency or serving-throughput improvement claim. Direct
 validation-map and KV-directory changes are reviewed separately.
+
+A [controlled Mac remeasurement](../validation/performance/attention-control-mac-20261106.json)
+adds reference/reference and candidate/candidate pairs for the four-worker,
+single-row, 128-prefix condition. Each fresh process interleaves 16 trials of
+all three comparisons, with four calls per block and balanced label order.
+Exact finite output bits are checked outside timing after every block. The
+runtime is unchanged; source and executable hashes are recorded in each receipt.
+
+This session was heavily loaded (1-minute load approximately 101-108 on ten
+logical CPUs). Same-reference medians were 1.320-1.341, while candidate/reference
+medians changed direction across processes. These controls invalidate a latency
+judgment for this session; they do not prove the cause of the earlier differences.
+Keep the draft pending repeated low-load sessions. A successful timing test
+means numerical checks passed, not that a performance gate passed.
+
+```sh
+CGO_ENABLED=0 ./scripts/go.sh test -c -trimpath \
+  -o runs/attention-controlled-mac.test ./cmd/monolith
+MONOLITH_ATTENTION_CONTROL_OUTPUT=runs/attention-control-fresh-run.json \
+  runs/attention-controlled-mac.test \
+  -test.run '^TestAttentionInvocationControlledTiming$' -test.v -test.timeout=2m
+```
+
+Use a new output name for each process; existing receipts are never overwritten.
+Do not stop unrelated workloads merely to obtain favorable measurements.
+
+### Primary-candidate selection and callpath contrasts
+
+The [selection receipt](../validation/performance/attention-candidate-selection-20261106.json)
+keeps compact descriptor/callback reuse (`cached-helper`) as the primary candidate.
+A fresh compact callback (`transient-helper`) still allocates one object per call.
+A cached direct-loop variant (`cached-captured`) also reaches zero warm allocations,
+but needs larger state without demonstrating a supported latency advantage.
+A matched-callback experiment snapshots `heads` before the task loop; it does not
+demonstrate a benefit either, so no production rewrite was made for either option.
+These contrasts also differ in copying, initialization and dispatch details;
+they are not a perfectly isolated factorial experiment.
+
+The new 64-call blocks interleave 32 trials per comparison with balanced order.
+Self-control medians still reach approximately +5%/-6% in the second phase, and
+outliers remain. Initial low-load calibration no longer reproduced the earlier
+33% same-reference bias, but lower host load alone is not a latency guarantee.
+All timings, including unfavorable observations, remain in the receipts.
+
+Full-generation comparisons now use main after PR #55 (`9dc7d7a`) rather than the
+pre-bookkeeping baseline. Three processes, five conditions and 24 alternating
+pairs per condition compare every completion JSON outside timing. A process
+median includes 5.5% slower prefill; do not claim a universal improvement or no
+regression. The current choice is justified as verified invocation-allocation
+reduction, not by selecting favorable timing samples. Test-only variants cover
+72 layer/shape combinations with exact finite bits, warm allocations and
+post-join zero-state checks. The runtime source remains unchanged in this study.
+
+```sh
+CGO_ENABLED=0 ./scripts/go.sh test -c -trimpath \
+  -o runs/attention-callpaths.test ./cmd/monolith
+MONOLITH_ATTENTION_CALLPATH_OUTPUT=runs/attention-callpaths-fresh.json \
+  runs/attention-callpaths.test \
+  -test.run '^TestAttentionCallpathTiming$' -test.v -test.timeout=2m
+python3 -S -m unittest discover -s scripts -p 'attention_selection_receipts_test.py'
+```
+
+### Integration decision
+
+After reviewing the allocation, numerical and lifecycle evidence, the user
+requested integration of the compact reuse candidate. Adoption is explicitly
+allocation-focused and conditional on the updated CI matrix. Variable Mac
+controls and the slower prefill observation remain recorded risks, not resolved
+latency gates or evidence of a uniform speedup. Historical draft/readiness notes
+above describe their measurement checkpoints, not a claim that those risks
+vanished. No worker-count, threshold or arithmetic-order tuning was adopted.
 
 ## FP32 invocation reuse (2026-11-06)
 

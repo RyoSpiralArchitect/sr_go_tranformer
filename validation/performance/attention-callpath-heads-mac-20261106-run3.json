@@ -1,0 +1,3230 @@
+{
+  "Protocol": "attention-callpath-v2",
+  "StartedUTC": "2026-11-06T13:33:02.541609Z",
+  "FinishedUTC": "2026-11-06T13:33:31.89332Z",
+  "GoVersion": "go1.27.3",
+  "GOOS": "darwin",
+  "GOARCH": "arm64",
+  "LoadBefore": "22:33  up 3 days, 28 mins, 7 users, load averages: 6.67 4.57 3.31\n",
+  "LoadAfter": "22:33  up 3 days, 28 mins, 7 users, load averages: 7.38 4.96 3.49\n",
+  "CallsPerBlock": 64,
+  "TrialsPerKind": 32,
+  "Workers": 4,
+  "Procs": 4,
+  "Hashes": {
+    "attention-callpath-heads-mac.test": "414a8f3573da0df9a31cf558aceb62648b62114a35e58c3985d9a1a570f0668e",
+    "attention_paired_test.go": "281b68d337397b7fbda417071fad5282b2da0593677efe4f293bdcbe2c8541c8",
+    "executor_experiments_test.go": "e4d1b4b226053c5bce96f2d7c4b87cb02ae8e42c440e8fbef4596c713ed78767",
+    "monolith.go": "a71ff9dacdd4a2884dfd4155ee52719b3a385d484d31f942053a81f71bcb8a7c"
+  },
+  "Allocations": {
+    "cached-captured": 0,
+    "cached-helper": 0,
+    "matched-helper": 0,
+    "matched-local-heads": 0,
+    "reference": 1,
+    "transient-helper": 1
+  },
+  "Samples": [
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        649650.390625,
+        490856.109375
+      ],
+      "Ratio": 0.7555696363128005
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        583329.4375,
+        500942.046875
+      ],
+      "Ratio": 0.8587635299564322
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        499225.90625,
+        501987.625
+      ],
+      "Ratio": 1.0055320020764646
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        576113.9375,
+        671753.25
+      ],
+      "Ratio": 1.1660076354254145
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        654458.984375,
+        830192.71875
+      ],
+      "Ratio": 1.2685175672892985
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1299535.8125,
+        1609055.34375
+      ],
+      "Ratio": 1.2381769923327912
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1336653.640625,
+        2048307.953125
+      ],
+      "Ratio": 1.532414898572558
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        978972.65625,
+        707730.46875
+      ],
+      "Ratio": 0.7229318043069703
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        848343.75,
+        721240.234375
+      ],
+      "Ratio": 0.8501745128375143
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        653242.1875,
+        685929.6875
+      ],
+      "Ratio": 1.0500388686240507
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        615647.796875,
+        660299.46875
+      ],
+      "Ratio": 1.0725279487746888
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        610417.96875,
+        534111.984375
+      ],
+      "Ratio": 0.8749938758663057
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1081429.03125,
+        1027636.71875
+      ],
+      "Ratio": 0.9502581205557034
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        862766.9375,
+        889210.9375
+      ],
+      "Ratio": 1.0306502241226647
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        619619.140625,
+        746024.75
+      ],
+      "Ratio": 1.2040053334173904
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        795428.390625,
+        718473.953125
+      ],
+      "Ratio": 0.9032540975316034
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1258915.359375,
+        901945.3125
+      ],
+      "Ratio": 0.7164463486630102
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1290487.640625,
+        2143450.53125
+      ],
+      "Ratio": 1.6609616890339987
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        832708.984375,
+        939785.15625
+      ],
+      "Ratio": 1.1285877466007737
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        807783.859375,
+        792575.515625
+      ],
+      "Ratio": 0.9811727560863038
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        952430.984375,
+        720896.484375
+      ],
+      "Ratio": 0.7569015458354323
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        781301.421875,
+        1337791.671875
+      ],
+      "Ratio": 1.7122606390047408
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        680152.984375,
+        532463.546875
+      ],
+      "Ratio": 0.7828585025827485
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1615631.515625,
+        998330.078125
+      ],
+      "Ratio": 0.6179194132263509
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        708619.78125,
+        1655666.015625
+      ],
+      "Ratio": 2.336465985615611
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1838196.609375,
+        939385.421875
+      ],
+      "Ratio": 0.511036424006025
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        898631.515625,
+        902529.9375
+      ],
+      "Ratio": 1.0043381762237535
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1073219.40625,
+        958624.34375
+      ],
+      "Ratio": 0.8932230801710775
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1043741.546875,
+        998038.40625
+      ],
+      "Ratio": 0.9562122052515425
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1005065.109375,
+        935365.234375
+      ],
+      "Ratio": 0.9306513833284463
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1554810.546875,
+        1111193.359375
+      ],
+      "Ratio": 0.7146808732474691
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1720979.828125,
+        1355201.171875
+      ],
+      "Ratio": 0.7874590682166716
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1648532.546875,
+        1422626.296875
+      ],
+      "Ratio": 0.8629652472265509
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1178997.390625,
+        1110698.5625
+      ],
+      "Ratio": 0.9420704162128858
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1057863.28125,
+        1017373.703125
+      ],
+      "Ratio": 0.9617251313637085
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        778309.234375,
+        821345.0625
+      ],
+      "Ratio": 1.055293996555956
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        727960.296875,
+        894888.015625
+      ],
+      "Ratio": 1.229308822839089
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        486695.3125,
+        537413.40625
+      ],
+      "Ratio": 1.1042091272452927
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        503601.5625,
+        612513.015625
+      ],
+      "Ratio": 1.2162651215463613
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        577223.96875,
+        758326.171875
+      ],
+      "Ratio": 1.313746852053257
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        620397.796875,
+        982183.59375
+      ],
+      "Ratio": 1.583151324355676
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        950813.15625,
+        693020.828125
+      ],
+      "Ratio": 0.7288717279199932
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        767528,
+        666395.84375
+      ],
+      "Ratio": 0.8682365252472874
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        493526.6875,
+        761660.15625
+      ],
+      "Ratio": 1.5433008498653884
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        563805.984375,
+        1098753.90625
+      ],
+      "Ratio": 1.948815615123365
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        912567.046875,
+        927580.71875
+      ],
+      "Ratio": 1.0164521302039262
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        600760.421875,
+        704663.40625
+      ],
+      "Ratio": 1.1729524459196465
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        658653,
+        735708.984375
+      ],
+      "Ratio": 1.1169902579582875
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        657531.890625,
+        559263.671875
+      ],
+      "Ratio": 0.8505498818367674
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        552048.828125,
+        652337.234375
+      ],
+      "Ratio": 1.1816658258122266
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        645091.796875,
+        707203.125
+      ],
+      "Ratio": 1.0962829296944778
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        586671.875,
+        539421.21875
+      ],
+      "Ratio": 0.9194598236876448
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        529879.5625,
+        810029.953125
+      ],
+      "Ratio": 1.528705786090778
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        526218.09375,
+        699826.171875
+      ],
+      "Ratio": 1.3299165881731903
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        528134.109375,
+        567720.703125
+      ],
+      "Ratio": 1.0749555710326062
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        829843.75,
+        847904.953125
+      ],
+      "Ratio": 1.0217645829410658
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1076447.265625,
+        939091.796875
+      ],
+      "Ratio": 0.8723992589918006
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1138200.515625,
+        1412500
+      ],
+      "Ratio": 1.2409939906101508
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        860213.546875,
+        1107525.390625
+      ],
+      "Ratio": 1.2875005219906606
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        710296.21875,
+        723640.625
+      ],
+      "Ratio": 1.0187871002234588
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        845551.421875,
+        718995.4375
+      ],
+      "Ratio": 0.8503272762591261
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        816950.53125,
+        724591.140625
+      ],
+      "Ratio": 0.8869461649242302
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        815837.890625,
+        602623.703125
+      ],
+      "Ratio": 0.7386561840898808
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        708168.625,
+        677906.90625
+      ],
+      "Ratio": 0.9572676369981796
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        585694.015625,
+        645675.125
+      ],
+      "Ratio": 1.1024103162655565
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        549860.03125,
+        511733.734375
+      ],
+      "Ratio": 0.9306618144469834
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        729130.203125,
+        711921.875
+      ],
+      "Ratio": 0.9763988269156231
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        792130.203125,
+        948208.34375
+      ],
+      "Ratio": 1.1970359670787234
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1156715.5,
+        1204496.734375
+      ],
+      "Ratio": 1.0413076805619013
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1030977.21875,
+        1066160.15625
+      ],
+      "Ratio": 1.0341258146738268
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        707614.578125,
+        1002109.375
+      ],
+      "Ratio": 1.4161796633067352
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        561481.78125,
+        790778.640625
+      ],
+      "Ratio": 1.408378093523404
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        572374.34375,
+        564465.484375
+      ],
+      "Ratio": 0.9861823656819
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        542192.71875,
+        590823.5625
+      ],
+      "Ratio": 1.0896929118895513
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        563983.078125,
+        559725.265625
+      ],
+      "Ratio": 0.9924504605454557
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        624750,
+        513919.921875
+      ],
+      "Ratio": 0.8226009153661464
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        688926.421875,
+        613720.703125
+      ],
+      "Ratio": 0.8908363558690082
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        657117.1875,
+        555820.3125
+      ],
+      "Ratio": 0.8458465599029853
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        562233.71875,
+        772110.03125
+      ],
+      "Ratio": 1.3732901558565584
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        846665.359375,
+        654423.171875
+      ],
+      "Ratio": 0.7729419476404334
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        664289.71875,
+        609170.578125
+      ],
+      "Ratio": 0.9170254497860991
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1003291.015625,
+        989940.09375
+      ],
+      "Ratio": 0.9866928720908729
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        701714.1875,
+        804840.5
+      ],
+      "Ratio": 1.1469634137901765
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1056181.640625,
+        743945.3125
+      ],
+      "Ratio": 0.7043725093155068
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        811553.390625,
+        522725.265625
+      ],
+      "Ratio": 0.6441045920865842
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        568164.71875,
+        520927.09375
+      ],
+      "Ratio": 0.9168592778799678
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        567333.328125,
+        564878.25
+      ],
+      "Ratio": 0.995672600209979
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        607945.3125,
+        554015.625
+      ],
+      "Ratio": 0.9112918770962644
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        733242.84375,
+        839448.5625
+      ],
+      "Ratio": 1.1448438531044307
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        844123.046875,
+        707054.6875
+      ],
+      "Ratio": 0.8376204039417757
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        583558.59375,
+        533717.453125
+      ],
+      "Ratio": 0.9145910262331733
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        556084.625,
+        591376.953125
+      ],
+      "Ratio": 1.063465750604056
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        581733.0625,
+        530125
+      ],
+      "Ratio": 0.9112856637746973
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        793649.75,
+        695439.453125
+      ],
+      "Ratio": 0.8762548632126451
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1140297.515625,
+        887409.5
+      ],
+      "Ratio": 0.778226285544092
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1172337.890625,
+        1041078.125
+      ],
+      "Ratio": 0.8880358924891335
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        712091.796875,
+        800509.765625
+      ],
+      "Ratio": 1.1241665318123597
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        614089.84375,
+        617600.25
+      ],
+      "Ratio": 1.0057164375632128
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        559542.3125,
+        789276.046875
+      ],
+      "Ratio": 1.4105743734527671
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        530607.421875,
+        670508.46875
+      ],
+      "Ratio": 1.2636620618321426
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        554254.546875,
+        636466.796875
+      ],
+      "Ratio": 1.14832941013029
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        698837.890625,
+        735614.578125
+      ],
+      "Ratio": 1.0526254915386872
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        737423.171875,
+        556379.5625
+      ],
+      "Ratio": 0.7544915643013066
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        619749.34375,
+        539583.328125
+      ],
+      "Ratio": 0.8706476796894551
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        584442.703125,
+        449633.46875
+      ],
+      "Ratio": 0.7693371246587929
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        482874.34375,
+        588144.53125
+      ],
+      "Ratio": 1.2180074151019749
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        515649.734375,
+        953132.8125
+      ],
+      "Ratio": 1.8484113322685156
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        446850.265625,
+        1212634.125
+      ],
+      "Ratio": 2.713737057544129
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        918348.3125,
+        998432.953125
+      ],
+      "Ratio": 1.0872050827936812
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        989612.625,
+        1650843.75
+      ],
+      "Ratio": 1.6681716747500064
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1151319.65625,
+        1277070.96875
+      ],
+      "Ratio": 1.1092236303074932
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        698715.484375,
+        939218.75
+      ],
+      "Ratio": 1.3442077226041869
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1064457.03125,
+        834162.765625
+      ],
+      "Ratio": 0.7836509517396266
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        787895.1875,
+        640334.640625
+      ],
+      "Ratio": 0.8127155118903426
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        901373.046875,
+        699341.140625
+      ],
+      "Ratio": 0.7758620507342314
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        463362.625,
+        451586.578125
+      ],
+      "Ratio": 0.9745856781716048
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        470723.296875,
+        693440.765625
+      ],
+      "Ratio": 1.473138827477966
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        796121.75,
+        870570.96875
+      ],
+      "Ratio": 1.093514865973703
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        770554.6875,
+        700388.671875
+      ],
+      "Ratio": 0.9089409009337835
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        800210.296875,
+        757456.375
+      ],
+      "Ratio": 0.9465716424270425
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1039347.65625,
+        1145194.65625
+      ],
+      "Ratio": 1.1018398409459058
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        754724.609375,
+        882890.625
+      ],
+      "Ratio": 1.169818254278387
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        805509.765625,
+        695314.453125
+      ],
+      "Ratio": 0.8631980427766772
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        677820.96875,
+        508315.109375
+      ],
+      "Ratio": 0.7499253236623923
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        717594.40625,
+        636981.78125
+      ],
+      "Ratio": 0.8876626903751035
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        639218.75,
+        663124.34375
+      ],
+      "Ratio": 1.0373981422635052
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        710632.15625,
+        616271.484375
+      ],
+      "Ratio": 0.8672158710450981
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        627018.234375,
+        742087.890625
+      ],
+      "Ratio": 1.183518835564167
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        744280.59375,
+        669032.5625
+      ],
+      "Ratio": 0.8988983027612361
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        478738.28125,
+        449697.265625
+      ],
+      "Ratio": 0.9393384302814201
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        831365.890625,
+        761033.203125
+      ],
+      "Ratio": 0.915401042677941
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1075116.546875,
+        767500.640625
+      ],
+      "Ratio": 0.713876688863049
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1120802.734375,
+        996694.015625
+      ],
+      "Ratio": 0.8892680085945655
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        747553.375,
+        843287.765625
+      ],
+      "Ratio": 1.1280636190358984
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        757413.40625,
+        1002233.71875
+      ],
+      "Ratio": 1.3232320823473673
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        722634.765625,
+        887942.0625
+      ],
+      "Ratio": 1.2287563576214429
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        598563.796875,
+        584938.15625
+      ],
+      "Ratio": 0.9772361096742951
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        720584.640625,
+        586996.09375
+      ],
+      "Ratio": 0.8146108876826298
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        742014.984375,
+        720547.53125
+      ],
+      "Ratio": 0.9710687067282313
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1839036.453125,
+        1022643.234375
+      ],
+      "Ratio": 0.5560755648085517
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1559445.953125,
+        2591192.0625
+      ],
+      "Ratio": 1.6616106876339425
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1194431.640625,
+        861926.4375
+      ],
+      "Ratio": 0.7216205667902327
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        538859.375,
+        533494.140625
+      ],
+      "Ratio": 0.9900433496679908
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        433382.8125,
+        743934.90625
+      ],
+      "Ratio": 1.7165768572098137
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        749189.453125,
+        686167.3125
+      ],
+      "Ratio": 0.9158795677620345
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        471494.796875,
+        411443.359375
+      ],
+      "Ratio": 0.8726360547390717
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1613057.9375,
+        861954.4375
+      ],
+      "Ratio": 0.5343604947233955
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        3287170.578125,
+        397631.5
+      ],
+      "Ratio": 0.12096466871725554
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        293528.640625,
+        287718.109375
+      ],
+      "Ratio": 0.9802045509507085
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        546801.421875,
+        709940.109375
+      ],
+      "Ratio": 1.2983508838374855
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        599156.25,
+        617694.671875
+      ],
+      "Ratio": 1.0309408804047357
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        589166.015625,
+        646772.140625
+      ],
+      "Ratio": 1.0977757091757747
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        332742.1875,
+        320780.59375
+      ],
+      "Ratio": 0.9640514662722172
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        420524.734375,
+        2021812.5
+      ],
+      "Ratio": 4.807832535712543
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        328449.875,
+        354024.75
+      ],
+      "Ratio": 1.0778653820464994
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        364667.3125,
+        398712.234375
+      ],
+      "Ratio": 1.0933588525980102
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        282707.03125,
+        288264.96875
+      ],
+      "Ratio": 1.0196597073494258
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1836654.953125,
+        288160.796875
+      ],
+      "Ratio": 0.1568943564411514
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        439900.390625,
+        618685.546875
+      ],
+      "Ratio": 1.4064219083688156
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        348936.859375,
+        323218.09375
+      ],
+      "Ratio": 0.9262939270128518
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        341719.40625,
+        319766.9375
+      ],
+      "Ratio": 0.9357587882090029
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        324881.515625,
+        308954.4375
+      ],
+      "Ratio": 0.9509757331242443
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        318745.4375,
+        310454.421875
+      ],
+      "Ratio": 0.9739885982681713
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        326094.40625,
+        297539.0625
+      ],
+      "Ratio": 0.9124322797242095
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        310840.5,
+        290838.546875
+      ],
+      "Ratio": 0.935652036575028
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        315836.59375,
+        323470.703125
+      ],
+      "Ratio": 1.0241710730360865
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        306197.921875,
+        314960.9375
+      ],
+      "Ratio": 1.0286187952267598
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        282244.140625,
+        287158.859375
+      ],
+      "Ratio": 1.0174130054183477
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        313860.03125,
+        330239.578125
+      ],
+      "Ratio": 1.052187425107191
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 16,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        336754.5625,
+        334570.96875
+      ],
+      "Ratio": 0.993515770851657
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        328100.25,
+        329300.125
+      ],
+      "Ratio": 1.003657037749895
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        327654.296875,
+        333722.65625
+      ],
+      "Ratio": 1.0185206158834996
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        330927.734375,
+        328498.046875
+      ],
+      "Ratio": 0.9926579514268008
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        291593.75,
+        333573.5625
+      ],
+      "Ratio": 1.143966777408638
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        307777.984375,
+        307444.015625
+      ],
+      "Ratio": 0.9989149037067151
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        303224.609375,
+        312630.859375
+      ],
+      "Ratio": 1.0310207341659634
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        320496.75,
+        328538.40625
+      ],
+      "Ratio": 1.0250912255740503
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        326298.828125,
+        327921.875
+      ],
+      "Ratio": 1.0049741118726245
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        324581.375,
+        323127.59375
+      ],
+      "Ratio": 0.9955210577008616
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 17,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        297701.8125,
+        324843.109375
+      ],
+      "Ratio": 1.0911694042003859
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        305608.0625,
+        301255.203125
+      ],
+      "Ratio": 0.9857567259862459
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        304845.046875,
+        315344.390625
+      ],
+      "Ratio": 1.0344415756714105
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        314175.125,
+        297992.1875
+      ],
+      "Ratio": 0.9484907103959933
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        296432.28125,
+        307583.984375
+      ],
+      "Ratio": 1.0376197325000345
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        322225.25,
+        329854.8125
+      ],
+      "Ratio": 1.0236777300971913
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        332963.546875,
+        336111.328125
+      ],
+      "Ratio": 1.0094538314465449
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        327000.640625,
+        353451.171875
+      ],
+      "Ratio": 1.080888316302515
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        344127.609375,
+        326784.5
+      ],
+      "Ratio": 0.9496026796382355
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        319936.84375,
+        333123.046875
+      ],
+      "Ratio": 1.0412150190970308
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 18,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        324794.921875,
+        326764.328125
+      ],
+      "Ratio": 1.0060635376890465
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        326157.546875,
+        322812.5
+      ],
+      "Ratio": 0.989744076422423
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        327457.03125,
+        332169.265625
+      ],
+      "Ratio": 1.014390389960515
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        347376.296875,
+        345527.34375
+      ],
+      "Ratio": 0.9946773768341904
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        356787.109375,
+        349102.21875
+      ],
+      "Ratio": 0.9784608512385384
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        299898.4375,
+        313009.765625
+      ],
+      "Ratio": 1.0437192278635996
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        315809.25,
+        311932.28125
+      ],
+      "Ratio": 0.9877237010948856
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        322630.859375,
+        327871.75
+      ],
+      "Ratio": 1.0162442322943088
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        314097,
+        315511.71875
+      ],
+      "Ratio": 1.004504082337622
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        327190.75,
+        314700.515625
+      ],
+      "Ratio": 0.9618258328666076
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 19,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        355220.703125,
+        349191.40625
+      ],
+      "Ratio": 0.9830266174748313
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        406188.8125,
+        378598.96875
+      ],
+      "Ratio": 0.9320763081085597
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        339314.453125,
+        338359.375
+      ],
+      "Ratio": 0.9971852713133673
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        342705.734375,
+        340865.234375
+      ],
+      "Ratio": 0.9946295033453217
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        336874.34375,
+        353365.234375
+      ],
+      "Ratio": 1.0489526463827064
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        378696.609375,
+        372216.796875
+      ],
+      "Ratio": 0.9828891721246349
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        410735.6875,
+        354811.84375
+      ],
+      "Ratio": 0.8638446927015564
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        342401.046875,
+        338866.546875
+      ],
+      "Ratio": 0.9896773095986171
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        283722.015625,
+        346967.453125
+      ],
+      "Ratio": 1.2229133941568797
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        384984.375,
+        394705.078125
+      ],
+      "Ratio": 1.0252496042858883
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 20,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        382619.78125,
+        385714.203125
+      ],
+      "Ratio": 1.0080874592131401
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        381234.375,
+        408639.96875
+      ],
+      "Ratio": 1.0718864707569982
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        414171.234375,
+        381775.390625
+      ],
+      "Ratio": 0.9217815215996674
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        467194.015625,
+        485790.359375
+      ],
+      "Ratio": 1.039804327812552
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        415391.28125,
+        474833.328125
+      ],
+      "Ratio": 1.143098927584918
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        451464.1875,
+        370835.28125
+      ],
+      "Ratio": 0.8214057538063304
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        764206.375,
+        426754.5625
+      ],
+      "Ratio": 0.5584284251750713
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        602615.875,
+        752042.3125
+      ],
+      "Ratio": 1.2479629954985836
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        445331.375,
+        513937.5
+      ],
+      "Ratio": 1.1540563473660486
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        426302.734375,
+        479561.1875
+      ],
+      "Ratio": 1.1249310614980734
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 21,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        535169.921875,
+        465735.6875
+      ],
+      "Ratio": 0.8702575919593295
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        493253.90625,
+        805280.59375
+      ],
+      "Ratio": 1.6325883759790296
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        901560.546875,
+        1056258.46875
+      ],
+      "Ratio": 1.171589054569009
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        646601.5625,
+        568390.625
+      ],
+      "Ratio": 0.8790430737630641
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        532308.59375,
+        538687.5
+      ],
+      "Ratio": 1.0119834741067433
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        412800.140625,
+        788570.3125
+      ],
+      "Ratio": 1.9102956488969824
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        573839.84375,
+        775141.28125
+      ],
+      "Ratio": 1.350797247163094
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        643251.3125,
+        805225.921875
+      ],
+      "Ratio": 1.2518061078577278
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        976745.4375,
+        856400.390625
+      ],
+      "Ratio": 0.8767897527292008
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        819331.375,
+        738768.875
+      ],
+      "Ratio": 0.9016728732010293
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 22,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        695106.765625,
+        776141.28125
+      ],
+      "Ratio": 1.1165785166141182
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        815399.734375,
+        911536.453125
+      ],
+      "Ratio": 1.1179013368500645
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        763558.59375,
+        668151.6875
+      ],
+      "Ratio": 0.8750496595402899
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        931525.390625,
+        850095.703125
+      ],
+      "Ratio": 0.9125845754506322
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1346999.34375,
+        1374408.203125
+      ],
+      "Ratio": 1.0203480866580785
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        600947.90625,
+        1539093.109375
+      ],
+      "Ratio": 2.561109030197241
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        561724.609375,
+        574552.078125
+      ],
+      "Ratio": 1.022835867497905
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1194197.921875,
+        933140.625
+      ],
+      "Ratio": 0.7813952845729993
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        854567.046875,
+        1208796.875
+      ],
+      "Ratio": 1.4145137931779088
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1407297.53125,
+        1128797.53125
+      ],
+      "Ratio": 0.8021029712511265
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 23,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        926047.53125,
+        1348434.90625
+      ],
+      "Ratio": 1.4561184612520395
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        765468.09375,
+        911484.375
+      ],
+      "Ratio": 1.1907542357966505
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        864033.84375,
+        808691.40625
+      ],
+      "Ratio": 0.9359487618450131
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        656511.078125,
+        687950.53125
+      ],
+      "Ratio": 1.0478886863795067
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        604503.25,
+        882139.984375
+      ],
+      "Ratio": 1.4592807968774362
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        776318.359375,
+        833395.171875
+      ],
+      "Ratio": 1.073522430341531
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1023074.21875,
+        711242.828125
+      ],
+      "Ratio": 0.6952015944591019
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        571357.421875,
+        896453.78125
+      ],
+      "Ratio": 1.5689894747637034
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        688172.515625,
+        927766.921875
+      ],
+      "Ratio": 1.3481603824767685
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        652176.4375,
+        658197.921875
+      ],
+      "Ratio": 1.0092329069692894
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 24,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        764449.859375,
+        579728.515625
+      ],
+      "Ratio": 0.7583604189540636
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        669133.46875,
+        812440.765625
+      ],
+      "Ratio": 1.2141684784393023
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        705352.859375,
+        923003.90625
+      ],
+      "Ratio": 1.3085704466667314
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        808550.78125,
+        847047.515625
+      ],
+      "Ratio": 1.0476120180299435
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1126694.65625,
+        928869.796875
+      ],
+      "Ratio": 0.8244201671875996
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        528811.859375,
+        889879.546875
+      ],
+      "Ratio": 1.6827904501361677
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        563321.625,
+        556250.65625
+      ],
+      "Ratio": 0.9874477235806455
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        677369.796875,
+        671482.421875
+      ],
+      "Ratio": 0.99130847724956
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        719407.546875,
+        730399.09375
+      ],
+      "Ratio": 1.0152786093539685
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        657503.25,
+        933378.25
+      ],
+      "Ratio": 1.419579675081454
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 25,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        553380.859375,
+        634334.625
+      ],
+      "Ratio": 1.1462894212069983
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        516792.96875,
+        527211.59375
+      ],
+      "Ratio": 1.0201601523821042
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        779093.75,
+        945963.546875
+      ],
+      "Ratio": 1.2141844891901648
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        745948.5625,
+        822065.75
+      ],
+      "Ratio": 1.1020407992273595
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        766755.859375,
+        787464.84375
+      ],
+      "Ratio": 1.0270085766177
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        720840.5,
+        665736.328125
+      ],
+      "Ratio": 0.9235556660939556
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        525164.703125,
+        597885.421875
+      ],
+      "Ratio": 1.138472213226202
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        964136.078125,
+        819379.5625
+      ],
+      "Ratio": 0.8498588333023336
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        822319.015625,
+        668793.609375
+      ],
+      "Ratio": 0.8133018897376297
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        625847.65625,
+        690114.578125
+      ],
+      "Ratio": 1.102687804664923
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 26,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        662794.921875,
+        604489.578125
+      ],
+      "Ratio": 0.912031094648314
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        673751.296875,
+        770865.234375
+      ],
+      "Ratio": 1.1441391474130511
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        766060.546875,
+        785320.96875
+      ],
+      "Ratio": 1.0251421665736073
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        858983.734375,
+        739286.453125
+      ],
+      "Ratio": 0.860652447235113
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        629952.46875,
+        796195.3125
+      ],
+      "Ratio": 1.263897439881253
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        732972,
+        624606.125
+      ],
+      "Ratio": 0.8521555052580453
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        560511.0625,
+        558538.40625
+      ],
+      "Ratio": 0.9964806113884683
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        844111.328125,
+        929314.453125
+      ],
+      "Ratio": 1.1009382556081309
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1246239.578125,
+        1057843.75
+      ],
+      "Ratio": 0.848828562796532
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1050802.734375,
+        1301576.171875
+      ],
+      "Ratio": 1.238649395644327
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 27,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        970014.96875,
+        972316.40625
+      ],
+      "Ratio": 1.002372579366446
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        793908.859375,
+        596410.15625
+      ],
+      "Ratio": 0.7512325239946565
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        682413.40625,
+        838514.984375
+      ],
+      "Ratio": 1.2287492840781218
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        792236.984375,
+        654319
+      ],
+      "Ratio": 0.8259132215547798
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        662059.890625,
+        659719.390625
+      ],
+      "Ratio": 0.9964648213354377
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        804725.265625,
+        1050604.15625
+      ],
+      "Ratio": 1.3055438932118468
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        765867.1875,
+        653416.671875
+      ],
+      "Ratio": 0.8531723026389612
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        660561.84375,
+        624643.875
+      ],
+      "Ratio": 0.9456251233857315
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        781789.0625,
+        523809.890625
+      ],
+      "Ratio": 0.6700143500984321
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        656404.953125,
+        574419.921875
+      ],
+      "Ratio": 0.875099919859399
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 28,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        739168.609375,
+        495241.546875
+      ],
+      "Ratio": 0.6699980770202739
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        504101.5625,
+        469097.015625
+      ],
+      "Ratio": 0.9305605269275474
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        489768.890625,
+        444702.46875
+      ],
+      "Ratio": 0.907984311095198
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        661817.703125,
+        491856.109375
+      ],
+      "Ratio": 0.7431897138026562
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        868179.6875,
+        641448.5625
+      ],
+      "Ratio": 0.7388430894382103
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        648858.078125,
+        683822.90625
+      ],
+      "Ratio": 1.0538867115996113
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        610758.46875,
+        667929.03125
+      ],
+      "Ratio": 1.093605844904627
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        520654.953125,
+        540565.765625
+      ],
+      "Ratio": 1.0382418574537593
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        549904.953125,
+        514705.734375
+      ],
+      "Ratio": 0.9359903587884236
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        592930.984375,
+        573602.875
+      ],
+      "Ratio": 0.9674024298201022
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 29,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        559262.375,
+        539572.90625
+      ],
+      "Ratio": 0.9647938612891668
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        659370.453125,
+        716853.515625
+      ],
+      "Ratio": 1.087178705426618
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        852399.078125,
+        623029.296875
+      ],
+      "Ratio": 0.730912682643277
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        846261.71875,
+        556640.625
+      ],
+      "Ratio": 0.6577641557770156
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        521397.125,
+        457929.046875
+      ],
+      "Ratio": 0.8782730569812789
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        488317.71875,
+        900931.640625
+      ],
+      "Ratio": 1.8449702028654884
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        755158.203125,
+        733908.859375
+      ],
+      "Ratio": 0.971861070088273
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        832026.046875,
+        768087.234375
+      ],
+      "Ratio": 0.9231528715475348
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1357052.734375,
+        1238087.890625
+      ],
+      "Ratio": 0.9123358726329894
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1260870.4375,
+        1112795.578125
+      ],
+      "Ratio": 0.8825613996719627
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 30,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        1062282.5625,
+        1028447.265625
+      ],
+      "Ratio": 0.9681484963893493
+    },
+    {
+      "Kind": "cached-helper/matched-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1045138.015625,
+        855503.90625
+      ],
+      "Ratio": 0.8185559165010399
+    },
+    {
+      "Kind": "matched-local-heads/matched-local-heads",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        912598.953125,
+        983240.875
+      ],
+      "Ratio": 1.0774074105970666
+    },
+    {
+      "Kind": "cached-helper/cached-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1104710.28125,
+        905847.65625
+      ],
+      "Ratio": 0.8199866260183771
+    },
+    {
+      "Kind": "reference/transient-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        787363.9375,
+        807098.3125
+      ],
+      "Ratio": 1.02506385428657
+    },
+    {
+      "Kind": "matched-helper/matched-local-heads",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        841914.0625,
+        1048729.171875
+      ],
+      "Ratio": 1.2456487171159467
+    },
+    {
+      "Kind": "cached-captured/cached-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1717056.640625,
+        1254383.46875
+      ],
+      "Ratio": 0.73054285984032
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1451645.828125,
+        1888611.328125
+      ],
+      "Ratio": 1.301013850302867
+    },
+    {
+      "Kind": "reference/cached-captured",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        946608.078125,
+        1795907.546875
+      ],
+      "Ratio": 1.8972028534050283
+    },
+    {
+      "Kind": "matched-helper/matched-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        732509.765625,
+        816638.015625
+      ],
+      "Ratio": 1.1148493220813502
+    },
+    {
+      "Kind": "reference/cached-helper",
+      "Trial": 31,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        1007762.375,
+        873704.421875
+      ],
+      "Ratio": 0.8669746396068815
+    }
+  ]
+}

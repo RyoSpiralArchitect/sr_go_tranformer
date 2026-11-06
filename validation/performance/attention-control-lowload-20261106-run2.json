@@ -1,0 +1,499 @@
+{
+  "Protocol": "attention-small-controlled-v1",
+  "StartedUTC": "2026-11-06T13:23:36.998376Z",
+  "FinishedUTC": "2026-11-06T13:23:37.064511Z",
+  "GoVersion": "go1.27.3",
+  "GOOS": "darwin",
+  "GOARCH": "arm64",
+  "CallsPerBlock": 4,
+  "TrialsPerKind": 16,
+  "Workers": 4,
+  "Procs": 4,
+  "Hashes": {
+    "attention-controlled-mac.test": "874c010dd1040bebe659dacf065d80efb5b32f5b8fba453a04deffc32dec7ee2",
+    "attention_paired_test.go": "281b68d337397b7fbda417071fad5282b2da0593677efe4f293bdcbe2c8541c8",
+    "monolith.go": "a71ff9dacdd4a2884dfd4155ee52719b3a385d484d31f942053a81f71bcb8a7c"
+  },
+  "Samples": [
+    {
+      "Kind": "reference/reference",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        208396,
+        188406.25
+      ],
+      "Ratio": 0.9040780533215609
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        172416.75,
+        170646
+      ],
+      "Ratio": 0.9897298261334818
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 0,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        171833.5,
+        164573
+      ],
+      "Ratio": 0.9577468887033087
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        214573,
+        170489.5
+      ],
+      "Ratio": 0.7945524366998644
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        209864.5,
+        227448
+      ],
+      "Ratio": 1.0837850136635783
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 1,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        174260.5,
+        187395.75
+      ],
+      "Ratio": 1.075377093489345
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        171812.5,
+        173041.75
+      ],
+      "Ratio": 1.0071546016733357
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        174250,
+        199031.25
+      ],
+      "Ratio": 1.142216642754663
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 2,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        162739.5,
+        170302
+      ],
+      "Ratio": 1.0464699719490351
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        168989.75,
+        157510.5
+      ],
+      "Ratio": 0.9320713238524821
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        159427,
+        160864.75
+      ],
+      "Ratio": 1.0090182340506941
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 3,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        159541.75,
+        161395.75
+      ],
+      "Ratio": 1.0116207826478023
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        171645.75,
+        161864.5
+      ],
+      "Ratio": 0.9430149013302106
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        168614.5,
+        172093.75
+      ],
+      "Ratio": 1.0206343463936969
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 4,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        170552.25,
+        165427
+      ],
+      "Ratio": 0.9699490918472199
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        158437.5,
+        160552
+      ],
+      "Ratio": 1.0133459566074952
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        165791.75,
+        159479.25
+      ],
+      "Ratio": 0.9619251259486675
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 5,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        191031.25,
+        192041.5
+      ],
+      "Ratio": 1.0052884017667267
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        159395.75,
+        160489.5
+      ],
+      "Ratio": 1.0068618517118555
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        159437.5,
+        162468.75
+      ],
+      "Ratio": 1.0190121520972169
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 6,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        158135.5,
+        158833.5
+      ],
+      "Ratio": 1.0044139361496944
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        171687.5,
+        158677.25
+      ],
+      "Ratio": 0.9242213323625773
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        155073,
+        157156.25
+      ],
+      "Ratio": 1.0134339956020713
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 7,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        158635.25,
+        160000
+      ],
+      "Ratio": 1.0086030689900258
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        159958.25,
+        159645.75
+      ],
+      "Ratio": 0.9980463652234255
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        160406.25,
+        160948
+      ],
+      "Ratio": 1.0033773621663744
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 8,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        160156.25,
+        185073
+      ],
+      "Ratio": 1.155577756097561
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        244698,
+        163593.75
+      ],
+      "Ratio": 0.6685536865850967
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        162906.25,
+        160291.75
+      ],
+      "Ratio": 0.9839508920007674
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 9,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        171125,
+        159031.25
+      ],
+      "Ratio": 0.9293279766252739
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        157937.5,
+        160020.75
+      ],
+      "Ratio": 1.013190344281757
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        159729.25,
+        158364.5
+      ],
+      "Ratio": 0.9914558542032846
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 10,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        182666.75,
+        217218.75
+      ],
+      "Ratio": 1.1891531983790153
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        161104,
+        155698
+      ],
+      "Ratio": 0.9664440361505612
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        181500,
+        160645.75
+      ],
+      "Ratio": 0.8851005509641874
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 11,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        180916.75,
+        256854.25
+      ],
+      "Ratio": 1.4197372548423515
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        159343.75,
+        191823
+      ],
+      "Ratio": 1.203831339478329
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        160718.75,
+        160052
+      ],
+      "Ratio": 0.995851448570873
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 12,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        165250,
+        190447.75
+      ],
+      "Ratio": 1.152482602118003
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        169718.75,
+        174791.75
+      ],
+      "Ratio": 1.0298906278770024
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        162437.5,
+        171197.75
+      ],
+      "Ratio": 1.053929973066564
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 13,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        216771,
+        161270.75
+      ],
+      "Ratio": 0.7439682891161641
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        166500,
+        161885.25
+      ],
+      "Ratio": 0.9722837837837838
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        159437.5,
+        155948
+      ],
+      "Ratio": 0.9781136809094473
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 14,
+      "FirstVariant": 0,
+      "NSPerCall": [
+        160468.75,
+        159395.75
+      ],
+      "Ratio": 0.9933133398247322
+    },
+    {
+      "Kind": "reference/candidate",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        161968.75,
+        159583.25
+      ],
+      "Ratio": 0.9852718502797607
+    },
+    {
+      "Kind": "reference/reference",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        159916.75,
+        160416.75
+      ],
+      "Ratio": 1.0031266268230188
+    },
+    {
+      "Kind": "candidate/candidate",
+      "Trial": 15,
+      "FirstVariant": 1,
+      "NSPerCall": [
+        186218.75,
+        160489.5
+      ],
+      "Ratio": 0.8618331934888404
+    }
+  ]
+}
