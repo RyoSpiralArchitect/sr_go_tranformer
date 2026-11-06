@@ -10,11 +10,11 @@ Exact-preserving [paired-block kernel measurements](INFERENCE_PERFORMANCE.md#com
 cover concurrent inference; they do not undo the quantization error relative to FP32.
 
 ```sh
-go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
+go run ./cmd/monolith infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
   -revision 989aa7980e4cf806f80c7fef2b1adb7bc71aa306 \
   -download-mib 4096 -weight-format q4 -weight-mib 900 -context 128 \
   check -json
-HF_HUB_OFFLINE=1 go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
+HF_HUB_OFFLINE=1 go run ./cmd/monolith infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
   -revision 989aa7980e4cf806f80c7fef2b1adb7bc71aa306 \
   -download-mib 4096 -weight-format q4 -weight-mib 900 -context 128 \
   generate -chat -prompt 'Write one short sentence about cats.' \
@@ -87,12 +87,12 @@ CLI, HTTP and concurrent SSE must agree. These short probes measure numerical
 and transport behavior, not perplexity or general language quality.
 
 ```sh
-CGO_ENABLED=0 go build -trimpath -o monolith .
+CGO_ENABLED=0 go build -trimpath -o monolith ./cmd/monolith
 go build -o runs/loadtest ./tools/loadtest
 python3 -S scripts/q8_reference.py --model PATH_TO_PINNED_MODEL --id gpt2 \
   --binary ./monolith --loadtest runs/loadtest --formats f32 q8 q4 \
   --output runs/q4-gpt2.json
-GOMAXPROCS=4 go test -run '^$' -bench '^BenchmarkQ4Linear$' \
+GOMAXPROCS=4 go test ./cmd/monolith -run '^$' -bench '^BenchmarkQ4Linear$' \
   -benchmem -benchtime=250ms -count=3 -cpu=4
 ```
 
@@ -126,10 +126,10 @@ file cache were uncontrolled; timings, especially FP32, varied noticeably.
 The comparison includes different quantized numerical results and is not a
 measurement of the lookup table alone.
 
-[Raw GPT-2 receipt](validation/q4/gpt2-offline.json) records source revisions,
+[Raw GPT-2 receipt](../validation/q4/gpt2-offline.json) records source revisions,
 file hashes, binary/source/script hashes, logits differences, continuations,
 request outcomes, resource drain and clean shutdown for every trial.
-[Environment](validation/q4/environment.json) identifies the implementation
+[Environment](../validation/q4/environment.json) identifies the implementation
 and host. GPT-2's two next-token KL(FP32 || Q4) values were about 3.91 and 4.17,
 versus 0.0147 and 0.0124 for Q8: the memory/speed benefit comes with material
 degradation on these inputs.
@@ -160,7 +160,7 @@ continuations changed. For the cat prompt, FP32/Q8 produced
 values were about 0.373 and 0.0399; maximum logit errors were 5.71 and 7.15.
 This is numerical drift, not evidence of preserved task quality.
 
-[Raw Qwen receipt](validation/q4/qwen25-1.5b-offline.json) includes all nine
+[Raw Qwen receipt](../validation/q4/qwen25-1.5b-offline.json) includes all nine
 server trials. Every format/trial completed eight requests and 64 token events,
 released admission and KV reservations, and shut down cleanly. CLI, HTTP and
 concurrent SSE matched within each format in the first trial.
@@ -180,7 +180,7 @@ projection with four fixed workers (milliseconds per call, three samples):
 Q4 was about 10% slower than Q8 for the single-row kernel, while four and
 sixteen rows benefited from sharing pair decodes. This is a memory tradeoff
 with workload-dependent speed, not a universal decode improvement.
-[Raw kernel samples](validation/q4/kernels.txt) also include 3,072 × 768
+[Raw kernel samples](../validation/q4/kernels.txt) also include 3,072 × 768
 projections. The Q4 benchmark reports 112 B and one callback allocation per
 call; it does not allocate a table per token. Timings do not isolate table
 lookup from weight compression, packing and arithmetic changes.

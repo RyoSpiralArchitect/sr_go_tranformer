@@ -9,10 +9,10 @@ its output drift can be substantially greater.
 projections and includes held-out next-token loss/distribution measurements.
 
 ```sh
-go run . infer local -repo openai-community/gpt2 \
+go run ./cmd/monolith infer local -repo openai-community/gpt2 \
   -revision 607a30d783dfa663caf39e06633721c8d4cfcd7e \
   -context 128 -weight-format q8 -weight-mib 140 check -json
-go run . infer local -repo openai-community/gpt2 \
+go run ./cmd/monolith infer local -repo openai-community/gpt2 \
   -revision 607a30d783dfa663caf39e06633721c8d4cfcd7e \
   -context 128 -weight-format q8 -weight-mib 140 -offline \
   generate -prompt 'The capital of France is' -max-tokens 8 \
@@ -81,11 +81,11 @@ It does not make arbitrary Llama, Gemma, Mistral or MoE models compatible.
 For a pinned Qwen2.5 1.5B model (about 3.09 GB of source weights):
 
 ```sh
-go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
+go run ./cmd/monolith infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
   -revision 989aa7980e4cf806f80c7fef2b1adb7bc71aa306 \
   -download-mib 4096 -weight-mib 1700 -weight-format q8 -context 128 \
   check -json
-HF_HUB_OFFLINE=1 go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
+HF_HUB_OFFLINE=1 go run ./cmd/monolith infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
   -revision 989aa7980e4cf806f80c7fef2b1adb7bc71aa306 \
   -download-mib 4096 -weight-mib 1700 -weight-format q8 -context 128 \
   generate -chat -prompt 'Write one short sentence about cats.' \
@@ -110,11 +110,11 @@ HTTP and simultaneous SSE outputs to agree within each format. This small
 probe is not a perplexity benchmark or a general quality assessment.
 
 ```sh
-CGO_ENABLED=0 go build -trimpath -o monolith .
+CGO_ENABLED=0 go build -trimpath -o monolith ./cmd/monolith
 go build -o runs/loadtest ./tools/loadtest
 python3 -S scripts/q8_reference.py --model PATH_TO_PINNED_MODEL --id gpt2 \
   --binary ./monolith --loadtest runs/loadtest --output runs/q8-gpt2.json
-GOMAXPROCS=4 go test -run '^$' -bench '^BenchmarkQ8Linear$' \
+GOMAXPROCS=4 go test ./cmd/monolith -run '^$' -bench '^BenchmarkQ8Linear$' \
   -benchmem -benchtime=250ms -count=3 -cpu=4
 ```
 
@@ -148,7 +148,7 @@ not peak memory or a configured limit. Startup uses already cached source
 files, whose OS page-cache state is not controlled; it includes conversion
 and tokenizer initialization. These timings do not represent cold downloads.
 Raw trials, plans, source hashes, output differences and resource-release
-results: [GPT-2 receipt](validation/q8/gpt2.json).
+results: [GPT-2 receipt](../validation/q8/gpt2.json).
 
 Both GPT-2 prompt prefixes keep the same next-token argmax, but their
 eight-token continuations differ. For `The capital of France is`, FP32 emits
@@ -157,7 +157,7 @@ eight-token continuations differ. For `The capital of France is`, FP32 emits
 0.0147 and 0.0124 for the two recorded prefixes; maximum absolute logit
 differences are 1.119 and 0.929. No general quality-preservation claim is made.
 
-The [matrix microbenchmark](validation/q8/linear.txt) isolates one 8960×1536
+The [matrix microbenchmark](../validation/q8/linear.txt) isolates one 8960×1536
 projection. One-row median time is 2.981 ms in FP32 versus 1.062 ms in Q8.
 With 16 rows it is 13.306 ms versus 13.192 ms, with overlapping trial ranges.
 The decode benefit does not imply uniformly faster prefill. Kernel callbacks
@@ -172,7 +172,7 @@ startup is 1.280 versus 2.125 seconds. The two first-token argmaxes agree,
 with KL values 0.00130 and 0.00035. The plain-text continuation matches for
 eight tokens, while the chat continuation changes from `Cats are playful,
 curious, and` to `Cats are fascinating creatures with their unique`.
-[Qwen 0.5B receipt](validation/q8/qwen05.json) contains all trials and outputs.
+[Qwen 0.5B receipt](../validation/q8/qwen05.json) contains all trials and outputs.
 Reproduce with `--id qwen25` and its pinned model directory.
 
 ### Qwen2.5-1.5B
@@ -195,7 +195,7 @@ reported payload. Both recorded eight-token continuations match FP32, while
 next-token logits differ: max absolute errors are 0.245 and 0.360, and KL
 values are 0.000504 and 0.0000146. This small sample does not establish
 general quality, long-context accuracy or 8B execution; 1.5B is the largest
-live model tested here. [Raw Qwen 1.5B receipt](validation/q8/qwen15.json).
+live model tested here. [Raw Qwen 1.5B receipt](../validation/q8/qwen15.json).
 Reproduce with `--id qwen25-1.5b` and the pinned files in the catalog.
 
 Separately, the FP32 path passed the pinned Transformers 4.57.1 / Torch 2.8.0
@@ -203,7 +203,7 @@ CPU eager reference with context 512 and prefill chunks 1/16. Both prompts'
 eight greedy IDs matched; maximum absolute logit error was 0.000379, below
 the existing 0.002 bound. CLI, HTTP and simultaneous SSE also agreed. This
 validates the unquantized reference cases, not Q8 numerical parity with Torch.
-[Transformers receipt](validation/q8/qwen15-transformers.json).
+[Transformers receipt](../validation/q8/qwen15-transformers.json).
 
 ```sh
 python scripts/hf_model_reference.py --model PATH_TO_PINNED_MODEL \
@@ -222,7 +222,7 @@ An existing original Safetensors model can be read directly without a Hub
 download or a second model copy:
 
 ```sh
-go run . infer local -path "$HOME/models/mistral7b-instruct-v0.3" \
+go run ./cmd/monolith infer local -path "$HOME/models/mistral7b-instruct-v0.3" \
   -weight-format q8 -weight-mib 8192 -context 128 \
   generate -chat -prompt 'Write one short sentence about cats.' \
   -max-tokens 16 -temperature 0 -repeat-penalty 1

@@ -121,7 +121,7 @@ required. Trace timing is diagnostic evidence, not an uninstrumented benchmark.
 
 ## Mixed-load validation
 
-Use the [load client](tools/loadtest/README.md) against a dedicated server with a
+Use the [load client](../tools/loadtest/README.md) against a dedicated server with a
 checkpoint whose context fits both prompts plus the generation budget:
 
 ```sh
@@ -146,7 +146,7 @@ generation exactly. Further cases cover parent cancellation, shutdown, queued
 cancellation without computation, unconsumed streams, late `Close`, permit reuse,
 trace/output parity, output preservation and trace write failures.
 
-A [local diagnostic receipt](benchmarks/serving-lifecycle-2026-10-15.json)
+A [local diagnostic receipt](../benchmarks/serving-lifecycle-2026-10-15.json)
 records one traced Apple M4 / Go 1.27.1 run with the 4,296,448-parameter `small`
 fixture: four warmup requests, then 36 requests at concurrency eight. The measured
 load completed 29 requests and canceled seven, with no protocol errors. All

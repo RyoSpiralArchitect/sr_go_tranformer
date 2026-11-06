@@ -2,7 +2,7 @@
 
 ## Scope and fixed data
 
-The [authored fixture](examples/heldout/README.md) contains 40 distinct training documents and 12 separately written validation documents. No whole line is duplicated within or across the splits. A byte tokenizer is used, so tokenizer fitting cannot see validation text. Preparation uses 2,048-token shards: 4,880 stored training tokens in three shards and 1,607 validation tokens in one shard. Evaluation scores all 1,606 post-leading-BOS validation targets in sequence-64 windows, including the final short window.
+The [authored fixture](../examples/heldout/README.md) contains 40 distinct training documents and 12 separately written validation documents. No whole line is duplicated within or across the splits. A byte tokenizer is used, so tokenizer fitting cannot see validation text. Preparation uses 2,048-token shards: 4,880 stored training tokens in three shards and 1,607 validation tokens in one shard. Evaluation scores all 1,606 post-leading-BOS validation targets in sequence-64 windows, including the final short window.
 
 This fixture establishes a reproducible development holdout and numerical/performance regression baseline. Its passages are short, authored, related in style, and revisited across epochs. These results do not establish general language ability or performance on an independently sampled natural corpus. Once inspected, this validation split is not a blind final test.
 
@@ -13,11 +13,11 @@ Both models use seed 73, batch 2, sequence 64, accumulation 1, warmup 5, the def
 | tiny | 213,696 | 160 / 20,480 | 5.5694320269 | 2.5741678600 |
 | small | 4,296,448 | 40 / 5,120 | 5.6597075854 | 2.6718308784 |
 
-Final evaluation receipts and complete checkpoint hashes are in [comparison.json](benchmarks/training-2026-10-03/comparison.json). Baseline and candidate produced byte-identical checkpoints in every measured repetition, and their standalone evaluation receipts matched byte for byte. The falling loss on this narrow holdout is a learning signal for this fixture, not a capability claim.
+Final evaluation receipts and complete checkpoint hashes are in [comparison.json](../benchmarks/training-2026-10-03/comparison.json). Baseline and candidate produced byte-identical checkpoints in every measured repetition, and their standalone evaluation receipts matched byte for byte. The falling loss on this narrow holdout is a learning signal for this fixture, not a capability claim.
 
 ## Choosing the change
 
-The pre-optimization wall timers put training backward at 1.277 / 1.980 seconds for tiny and 4.270 / 7.179 seconds for small. Small's CPU profile attributed 3.52 and 3.20 sampled seconds to the two `linearBackward` loops, making them the largest application compute sites. See the [phase records](benchmarks/training-2026-10-03/small-profile.jsonl) and [CPU summary](benchmarks/training-2026-10-03/small-cpu-top.txt).
+The pre-optimization wall timers put training backward at 1.277 / 1.980 seconds for tiny and 4.270 / 7.179 seconds for small. Small's CPU profile attributed 3.52 and 3.20 sampled seconds to the two `linearBackward` loops, making them the largest application compute sites. See the [phase records](../benchmarks/training-2026-10-03/small-profile.jsonl) and [CPU summary](../benchmarks/training-2026-10-03/small-cpu-top.txt).
 
 The macOS profiles also contain many native pthread park/signal samples. Their flat percentages should not be interpreted as useful arithmetic utilization or a wall-time breakdown. Selection used the application stacks together with explicit wall timers; the speed comparison below uses unprofiled processes.
 
@@ -27,7 +27,7 @@ The numerical oracle tests cover empty/single/partial/full tiles, uneven dimensi
 
 ## Matched measurements, 2026-10-03
 
-Apple M4, darwin/arm64, Go 1.27.1, `CGO_ENABLED=0`, `-trimpath`. Baseline source: `99ac08b5eea3ec319ff63fca86b535fc1e6abcee`. Profile source: `a2aec63af3c920d8e58bff3c38260de5f9e0e11e`; its linear kernel is identical to the timing baseline. Exact source and binary hashes are retained in [provenance.json](benchmarks/training-2026-10-03/provenance.json) and the raw comparison.
+Apple M4, darwin/arm64, Go 1.27.1, `CGO_ENABLED=0`, `-trimpath`. Baseline source: `99ac08b5eea3ec319ff63fca86b535fc1e6abcee`. Profile source: `a2aec63af3c920d8e58bff3c38260de5f9e0e11e`; its linear kernel is identical to the timing baseline. Exact source and binary hashes are retained in [provenance.json](../benchmarks/training-2026-10-03/provenance.json) and the raw comparison.
 
 Five pairs per preset, alternating baseline/candidate order, one fresh process per run. Timing spans the entire training command, including dataset verification, model initialization, initial/final validation and checkpoint saving. No JSONL metrics or profiler is enabled in these timed runs. Standalone evaluation is outside the timed interval. Preparation occurs once, before the repetitions.
 
@@ -46,7 +46,7 @@ Separate kernel benchmarks used five alternating repetitions of 100 calls, four 
 | 128 × 256 × 704 | 4,697,590 | 2,722,643 | 13 |
 | 3 × 12 × 258 | 9,212 | 6,317 | 3 |
 
-Raw [baseline](benchmarks/training-2026-10-03/baseline-kernel.txt) and [candidate](benchmarks/training-2026-10-03/candidate-kernel.txt) outputs include allocated bytes. The larger cases remained about 33.8 KB and 131.8 KB per call; the partial-tile case increased from 320 to 336 bytes per call. This PR makes no peak-RSS or allocation-reduction claim. The initial [sampled allocation profile](benchmarks/training-2026-10-03/tiny-alloc-top.txt) remains useful evidence for a later, separate workspace-reuse change.
+Raw [baseline](../benchmarks/training-2026-10-03/baseline-kernel.txt) and [candidate](../benchmarks/training-2026-10-03/candidate-kernel.txt) outputs include allocated bytes. The larger cases remained about 33.8 KB and 131.8 KB per call; the partial-tile case increased from 320 to 336 bytes per call. This PR makes no peak-RSS or allocation-reduction claim. The initial [sampled allocation profile](../benchmarks/training-2026-10-03/tiny-alloc-top.txt) remains useful evidence for a later, separate workspace-reuse change.
 
 ## Reproduce
 
@@ -59,14 +59,14 @@ mkdir "$comparison_dir/baseline-source"
 git archive 99ac08b5eea3ec319ff63fca86b535fc1e6abcee | \
   tar -x -C "$comparison_dir/baseline-source"
 CGO_ENABLED=0 go -C "$comparison_dir/baseline-source" build -trimpath -o ../baseline .
-CGO_ENABLED=0 go build -trimpath -o "$comparison_dir/candidate" .
+CGO_ENABLED=0 go build -trimpath -o "$comparison_dir/candidate" ./cmd/monolith
 go run ./tools/trainbench -baseline "$comparison_dir/baseline" \
   -candidate "$comparison_dir/candidate" -out "$comparison_dir/results" -repeats 5
 ```
 
 The standard-library Go harness prepares the fixed fixture, alternates execution order, rejects any checkpoint/receipt mismatch, and writes `comparison.json` only after all runs succeed. It retains logs and one checkpoint per implementation/preset; repeated identical checkpoint copies are removed. Use a new result directory for each run. `harness_go_version` identifies the runner; the evaluation receipt also reports the model executable's Go version.
 
-For kernel benchmarks, copy `linear_backward_test.go` into the baseline source, build each root package with `go test -c`, and alternate the two test binaries with:
+For kernel benchmarks, copy `cmd/monolith/linear_backward_test.go` into the historical baseline source. Build the baseline there with `go test -c`, build the candidate from the repository root with `go test -c ./cmd/monolith`, and alternate the two test binaries with:
 
 ```sh
 GOMAXPROCS=4 path/to/kernel.test -test.run '^$' \

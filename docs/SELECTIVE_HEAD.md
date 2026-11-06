@@ -24,11 +24,11 @@ Tests compare all five-session selection masks, FP32/Q8/Q4 weights, one/four
 workers, page crossings, workspace reuse, exact completions and invalid masks.
 The retained all-head generation reference comes from `8dca84e` and already
 has chunked prefill and request-owned workers. The
-[frozen measurement protocol](validation/performance/selective-head-protocol-20261030.json)
+[frozen measurement protocol](../validation/performance/selective-head-protocol-20261030.json)
 separates a native large-vocabulary fixture from a pinned real-model probe.
 
 ```sh
-GOMAXPROCS=4 ./scripts/go.sh test -run '^$' \
+GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' \
   -bench '^BenchmarkSelectiveHeadGenerate$' -benchmem -benchtime=250ms -count=3 -cpu=4
 ```
 
@@ -55,9 +55,9 @@ also removes two heads from that short case. These numbers are not expected
 7B speedups. The synthetic tokenizer renders output IDs directly and is not a
 language/tokenizer compatibility test.
 
-[All samples and source hashes](validation/performance/selective-head-native-20261030.json)
-and [raw measurements](validation/performance/selective-head-native-20261030.txt)
-are retained. The [initial probe failure](validation/performance/selective-head-initial-error-20261030.txt)
+[All samples and source hashes](../validation/performance/selective-head-native-20261030.json)
+and [raw measurements](../validation/performance/selective-head-native-20261030.txt)
+are retained. The [initial probe failure](../validation/performance/selective-head-initial-error-20261030.txt)
 was a fixture vocabulary mismatch before timing; it was fixed before the
 recorded measurements. No failed timing sample was discarded or rerun.
 
@@ -72,7 +72,7 @@ speedup from this small fraction of total 7B compute:
 
 ## Pinned Mistral result
 
-The [real-model ABBA receipt](validation/performance/mistral-selective-head-20261030.json)
+The [real-model ABBA receipt](../validation/performance/mistral-selective-head-20261030.json)
 compares merged `8dca84e` with the runtime in `4d1d401`, Q4-mixed Mistral 7B,
 context 1024, four threads, one greedy output token. Every completion matched.
 Original model files were verified before and after; loading is excluded.
@@ -91,25 +91,25 @@ must not be extrapolated to this pretrained model or concurrent serving.
 
 ## Where the 275-token prefill spends CPU time
 
-The [post-load Mistral probe](validation/performance/mistral-postload-20261101.json)
+The [post-load Mistral probe](../validation/performance/mistral-postload-20261101.json)
 ran three fresh processes on an Apple M4 with four Go threads, Q4-mixed
 Mistral v0.3 and context 1,024. Each generated the same token, ID 1117, after
 the same 275-token prompt. The uninstrumented call took 107.646 seconds and
 allocated 80,821,480 bytes. This is one observation. The CPU and execution-trace
 runs are diagnostics and their allocation counters include capture overhead.
 
-The [CPU profile](validation/performance/mistral-postload-cpu-20261101.txt)
+The [CPU profile](../validation/performance/mistral-postload-cpu-20261101.txt)
 collected 353.30 sampled CPU seconds across workers. The Q4 projection
 callback accounted for 316.16 s flat (89.49%) and 331.69 s cumulative
 (93.88%). The attention core accounted for 3.34 s cumulative (0.95%).
-[Annotated lines](validation/performance/mistral-postload-q4-lines-20261101.txt)
+[Annotated lines](../validation/performance/mistral-postload-q4-lines-20261101.txt)
 place 91.39 flat seconds on the four-row packed-weight lookup line. Sampling
 attributes instruction locations to source lines; it does not time individual
 Go expressions. These results suggest testing the four-row Q4 projection.
 
-The [scheduler trace](validation/performance/mistral-postload-scheduler-20261101.txt)
+The [scheduler trace](../validation/performance/mistral-postload-scheduler-20261101.txt)
 recorded 0.573 s of aggregate scheduling delay. The
-[synchronization report](validation/performance/mistral-postload-sync-20261101.txt)
+[synchronization report](../validation/performance/mistral-postload-sync-20261101.txt)
 includes 100.225 s accumulated at the owner's kernel joins while workers
 compute, plus idle workers and trace infrastructure. Its summed goroutine
 waits cannot be subtracted from request latency. This single-source profile

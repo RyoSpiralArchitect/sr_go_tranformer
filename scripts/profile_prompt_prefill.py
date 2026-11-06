@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 
 from compare_inference import isolated_go_environment
-from quant_quality import run_measured, sha
+from quant_quality import run_measured, sha, source_path
 
 
 def render_q4_listing(go, build, capture, destination, env):
@@ -38,7 +38,7 @@ def main():
     source = next(m for m in json.loads((root / 'validation/hf/model-profiles.json').read_text())['models']
                   if m['id'] == 'mistral-7b-v03')
     inputs = ['monolith.go', 'go.mod', 'go.sum', 'prompt_prefill_perf_test.go']
-    hashes = {name: sha(root / name) for name in inputs}
+    hashes = {name: sha(source_path(root, name)) for name in inputs}
     protocol = dict(format='monolith-postload-prefill-v1', model=source['repo'], revision=source['revision'],
                     files=source['files'], source_sha256=hashes, modes=['cpu', 'trace', 'plain'],
                     driver_sha256=sha(Path(__file__)),
@@ -59,7 +59,7 @@ def main():
     build = out / 'build'
     build.mkdir()
     for name in inputs:
-        (build / name).write_bytes((root / name).read_bytes())
+        (build / name).write_bytes(source_path(root, name).read_bytes())
     binary = build / 'probe.test'
     subprocess.run([go, 'test', '-c', '-trimpath', '-o', binary, '.'], cwd=build, env=env, check=True)
     binary_hash = sha(binary)
@@ -110,7 +110,7 @@ def main():
                                            out / (kind + '.pprof')])
         print('finished', mode, flush=True)
     verify_model()
-    if sha(binary) != binary_hash or any(sha(root / n) != h or sha(build / n) != h for n, h in hashes.items()):
+    if sha(binary) != binary_hash or any(sha(source_path(root, n)) != h or sha(build / n) != h for n, h in hashes.items()):
         raise ValueError('source or binary changed during measurement')
     receipt = dict(protocol=protocol, host=platform.system() + '/' + platform.machine(),
                    go_version=subprocess.check_output([go, 'version'], env=env, text=True).strip(),

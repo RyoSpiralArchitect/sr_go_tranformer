@@ -111,14 +111,14 @@ against the pinned catalog before and after the run.
 HF_HUB_OFFLINE=1 GOMAXPROCS=4 \
   MONOLITH_PREFIX_MODEL=PATH_TO_MISTRAL_7B \
   MONOLITH_PREFIX_OUTPUT=runs/prefix-real.json \
-  ./scripts/go.sh test -run '^TestHFPrefixCacheReal$' -v -timeout 13m
+  ./scripts/go.sh test ./cmd/monolith -run '^TestHFPrefixCacheReal$' -v -timeout 13m
 ```
 
 This is a functionality/equivalence probe, not a language-quality evaluation or
 a speed benchmark. The single before/after pair has no balanced timing control;
 its durations must not be presented as an established throughput gain.
 
-The [2026-10-30 pinned Mistral 7B receipt](validation/hf/mistral-prefix-cache-20261030.json)
+The [2026-10-30 pinned Mistral 7B receipt](../validation/hf/mistral-prefix-cache-20261030.json)
 records two 120-token chat prompts with 114 common token IDs, each generating
 eight greedy output tokens. Reuse skipped 96 input positions (three complete
 pages) on the second request. Both completions matched the disabled mode exactly;
@@ -130,12 +130,12 @@ including model loading; it is distinct from the KV payload budget.
 
 ## Growing-prefix fixture
 
-The [five-request native fixture](validation/performance/prefix-growth-fixture-20261030.json)
+The [five-request native fixture](../validation/performance/prefix-growth-fixture-20261030.json)
 uses 66, 98, 130, 162 and 194 input positions with eight output tokens each.
 Across 650 logical input positions it reuses 448 and computes 202. Retained
 prefix pages grow from two to six, within the fixed allowance. FP32, Q8 and Q4
 weight variants produce exactly the disabled-reference completions, including
-a subsequent divergent branch. The [race-enabled log](validation/performance/prefix-growth-fixture-20261030.txt)
+a subsequent divergent branch. The [race-enabled log](../validation/performance/prefix-growth-fixture-20261030.txt)
 also records sole/multiple-reader ownership, uncommitted-token exclusion,
 failure, deterministic cancellation and reset during a borrowed computation.
 
@@ -175,7 +175,7 @@ is journaled, and a partial run remains marked incomplete.
 
 ### Five-turn results
 
-The [complete receipt](validation/performance/mistral-five-turn-chat-20261101.json) records six processes, five turns per process. All modes had identical prompt IDs, delivered token IDs, display text and terminal completions at every turn. The table shows the median of two first-token times per mode, in seconds.
+The [complete receipt](../validation/performance/mistral-five-turn-chat-20261101.json) records six processes, five turns per process. All modes had identical prompt IDs, delivered token IDs, display text and terminal completions at every turn. The table shows the median of two first-token times per mode, in seconds.
 
 | Turn | Logical input | Disabled, s | Fixed, s | Growing, s | Reused tokens (fixed / growing) | Allocated KV MiB (disabled / fixed / growing) |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -189,7 +189,7 @@ Across 520 logical input positions, disabled/fixed/growing reuse skipped 0/128/3
 
 The first turn has an empty cache in every mode. Later turns use the actual decoded chat history and can cross different token/page boundaries. This is a bounded comparison on one shared Mac, with two trajectories per mode and a maximum of eight reply tokens.
 
-A separate compiler was observed in 19 of 95 periodic [host snapshots](validation/performance/mistral-five-turn-host-20261101.json) across these six processes. All trials are retained. Token counts are deterministic; wall-clock timings include shared-host variation.
+A separate compiler was observed in 19 of 95 periodic [host snapshots](../validation/performance/mistral-five-turn-host-20261101.json) across these six processes. All trials are retained. Token counts are deterministic; wall-clock timings include shared-host variation.
 
 Across the two processes per mode, peak RSS including loading was 3.881–3.902 GiB disabled, 3.883–3.910 GiB fixed, and 3.909–3.910 GiB growing.
 
@@ -244,7 +244,7 @@ and reservations on shutdown.
 
 All three predeclared limits passed on this one conversation with at most
 eight generated tokens per turn. The first turn used an empty cache. Every
-sample is included in the [four-process receipt](validation/performance/mistral-five-turn-tail-20261103.json).
+sample is included in the [four-process receipt](../validation/performance/mistral-five-turn-tail-20261103.json).
 It records the model revision and file digests, binary and source hashes,
 per-turn journals as collected into the reports, and process resources. Check
 out `3ad0b2c` to reproduce the measured inputs. Subsequent driver changes

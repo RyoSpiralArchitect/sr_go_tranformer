@@ -82,7 +82,7 @@ contents and generated text are omitted from the report.
   They aggregate server requests; they are not matched to individual client
   cancellations. Histogram buckets are available at `/metrics`; the client
   retains scalar counts/sums, not histogram quantiles. See
-  [lifecycle semantics](../../SERVING_LIFECYCLE.md).
+  [lifecycle semantics](../../docs/SERVING_LIFECYCLE.md).
 
 The client checks that token IDs, their count, and concatenated event text match
 the terminal `done` event. It rejects truncated streams and events after `done`.

@@ -1,6 +1,6 @@
 # sr_go_tranformer
 
-A self-contained decoder-only Transformer written in Go, with training, text generation, and an HTTP inference server. The implementation lives in a single source file, [`monolith.go`](monolith.go). Model kernels use the Go standard library; the only runtime module dependency is `golang.org/x/text/unicode/norm` for Qwen NFC tokenization.
+A self-contained decoder-only Transformer written in Go, with training, text generation, and an HTTP inference server. The implementation lives in a single source file, [`monolith.go`](cmd/monolith/monolith.go). Model kernels use the Go standard library; the only runtime module dependency is `golang.org/x/text/unicode/norm` for Qwen NFC tokenization.
 
 ## Features
 
@@ -19,8 +19,8 @@ A self-contained decoder-only Transformer written in Go, with training, text gen
 - Evaluation-only forward with bounded per-invocation scratch and no backward tape.
 - Startup memory planning and optional training budgets checked before tensor allocation.
 - Bounded inspection and F32/F16/BF16 decoding of restricted Hugging Face Llama, Qwen2, full-attention Mistral and GPT-2 Safetensors profiles.
-- [Mistral v0.3 text/chat](MISTRAL_INFERENCE.md) with pinned Metaspace/ByteFallback semantics, automatic HF caching and offline reuse.
-- [Resumable HF downloads and `infer local ... fetch`](INFERENCE.md) to prepare verified models before offline generation or serving.
+- [Mistral v0.3 text/chat](docs/MISTRAL_INFERENCE.md) with pinned Metaspace/ByteFallback semantics, automatic HF caching and offline reuse.
+- [Resumable HF downloads and `infer local ... fetch`](docs/INFERENCE.md) to prepare verified models before offline generation or serving.
 - `infer local -path PATH` reads existing HF folders/configs/indexes/shards or native checkpoints in place, including Unicode paths.
 - GPT-2 absolute positions, affine LayerNorm and GELU, with streamed Conv1D conversion.
 - Token-ID inference with Transformers reference tests for logits, KV caches and tokenization.
@@ -39,37 +39,37 @@ machine-learning library.
 
 ## Inference
 
-Choose an explicit backend. See [inference setup](INFERENCE.md) for model
+Choose an explicit backend. See [inference setup](docs/INFERENCE.md) for model
 families, cache/offline operation, HF endpoints and compatibility limits.
-See [inference performance](INFERENCE_PERFORMANCE.md) for measured optimizations
+See [inference performance](docs/INFERENCE_PERFORMANCE.md) for measured optimizations
 and reproduction commands.
-[Bounded top-k sampling](TOP_K_SAMPLING.md) retains only a small candidate set
+[Bounded top-k sampling](docs/TOP_K_SAMPLING.md) retains only a small candidate set
 for non-greedy generation while preserving seeded output and RNG behavior.
-[Long generation](LONG_GENERATION.md) partitions attention across bounded worker
+[Long generation](docs/LONG_GENERATION.md) partitions attention across bounded worker
 lanes, with exact-output checks and a measured Mistral 7B comparison.
-[Bounded prompt prefill](PROMPT_PREFILL.md) groups direct-generation inputs
+[Bounded prompt prefill](docs/PROMPT_PREFILL.md) groups direct-generation inputs
 across reusable workers with explicit scratch limits.
-[Selective output heads](SELECTIVE_HEAD.md) skip vocabulary projection for
+[Selective output heads](docs/SELECTIVE_HEAD.md) skip vocabulary projection for
 unfinished prompt chunks in direct generation and serving.
-For smaller resident weights, see [Q8 inference](Q8_INFERENCE.md), including
+For smaller resident weights, see [Q8 inference](docs/Q8_INFERENCE.md), including
 accuracy tradeoffs and bounded larger-model examples.
-[Experimental Q4 inference](Q4_INFERENCE.md) packs weights further with a shared
+[Experimental Q4 inference](docs/Q4_INFERENCE.md) packs weights further with a shared
 pair-decoding table; output degradation can be substantial.
-[Mixed Q4/Q8 inference](QUALITY_INFERENCE.md) protects embeddings and the output
+[Mixed Q4/Q8 inference](docs/QUALITY_INFERENCE.md) protects embeddings and the output
 head, with held-out drift measurements and a reproducible quality probe.
-The [7B comparison](QUALITY_INFERENCE.md#measured-7b-results) records Q8-relative
+The [7B comparison](docs/QUALITY_INFERENCE.md#measured-7b-results) records Q8-relative
 quality and per-process peak RSS on a 24 GiB CPU host.
-[Llama 3.2](LLAMA3_INFERENCE.md) supports text, recognized Instruct chat templates,
+[Llama 3.2](docs/LLAMA3_INFERENCE.md) supports text, recognized Instruct chat templates,
 and token-ID inference, with offline numerical and larger-model trials.
 
 ```sh
-go run . infer models
-go run . infer local -repo HuggingFaceTB/SmolLM2-135M-Instruct chat
-go run . infer local -repo openai-community/gpt2 generate \
+go run ./cmd/monolith infer models
+go run ./cmd/monolith infer local -repo HuggingFaceTB/SmolLM2-135M-Instruct chat
+go run ./cmd/monolith infer local -repo openai-community/gpt2 generate \
   -prompt 'Once upon a time, a small cat' -max-tokens 32
-go run . infer remote models -family gpt-oss
+go run ./cmd/monolith infer remote models -family gpt-oss
 # Set HF_TOKEN in your environment before remote generation:
-go run . infer remote generate -model openai/gpt-oss-20b \
+go run ./cmd/monolith infer remote generate -model openai/gpt-oss-20b \
   -prompt 'Write one short sentence about cats.' -max-tokens 32 -stream
 ```
 
@@ -86,7 +86,7 @@ git clone https://github.com/RyoSpiralArchitect/sr_go_tranformer.git
 cd sr_go_tranformer
 
 go test ./...
-go build -o monolith .
+go build -o monolith ./cmd/monolith
 ./monolith learn demo
 ```
 
@@ -114,7 +114,7 @@ Inspect the memory plan without allocating model tensors or starting training:
 ./monolith learn train -data examples/tiny.txt -preset small -memory-plan
 ```
 
-Add `-memory-mib 256` to enforce a budget for major arrays and input staging, including on resume. The default `0` disables this additional cap; existing allocation limits still apply. This is a working-set estimate, not a process RSS limit. See [training memory planning](TRAINING_MEMORY.md) for component accounting, dataset examples, and exclusions.
+Add `-memory-mib 256` to enforce a budget for major arrays and input staging, including on resume. The default `0` disables this additional cap; existing allocation limits still apply. This is a working-set estimate, not a process RSS limit. See [training memory planning](docs/TRAINING_MEMORY.md) for component accounting, dataset examples, and exclusions.
 
 Training reserves the trailing 10% of the input bytes for validation before tokenization. Use separate, unused text for independent evaluation:
 
@@ -151,7 +151,7 @@ For larger corpora, prepare token shards and train with bounded parallel prefetc
   -resume runs/stream.mglm -out runs/stream.mglm
 ```
 
-The last command resumes an interrupted or `-stop-after` run with its saved schedule. Dataset manifests carry their own tokenizer and validation split; omit `-tokenizer` and `-val-fraction` when training them. The existing `-data` path remains available for small text files. See [token datasets](DATASETS.md) for document/packing semantics, memory bounds and the resume contract, and [dataset validation](DATASET_VALIDATION.md) for correctness checks and a scoped memory probe.
+The last command resumes an interrupted or `-stop-after` run with its saved schedule. Dataset manifests carry their own tokenizer and validation split; omit `-tokenizer` and `-val-fraction` when training them. The existing `-data` path remains available for small text files. See [token datasets](docs/DATASETS.md) for document/packing semantics, memory bounds and the resume contract, and [dataset validation](docs/DATASET_VALIDATION.md) for correctness checks and a scoped memory probe.
 
 Evaluate the same packed dataset independently and retain a reproducible JSON receipt:
 
@@ -160,13 +160,13 @@ Evaluate the same packed dataset independently and retain a reproducible JSON re
   -seq 96 -batches 8 > runs/evaluation.json
 ```
 
-Evaluation defaults to the validation split. Receipts identify the checkpoint, dataset, tokenizer, scoring method and actual target range. With matching settings, standalone dataset evaluation agrees with training validation. Both use [evaluation-only forward](EVALUATION_FORWARD.md), which reuses bounded scratch across windows without retaining a backward tape.
+Evaluation defaults to the validation split. Receipts identify the checkpoint, dataset, tokenizer, scoring method and actual target range. With matching settings, standalone dataset evaluation agrees with training validation. Both use [evaluation-only forward](docs/EVALUATION_FORWARD.md), which reuses bounded scratch across windows without retaining a backward tape.
 
-To measure training, add `-metrics runs/train.jsonl`, `-cpu-profile runs/cpu.pprof`, or `-alloc-profile runs/alloc.pprof` to `train`. These require new files in existing directories and also work with `-resume`. See [training measurement](TRAINING_MEASUREMENT.md) for event semantics, phase timing, profile scope and comparison guidance.
+To measure training, add `-metrics runs/train.jsonl`, `-cpu-profile runs/cpu.pprof`, or `-alloc-profile runs/alloc.pprof` to `train`. These require new files in existing directories and also work with `-resume`. See [training measurement](docs/TRAINING_MEASUREMENT.md) for event semantics, phase timing, profile scope and comparison guidance.
 
-Training reuses a fixed-size backward workspace owned by the training loop. See [workspace ownership and validation](TRAINING_WORKSPACE.md) for lifetime rules, the conservative memory guard, and measured allocation changes.
+Training reuses a fixed-size backward workspace owned by the training loop. See [workspace ownership and validation](docs/TRAINING_WORKSPACE.md) for lifetime rules, the conservative memory guard, and measured allocation changes.
 
-The [held-out training validation](TRAINING_VALIDATION.md) provides a small authored fixture, complete evaluation receipts and matched CPU optimization measurements. The standard-library Go comparison tool can repeat the same checks against two local executables.
+The [held-out training validation](docs/TRAINING_VALIDATION.md) provides a small authored fixture, complete evaluation receipts and matched CPU optimization measurements. The standard-library Go comparison tool can repeat the same checks against two local executables.
 
 Use `./monolith learn -h` or `./monolith infer -h` to choose a workflow. Existing direct commands remain available; use `./monolith <command> -h` for their options. Commands include `demo`, `tokenizer`, `prepare`, `train`, `eval`, `generate`, `inspect`, `inspect-hf`, `check-hf`, `infer-hf`, `tokenize-hf`, `chat`, and `serve`.
 
@@ -226,9 +226,9 @@ One goroutine owns sessions and KV pages. HTTP handlers drain bounded event chan
 
 Each active session receives at least one token of work every tick. Remaining capacity is shared among prompt chunks. By default, prompt chunks shrink to one token while any session is generating, preserving a shorter scheduling tick for ongoing output. Set `-mixed-prefill-chunk` equal to `-prefill-chunk` to favor prompt throughput over output cadence. Chunked prefill batches matrix projections across prompt rows and computes vocabulary logits only for each chunk's final row. The token budget bounds rows of work, not wall-clock latency; attention cost still grows with context length.
 
-The engine reuses its compute workers for projections and attention, with small kernels executed inline. Each kernel joins before scratch or KV ownership can end; `Engine.Close()` also joins the workers. `-threads` controls process-wide Go execution parallelism, while `-kernel-workers` fixes each engine's worker capacity for its lifetime. See [inference workers](INFERENCE_WORKERS.md) for ownership rules, exactness tests and scoped allocation/timing measurements.
+The engine reuses its compute workers for projections and attention, with small kernels executed inline. Each kernel joins before scratch or KV ownership can end; `Engine.Close()` also joins the workers. `-threads` controls process-wide Go execution parallelism, while `-kernel-workers` fixes each engine's worker capacity for its lifetime. See [inference workers](docs/INFERENCE_WORKERS.md) for ownership rules, exactness tests and scoped allocation/timing measurements.
 
-Chat and serving can opt into [prefix reuse](PREFIX_CACHE.md) with
+Chat and serving can opt into [prefix reuse](docs/PREFIX_CACHE.md) with
 `-prefix-cache-mib`. Matching input pages are read-only, mutable tails remain
 session-owned, and `/reset` invalidates chat retention. A pinned Mistral 7B probe
 reused 96 input positions while preserving both eight-token completions exactly.
@@ -237,7 +237,7 @@ reused 96 input positions while preserving both eight-token completions exactly.
 
 The metrics endpoint includes queue-wait, engine first-token, token-gap, batch-compute and cancellation-to-release histograms, processed token counts, KV use, heap allocation, GC counters, goroutine count, and owned compute workers (`monolith_kernel_workers`). Engine token timing ends when a token is sampled; client timing also includes HTTP and delivery. Heap metrics are not process RSS.
 
-Streams expose `Released()` separately from their prompt cancellation result: it closes after computation, cancellation observers, KV return and admission release finish. Use `serve -trace runs/serve.trace` to record request lifecycle events and batch/layer regions in a new Go execution trace file. See [serving lifecycle measurement](SERVING_LIFECYCLE.md) for timing definitions, ownership guarantees, bounded drain checks and reproduction.
+Streams expose `Released()` separately from their prompt cancellation result: it closes after computation, cancellation observers, KV return and admission release finish. Use `serve -trace runs/serve.trace` to record request lifecycle events and batch/layer regions in a new Go execution trace file. See [serving lifecycle measurement](docs/SERVING_LIFECYCLE.md) for timing definitions, ownership guarantees, bounded drain checks and reproduction.
 
 A separate standard-library load client checks stream output and measures mixed requests:
 
@@ -246,7 +246,27 @@ go run ./tools/loadtest -requests 60 -concurrency 4 -max-tokens 16 \
   -cancel-every 7 -slow-every 5 -details > runs/loadtest.json
 ```
 
-Create `runs/` first if needed. See the [load client documentation](tools/loadtest/README.md) for timing definitions and [serving validation](SERVING_VALIDATION.md) for a measured comparison of sequential and chunked prefill.
+Create `runs/` first if needed. See the [load client documentation](tools/loadtest/README.md) for timing definitions and [serving validation](docs/SERVING_VALIDATION.md) for a measured comparison of sequential and chunked prefill.
+
+## Repository layout
+
+```text
+cmd/monolith/   Single-file runtime (monolith.go) and same-package Go tests
+configs/        Model configuration examples
+scripts/        Development, fixture generation and measurement scripts
+tools/          Independent loadtest and trainbench commands
+docs/           Inference, training and validation documentation
+testdata/       Shared offline fixtures and isolated probes
+examples/       Example corpora and authored holdout data
+benchmarks/     Recorded training and serving measurements
+validation/     Pinned model catalogs, protocols and numerical receipts
+```
+
+The runtime remains one file and one Go package; this layout does not introduce
+library packages or split the model implementation. Run commands in this README
+and in `docs/` from the repository root. Use `go run ./cmd/monolith` rather than
+`go run .`; the built `./monolith` CLI is unchanged. Historical receipts retain
+the paths and hashes recorded at measurement time.
 
 ## Development
 
@@ -254,12 +274,18 @@ Create `runs/` first if needed. See the [load client documentation](tools/loadte
 go test -race ./...
 go vet ./...
 ./scripts/smoke.sh
-go test -run '^$' -bench . -benchmem -cpu 4
+go test -run '^$' -bench . -benchmem -cpu 4 ./cmd/monolith
+python3 -S -m unittest discover -s scripts -p '*_test.py' -v
 ```
+
+`make build`, `make test`, `make race`, `make vet` and `make bench` use
+`scripts/go.sh`, which also supports a verified local toolchain at `.tools/go`.
+The runtime tests start in the repository root so shared fixture paths and
+standalone measurement probes keep the same working-directory contract.
 
 The tests cover numerical gradients, causal attention, mixed-length chunked prefill, KV-cache equivalence, streamed output and UTF-8 boundaries, slow consumers, cancellation and shutdown, token-shard integrity, bounded ordered prefetch, checkpoint integrity, deterministic resume, and small-model learning. The smoke script exercises both text and dataset training and compares uninterrupted and resumed checkpoints byte for byte, including changed dataset IO settings.
 
-GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke test with Go 1.22 on Linux and the current stable Go release on Linux and macOS. See [`VALIDATION.md`](VALIDATION.md) for the recorded experiments and their limits.
+GitHub Actions runs formatting checks, tests, vet, builds, and the CLI smoke test with Go 1.22 on Linux and the current stable Go release on Linux and macOS. See [`VALIDATION.md`](docs/VALIDATION.md) for the recorded experiments and their limits.
 
 ## Scope and limitations
 
@@ -273,5 +299,5 @@ Copyright 2026 RyoSpiralArchitect.
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
 
-For longer HF contexts, see [explicit KV budgets](LONG_CONTEXT.md), including
+For longer HF contexts, see [explicit KV budgets](docs/LONG_CONTEXT.md), including
 4K/8K storage planning, preflight rejection and the actual validation scope.

@@ -185,7 +185,7 @@ def main():
             print(a.id, fmt, trial+1, report["completed_token_events_per_second"], "tokens/s", flush=True)
     receipt = dict(format="monolith-low-bit-reference-v1", formats=formats, model=source["repo"], revision=source["revision"],
         files=source["files"], binary_sha256=sha(a.binary), loadtest_sha256=sha(a.loadtest),
-        source_sha256=sha(root / "monolith.go"), script_sha256=sha(Path(__file__)),
+        source_sha256=sha(root / "cmd/monolith/monolith.go"), script_sha256=sha(Path(__file__)),
         host=platform.system()+"/"+platform.machine(), hf_hub_offline=True, plans=plans,
         numerical_reference="same-binary FP32; identical input prefixes; no quality threshold",
         cases=cases, cli_http_concurrent_sse_match=True, warmup_requests=2,

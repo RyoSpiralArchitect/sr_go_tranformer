@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 from compare_inference import isolated_go_environment
-from quant_quality import run_measured, sha
+from quant_quality import git_source, run_measured, sha
 
 
 def main():
@@ -56,7 +56,7 @@ def main():
             contents = (
                 probe.read_bytes()
                 if name == "prompt_kv_test.go"
-                else subprocess.check_output(["git", "show", ref + ":" + name], cwd=root)
+                else git_source(root, ref, name)
             )
             path = build / name
             path.write_bytes(contents)

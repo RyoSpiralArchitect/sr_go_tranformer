@@ -241,7 +241,7 @@ Network tests use local HTTP fixtures for cache hashes, offline reuse, budgets,
 atomic concurrent publication, credential redirect boundaries, rate limits,
 malformed/truncated streams, cancellation, broken consumers and raw text
 endpoints. A live pinned SmolLM2-135M download and offline replay produced
-identical greedy output (see [receipt](validation/hf/sources-and-routing.json)).
+identical greedy output (see [receipt](../validation/hf/sources-and-routing.json)).
 Remote provider listing was checked live. Remote generation was **not** run
 against a paid service; protocol fixtures do not establish provider quality.
 

@@ -39,7 +39,7 @@ It leaves its receipts in `runs/cli-smoke/`. The test is for execution and repro
 ## Synthetic learning experiment
 
 ```sh
-./scripts/go.sh run . demo -out runs/demo-framed-500.mglm
+./scripts/go.sh run ./cmd/monolith demo -out runs/demo-framed-500.mglm
 ```
 
 - 32,992 parameters; random initialization; byte vocabulary 258.
@@ -76,7 +76,7 @@ A separate unit test learns the repeated `abc` next-token pattern: **5.562956 â†
 Command:
 
 ```sh
-./scripts/go.sh test -run '^$' \
+./scripts/go.sh test ./cmd/monolith -run '^$' \
   -bench 'BenchmarkDecodeBatch|BenchmarkAttentionLinearMemory' \
   -benchmem -benchtime=300ms -count=1 -cpu=4
 ```

@@ -12,8 +12,8 @@ used for bounded Q8/Q4-mixed generation and memory probes. Q4-mixed CLI, HTTP
 and concurrent SSE agree, with cancellation and resource release checked.
 These short probes do not establish general language quality. A separate
 [long-generation comparison](LONG_GENERATION.md) measures a 256-token prefix
-and 256 output IDs with exact numerical checks. See [local validation](validation/hf/mistral-v03-local-20261029.json)
-and the [earlier incomplete-download record](validation/hf/mistral-v03-validation.json).
+and 256 output IDs with exact numerical checks. See [local validation](../validation/hf/mistral-v03-local-20261029.json)
+and the [earlier incomplete-download record](../validation/hf/mistral-v03-validation.json).
 
 ## Run locally
 
@@ -21,7 +21,7 @@ If the model already exists on disk, point directly at its folder or index.
 This reads the original files in place without copying or downloading them:
 
 ```sh
-HF_HUB_OFFLINE=1 ./scripts/go.sh run . infer local \
+HF_HUB_OFFLINE=1 ./scripts/go.sh run ./cmd/monolith infer local \
   -path "$HOME/models/mistral7b-instruct-v0.3" \
   -context 128 -weight-format q4-mixed -weight-mib 6144 \
   generate -chat -prompt 'Write one short sentence about cats.' \
@@ -42,7 +42,7 @@ first; the budgets below are limits, not measured total process memory.
 Prepare the verified snapshot separately from inference:
 
 ```sh
-./scripts/go.sh run . infer local \
+./scripts/go.sh run ./cmd/monolith infer local \
   -repo mistralai/Mistral-7B-Instruct-v0.3 \
   -revision c170c708c41dac9275d15a8fff4eca08d52bab71 \
   -cache-dir runs/hf-cache -download-mib 15000 -download-timeout 2h \
@@ -55,7 +55,7 @@ Only a complete snapshot is usable offline. See [download and resume behavior](I
 for concurrent downloads, deadlines and abrupt-termination limitations.
 
 ```sh
-./scripts/go.sh run . infer local \
+./scripts/go.sh run ./cmd/monolith infer local \
   -repo mistralai/Mistral-7B-Instruct-v0.3 \
   -revision c170c708c41dac9275d15a8fff4eca08d52bab71 \
   -cache-dir runs/hf-cache -download-mib 15000 \
@@ -68,7 +68,7 @@ After a complete snapshot has been published to that cache, the same request
 can run without network access:
 
 ```sh
-HF_HUB_OFFLINE=1 ./scripts/go.sh run . infer local \
+HF_HUB_OFFLINE=1 ./scripts/go.sh run ./cmd/monolith infer local \
   -repo mistralai/Mistral-7B-Instruct-v0.3 \
   -revision c170c708c41dac9275d15a8fff4eca08d52bab71 \
   -cache-dir runs/hf-cache -context 128 \
@@ -136,7 +136,7 @@ python -I scripts/hf_mistral_tokenizer_fixture.py \
   --source PATH_TO_PINNED_METADATA --output runs/mistral-tokenizer.json --real
 MONOLITH_HF_MODEL=PATH_TO_PINNED_METADATA \
 MONOLITH_HF_TOKENIZER_REFERENCE=runs/mistral-tokenizer.json \
-  ./scripts/go.sh test -run TestHFLocalTokenizerReference -v .
+  ./scripts/go.sh test -run TestHFLocalTokenizerReference -v ./cmd/monolith
 ```
 
 The real oracle additionally needs the official `tokenizer.model`, whose hash
@@ -167,8 +167,8 @@ general quality. Peak RSS uses each child's `wait4` lifetime maximum, including
 load and probing. Host activity and file caches were uncontrolled; reported
 timings are not an optimization comparison.
 
-[Quality receipt](validation/quality/mistral7b-v03-q8-q4mixed-20261029.json) and
-[serving receipt](validation/hf/mistral-v03-local-serving-20261029.json) retain
+[Quality receipt](../validation/quality/mistral7b-v03-q8-q4mixed-20261029.json) and
+[serving receipt](../validation/hf/mistral-v03-local-serving-20261029.json) retain
 source/build identities, outcomes and measurements. The serving trial uses
 `infer local -path` with `HF_HUB_OFFLINE=1`, Q4-mixed, raw text and chat, two
 concurrent streams, one canceled request, drained reservations and clean shutdown.

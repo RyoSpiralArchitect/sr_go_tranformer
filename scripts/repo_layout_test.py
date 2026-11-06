@@ -1,0 +1,61 @@
+import re
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from quant_quality import git_source, source_path
+
+
+class RepositoryLayoutTests(unittest.TestCase):
+    def test_current_sources_resolve(self):
+        root = Path(__file__).resolve().parents[1]
+        sources = sorted((root / 'cmd/monolith').glob('*.go'))
+        self.assertTrue(sources)
+        for source in sources:
+            with self.subTest(source=source.name):
+                self.assertEqual(source_path(root, source.name), source)
+        self.assertEqual(source_path(root, 'go.mod'), root / 'go.mod')
+        self.assertEqual(source_path(root, 'scripts/go.sh'), root / 'scripts/go.sh')
+
+    def test_legacy_checkout_sources_resolve(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'monolith.go'
+            source.touch()
+            self.assertEqual(source_path(root, source.name), source)
+
+    def test_git_source_supports_both_layouts(self):
+        root = Path(__file__).resolve().parents[1]
+        for moved in (False, True):
+            with self.subTest(moved=moved), patch('quant_quality.subprocess.run') as run:
+                success = subprocess.CompletedProcess([], 0, b'package main', b'')
+                failure = subprocess.CompletedProcess([], 128, b'', b'not found')
+                run.side_effect = [failure, success] if moved else [success]
+                self.assertEqual(git_source(root, 'revision', 'monolith.go'), b'package main')
+                self.assertEqual(run.call_count, 2 if moved else 1)
+                expected = 'revision:cmd/monolith/monolith.go' if moved else 'revision:monolith.go'
+                self.assertEqual(run.call_args.args[0][-1], expected)
+
+    def test_missing_git_source_fails(self):
+        with patch('quant_quality.subprocess.run') as run:
+            run.return_value = subprocess.CompletedProcess(['git', 'show'], 128, b'', b'not found')
+            with self.assertRaises(subprocess.CalledProcessError):
+                git_source(Path('.'), 'revision', 'monolith.go')
+
+    def test_documentation_links_resolve(self):
+        root = Path(__file__).resolve().parents[1]
+        documents = [root / 'README.md', *sorted((root / 'docs').glob('*.md')),
+                     *sorted((root / 'tools').glob('*/README.md'))]
+        for document in documents:
+            for target in re.findall(r'\]\(([^)]+)\)', document.read_text()):
+                if '://' in target or target.startswith('#'):
+                    continue
+                path = target.split('#', 1)[0]
+                with self.subTest(document=str(document.relative_to(root)), target=target):
+                    self.assertTrue((document.parent / path).exists())
+
+
+if __name__ == '__main__':
+    unittest.main()

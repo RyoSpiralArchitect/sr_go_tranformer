@@ -48,6 +48,6 @@ jobs:
       - name: Check per-process memory measurement and timeout cleanup
         run: python3 -S -m unittest discover -s scripts -p '*_test.py' -v
       - name: Build without cgo
-        run: CGO_ENABLED=0 go build -trimpath -o monolith .
+        run: CGO_ENABLED=0 go build -trimpath -o monolith ./cmd/monolith
       - name: Exercise CLI and deterministic resume
         run: ./scripts/smoke.sh

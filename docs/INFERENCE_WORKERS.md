@@ -82,7 +82,7 @@ interruptible. A successful join is required even during shutdown.
 
 ```sh
 go test -race ./...
-go test -race -run 'Test(KernelExecutor|Worker|EngineWorker|ReleaseWaitsForMixedBatchCompute|ShutdownReleaseWaitsForComputeAndDrainsQueue)' -count=10 .
+go test -race -run 'Test(KernelExecutor|Worker|EngineWorker|ReleaseWaitsForMixedBatchCompute|ShutdownReleaseWaitsForComputeAndDrainsQueue)' -count=10 ./cmd/monolith
 go vet ./...
 ./scripts/smoke.sh
 ```
@@ -100,7 +100,7 @@ The CLI smoke checks exact training resume and evaluation equality.
 ## Measurement
 
 ```sh
-go test -run '^$' -bench '^BenchmarkInference(Linear|Batch)Workers$' \
+go test ./cmd/monolith -run '^$' -bench '^BenchmarkInference(Linear|Batch)Workers$' \
   -benchmem -benchtime=300ms -count=3 -cpu=4
 ```
 
@@ -112,7 +112,7 @@ workspace warmup and worker startup are outside the timed interval. Returned
 logits and normal batch bookkeeping are included. A forced GC may still evict
 `sync.Pool` scratch, as in production.
 
-The source-bound [measurement receipt](benchmarks/inference-workers-2026-10-15.json)
+The source-bound [measurement receipt](../benchmarks/inference-workers-2026-10-15.json)
 records all samples and the matched HTTP comparison. These are CPU runtime
 measurements of a small local fixture, not a model-quality or general capacity
 claim. Execution tracing is disabled during timing comparisons.

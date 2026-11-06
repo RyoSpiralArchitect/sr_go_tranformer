@@ -7,11 +7,11 @@ The improvement varies by model and does not recover FP32 behavior. FP32 remains
 the default; all-Q8 was closer to FP32 in every distribution comparison below.
 
 ```sh
-go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
+go run ./cmd/monolith infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
   -revision 989aa7980e4cf806f80c7fef2b1adb7bc71aa306 \
   -download-mib 4096 -context 128 -weight-format q4-mixed -weight-mib 1000 \
   check -json
-HF_HUB_OFFLINE=1 go run . infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
+HF_HUB_OFFLINE=1 go run ./cmd/monolith infer local -repo Qwen/Qwen2.5-1.5B-Instruct \
   -revision 989aa7980e4cf806f80c7fef2b1adb7bc71aa306 \
   -download-mib 4096 -context 128 -weight-format q4-mixed -weight-mib 1000 \
   generate -chat -prompt 'Write one short sentence about cats.' \
@@ -49,10 +49,10 @@ KL(FP32 || candidate) was 3.698 for Q4, 0.0827 when protecting only the shared
 embedding/output matrix, 3.639 for attention-only protection, 3.693 for MLP-only
 protection, 0.0660 for embedding plus attention and 0.0186 for all-Q8. Embedding
 protection was selected as a small, easily audited policy, then applied unchanged
-to the other models. [Selection receipt](validation/quality/gpt2-selection.json).
+to the other models. [Selection receipt](../validation/quality/gpt2-selection.json).
 
 Evaluation uses six separately authored passages in
-[the checked-in corpus](validation/quality/corpus.json). For each document, four
+[the checked-in corpus](../validation/quality/corpus.json). For each document, four
 prefix tokens precede sixteen scored next-token positions: 96 positions per
 model/format. Each step feeds the **ground-truth previous token**, so every
 format sees identical prefixes even when its preferred next token differs.
@@ -96,14 +96,14 @@ differ from FP32; removing one repetition example is not proof of preserved
 quality. The receipts retain every scored position and both eight-token
 continuations, including unfavorable results.
 
-Raw receipts: [GPT-2](validation/quality/gpt2.json),
-[Qwen2.5 1.5B](validation/quality/qwen25-1.5b.json),
-[SmolLM2 360M](validation/quality/smollm2-360m.json).
+Raw receipts: [GPT-2](../validation/quality/gpt2.json),
+[Qwen2.5 1.5B](../validation/quality/qwen25-1.5b.json),
+[SmolLM2 360M](../validation/quality/smollm2-360m.json).
 
 ## Reproduce offline
 
 Use model files matching the pinned revisions and SHA-256 entries in
-[`model-profiles.json`](validation/hf/model-profiles.json). The runner verifies
+[`model-profiles.json`](../validation/hf/model-profiles.json). The runner verifies
 those files, builds a fresh Go test executable, and starts a separate process
 for each format so only one resident model is needed at a time. Python's standard
 library orchestrates the experiment; all inference runs in Go.
@@ -118,7 +118,7 @@ python3 -S scripts/quant_quality.py --model PATH_TO_SMOLLM2_360M --id smollm2-36
 # Optional: repeat the small selection experiment (1 GiB FP32 weight ceiling).
 MONOLITH_ABLATION_MODEL=PATH_TO_GPT2 \
   MONOLITH_ABLATION_OUTPUT=runs/selection.json \
-  HF_HUB_OFFLINE=1 GOMAXPROCS=4 go test -run '^TestQualityAblation$' -count=1
+  HF_HUB_OFFLINE=1 GOMAXPROCS=4 go test -run '^TestQualityAblation$' -count=1 ./cmd/monolith
 ```
 
 Choose a fresh output directory and keep source/model files immutable. Reference
@@ -226,11 +226,11 @@ For `The capital of France is`, Q8 continues
 ` named Whiskers lived in a cozy` for `Once upon a time, a small cat`.
 Both are eight-token, ordinary-text continuations, not chat evaluations.
 
-The [complete 7B quality receipt](validation/quality/qwen25-7b.json) includes
+The [complete 7B quality receipt](../validation/quality/qwen25-7b.json) includes
 every scored position, all generated IDs, exact weight bytes, per-child peak
 RSS, original file hashes and the source/build/probe identities.
 
-The [7B mixed serving receipt](validation/quality/qwen25-7b-serving.json) records
+The [7B mixed serving receipt](../validation/quality/qwen25-7b-serving.json) records
 matching CLI/HTTP/concurrent-SSE output for ordinary text and a chat prompt,
 then one completed and one canceled load-test request. All six server requests
 were released, with zero active/queued/computing requests, admission reservations

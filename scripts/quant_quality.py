@@ -17,6 +17,23 @@ import signal
 import time
 
 
+def source_path(root, name):
+    path = root / name
+    if path.suffix == '.go' and path.parent == root and not path.exists():
+        return root / 'cmd/monolith' / name
+    return path
+
+
+def git_source(root, ref, name):
+    paths = [name, 'cmd/monolith/' + name] if name.endswith('.go') and '/' not in name else [name]
+    for path in paths:
+        result = subprocess.run(['git', 'show', ref + ':' + path], cwd=root,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode == 0:
+            return result.stdout
+    raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
+
+
 def sha(path):
     digest = hashlib.sha256()
     with path.open('rb') as source:
@@ -111,20 +128,20 @@ def main():
     reference = output / 'reference.f32'
     if reference.exists():
         raise RuntimeError('Use a fresh output directory; reference already exists')
-    inputs = sorted(root.glob('*.go')) + [root/'go.mod', root/'go.sum']
+    inputs = sorted((root/'cmd/monolith').glob('*.go')) + [root/'go.mod', root/'go.sum']
     build_inputs = {path.name: sha(path) for path in inputs}
     probe = output / 'probe.test'
     build_env = dict(os.environ, CGO_ENABLED='0')
     go = str(root / 'scripts/go.sh')
     with (output / 'build.log').open('w') as log:
-        subprocess.run([go, 'test', '-c', '-trimpath', '-o', str(probe), '.'],
+        subprocess.run([go, 'test', '-c', '-trimpath', '-o', str(probe), './cmd/monolith'],
                        cwd=root, env=build_env, stdout=log, stderr=subprocess.STDOUT, timeout=300, check=True)
     if build_inputs != {path.name: sha(path) for path in inputs}:
         raise RuntimeError('Build inputs changed during compilation')
     go_version = subprocess.check_output([go, 'version'], cwd=root, text=True).strip()
     script_sha = sha(Path(__file__))
     corpus_sha = sha(root / 'validation/quality/corpus.json')
-    source_sha = sha(root / 'monolith.go')
+    source_sha = sha(source_path(root, 'monolith.go'))
     probe_sha = sha(probe)
     env = dict(os.environ, HF_HUB_OFFLINE='1', GOMAXPROCS='4',
                MONOLITH_QUALITY_MODEL=str(model), MONOLITH_QUALITY_SOURCE=source['repo']+'@'+source['revision'],

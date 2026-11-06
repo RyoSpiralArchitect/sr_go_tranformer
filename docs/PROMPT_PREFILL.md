@@ -42,7 +42,7 @@ this change covers the direct-generation path.
 
 ## Performance protocol
 
-The [frozen protocol](validation/performance/prompt-prefill-protocol-20261030.json)
+The [frozen protocol](../validation/performance/prompt-prefill-protocol-20261030.json)
 compares both implementation orders, three samples per order, with four
 threads. The native fixture has dimension 256, hidden width 704, one layer,
 33/129/257-token prompts and a three-token short control. Each invocation
@@ -54,7 +54,7 @@ previous worker-reuse improvement.
 ```sh
 GOENV=off GOTOOLCHAIN=local GOWORK=off GOFLAGS= GOEXPERIMENT= \
   GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=4 \
-  ./scripts/go.sh test -run '^$' -bench '^BenchmarkPromptPrefillGenerate$' \
+  ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkPromptPrefillGenerate$' \
   -benchmem -benchtime=250ms -count=3 -cpu=4
 ```
 
@@ -79,8 +79,8 @@ implementation order. This native fixture is not a complete pretrained model.
 The frozen timing gates passed. Larger retained scratch increases allocated
 bytes for some shapes even as forwarding and dispatch overhead fall. All raw
 samples and source hashes are in
-[the receipt](validation/performance/prompt-prefill-20261030.json) and
-[raw output](validation/performance/prompt-prefill-20261030.txt).
+[the receipt](../validation/performance/prompt-prefill-20261030.json) and
+[raw output](../validation/performance/prompt-prefill-20261030.txt).
 The optional `scripts/compare_prompt_prefill.py --model PATH --output RUN_DIR`
 builds baseline68ee4d8 and the current runtime with an identical real-model
 first-token probe, checks original source files before/after, and uses ABBA
@@ -91,7 +91,7 @@ from the native measurements above.
 
 ## Pinned Mistral 7B first-token result
 
-The [ABBA receipt](validation/performance/mistral-prompt-prefill-20261030.json)
+The [ABBA receipt](../validation/performance/mistral-prompt-prefill-20261030.json)
 records Q4-mixed Mistral-7B-Instruct-v0.3, context1024, four threads, identical
 harnesses, pinned original file hashes, and every trial. For a 275-token prompt,
 median Generate time to its first output token fell from144.142s to111.181s

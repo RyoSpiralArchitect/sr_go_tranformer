@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 
 from compare_inference import isolated_go_environment
-from quant_quality import run_measured, sha
+from quant_quality import git_source, run_measured, sha, source_path
 
 # Compare policies within the same production revision: only the fixed binary
 # gets the historical borrower guard. Refuse to modify a changed guard.
@@ -229,7 +229,7 @@ def main():
         "scripts/quant_quality.py",
         "validation/hf/model-profiles.json",
     ]
-    hashes = {name: sha(root / name) for name in inputs}
+    hashes = {name: sha(source_path(root, name)) for name in inputs}
     protocol = dict(
         format="monolith-five-turn-chat-v1",
         files=pinned["files"],
@@ -262,14 +262,14 @@ def main():
                 raise ValueError("model hash mismatch: " + name)
 
     def source_at(ref):
-        return subprocess.check_output(["git", "show", ref + ":monolith.go"], cwd=root)
+        return git_source(root, ref, "monolith.go")
 
     verify_model()
     goroot = subprocess.check_output(
         [root / "scripts/go.sh", "env", "GOROOT"], cwd=root, env=env, text=True
     )
     go = str(Path(goroot.strip()) / "bin/go")
-    source = (root / "monolith.go").read_bytes()
+    source = source_path(root, "monolith.go").read_bytes()
     builds = {}
     variants = [("current", source)]
     if "fixed" in schedule:
@@ -279,7 +279,7 @@ def main():
         build.mkdir()
         for item in inputs[:4]:
             (build / item).write_bytes(
-                contents if item == "monolith.go" else (root / item).read_bytes()
+                contents if item == "monolith.go" else source_path(root, item).read_bytes()
             )
         binary = build / "probe.test"
         cmd = [go, "test", "-c", "-trimpath", "-o", binary]
@@ -330,7 +330,7 @@ def main():
         reports.append(dict(mode=mode, report=report, process_resources=resources))
         print("finished", i, mode, flush=True)
     verify_model()
-    if any(sha(root / n) != h for n, h in hashes.items()):
+    if any(sha(source_path(root, n)) != h for n, h in hashes.items()):
         raise ValueError("source changed during measurement")
     for name, files in builds.items():
         if any(sha(out / name / n) != h for n, h in files.items()):

@@ -47,9 +47,9 @@ The complete text-evaluation benchmark scores all 1,584 post-BOS targets from th
 
 A separate warmed forward benchmark uses batch 1 / sequence 64 and excludes construction and loss scoring. Allocating `Forward` uses 1,314,512 bytes/call for tiny and 6,847,216 for small; evaluation uses 10,544 and 15,664 bytes/call. Parallel dispatch still allocates, so this is not an allocation-free path. Construction alone uses 320,896 bytes / 13 allocations for tiny and 977,280 bytes / 13 allocations for small, including allocator/object overhead. Do not add this cost to every warmed window: one evaluation invocation constructs once.
 
-These are cumulative allocation measurements, not live heap or peak RSS. The fixed payload formula above describes the explicitly retained FP32 buffers. Raw benchmark samples and source provenance are retained under [benchmarks/evaluation-2026-10-14](benchmarks/evaluation-2026-10-14).
+These are cumulative allocation measurements, not live heap or peak RSS. The fixed payload formula above describes the explicitly retained FP32 buffers. Raw benchmark samples and source provenance are retained under [benchmarks/evaluation-2026-10-14](../benchmarks/evaluation-2026-10-14).
 
-Baseline source for the separate full-process comparison is merged PR #8, `511ab2f8572b722a389ab0899482d987b2eb66aa`. Source and executable hashes are in [provenance.json](benchmarks/evaluation-2026-10-14/provenance.json). The existing training harness ran five alternating pairs per preset on the prepared dataset, with the same schedule, seeds, threads and IO settings as [the training fixture](TRAINING_VALIDATION.md):
+Baseline source for the separate full-process comparison is merged PR #8, `511ab2f8572b722a389ab0899482d987b2eb66aa`. Source and executable hashes are in [provenance.json](../benchmarks/evaluation-2026-10-14/provenance.json). The existing training harness ran five alternating pairs per preset on the prepared dataset, with the same schedule, seeds, threads and IO settings as [the training fixture](TRAINING_VALIDATION.md):
 
 | Preset | Baseline median (range), seconds | Evaluation-workspace median (range), seconds |
 | --- | ---: | ---: |
@@ -58,7 +58,7 @@ Baseline source for the separate full-process comparison is merged PR #8, `511ab
 
 All twenty timed checkpoints matched by complete SHA-256 within each preset, and dataset evaluation receipts matched byte for byte. Separate text CLI evaluation receipts also matched exactly and are retained beside the report. These checks preserve the successful training/evaluation trajectory; they do not measure general language quality.
 
-No full-training speed improvement is demonstrated: medians are about 2.0% higher for tiny and 1.6% higher for small, and the slower 1.943-second candidate sample is retained. The comparison includes initialization, training, initial/final validation and checkpoint saving, so it has a different scope from the evaluation benchmarks. All [raw timings](benchmarks/evaluation-2026-10-14/comparison.json) remain available. The established improvement is evaluation allocation volume.
+No full-training speed improvement is demonstrated: medians are about 2.0% higher for tiny and 1.6% higher for small, and the slower 1.943-second candidate sample is retained. The comparison includes initialization, training, initial/final validation and checkpoint saving, so it has a different scope from the evaluation benchmarks. All [raw timings](../benchmarks/evaluation-2026-10-14/comparison.json) remain available. The established improvement is evaluation allocation volume.
 
 ## Reproduce
 
@@ -66,14 +66,14 @@ From the candidate checkout, with a matching toolchain and an otherwise quiet ma
 
 ```sh
 GOMAXPROCS=4 go test -run '^$' -bench '^BenchmarkEvaluation' \
-  -benchtime=5x -count=3 .
+  -benchtime=5x -count=3 ./cmd/monolith
 mkdir -p runs
 evaluation_run=$(mktemp -d runs/evaluation-comparison-XXXXXX)
 mkdir "$evaluation_run/baseline-source"
 git archive 511ab2f8572b722a389ab0899482d987b2eb66aa | \
   tar -x -C "$evaluation_run/baseline-source"
 CGO_ENABLED=0 go -C "$evaluation_run/baseline-source" build -trimpath -o ../baseline .
-CGO_ENABLED=0 go build -trimpath -o "$evaluation_run/candidate" .
+CGO_ENABLED=0 go build -trimpath -o "$evaluation_run/candidate" ./cmd/monolith
 go run ./tools/trainbench -baseline "$evaluation_run/baseline" \
   -candidate "$evaluation_run/candidate" -out "$evaluation_run/results" -repeats 5
 ```

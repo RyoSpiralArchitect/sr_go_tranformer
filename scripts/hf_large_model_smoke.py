@@ -37,14 +37,14 @@ def main():
         if sha(model/name) != expected:
             raise RuntimeError('Pinned source mismatch: '+name)
     output.mkdir(parents=True, exist_ok=False)
-    inputs = sorted(root.glob('*.go')) + sorted((root/'tools/loadtest').glob('*.go')) + [root/'go.mod', root/'go.sum']
+    inputs = sorted((root/'cmd/monolith').glob('*.go')) + sorted((root/'tools/loadtest').glob('*.go')) + [root/'go.mod', root/'go.sum']
     build_hashes = {str(p.relative_to(root)): sha(p) for p in inputs}
     script_inputs = {p.name: sha(p) for p in (Path(__file__), root/'scripts/quant_quality.py', root/'scripts/q8_reference.py')}
     env = dict(os.environ, HF_HUB_OFFLINE='1', GOMAXPROCS='4', CGO_ENABLED='0')
     env.pop('HF_TOKEN', None)
     binary, client = output/'monolith', output/'loadtest'
     with (output/'build.log').open('w') as log:
-        for target, package in ((binary, '.'), (client, './tools/loadtest')):
+        for target, package in ((binary, './cmd/monolith'), (client, './tools/loadtest')):
             subprocess.run([str(root/'scripts/go.sh'), 'build', '-trimpath', '-o', str(target), package],
                            cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=300)
     flags = ['infer', 'local', '-path', str(model), '-context', '128', '-weight-format', args.format, '-weight-mib', '8192']

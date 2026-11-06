@@ -25,13 +25,13 @@ top-k and fallback boundaries, temperatures, top-p cutoffs, penalties, seeds,
 32K/152K vocabularies, and seeded engine completions with growing prefixes.
 
 ```sh
-GOMAXPROCS=4 ./scripts/go.sh test -run '^$' \
+GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' \
   -bench '^BenchmarkBoundedTopKSampling$' -benchmem -benchtime=250ms -count=3 -cpu=4
 ```
 
-The [frozen protocol](validation/performance/top-k-protocol-20261030.json)
+The [frozen protocol](../validation/performance/top-k-protocol-20261030.json)
 records both orders, a large-k fallback, disabled top-k, and a greedy control.
-The [load client](tools/loadtest/README.md) now supports explicit non-greedy
+The [load client](../tools/loadtest/README.md) now supports explicit non-greedy
 cohorts; its default remains greedy for compatibility with earlier measurements.
 Use the same prompt, seed and sampling options on both compared runtimes.
 
@@ -54,8 +54,8 @@ All frozen gates passed. Fallback candidate capacity now also accounts for an
 absent blocked ID, avoiding the reference's final append growth. Greedy storage
 is unchanged. The complete path still allocates; the history map is not removed.
 
-[All 84 samples, gates and source hashes](validation/performance/top-k-sampling-20261030.json)
-and [raw output](validation/performance/top-k-sampling-20261030.txt) are retained.
+[All 84 samples, gates and source hashes](../validation/performance/top-k-sampling-20261030.json)
+and [raw output](../validation/performance/top-k-sampling-20261030.txt) are retained.
 These are synthetic logit vectors, not a pretrained model or HTTP throughput
 result. Full engine completion parity is checked separately under race detection;
 no end-to-end speed or process-memory reduction is inferred from this table.
