@@ -2832,8 +2832,10 @@ func (t Tokenizer) Encode(s string, bos, eos bool) []int {
 }
 func (t Tokenizer) Pieces() [][]byte {
 	pieces := make([][]byte, t.Vocab())
-	for i := 0; i < 256; i++ {
-		pieces[i] = []byte{byte(i)}
+	var data [256]byte
+	for i := range data {
+		data[i] = byte(i)
+		pieces[i] = data[i : i+1 : i+1]
 	}
 	for i, p := range t.Merges {
 		pieces[baseVocab+i] = append(append([]byte(nil), pieces[p.A]...), pieces[p.B]...)
@@ -2841,6 +2843,37 @@ func (t Tokenizer) Pieces() [][]byte {
 	return pieces
 }
 func (t Tokenizer) Decode(ids []int) string {
+	if len(t.Merges) == 0 {
+		var scratch [256]byte
+		n, pos := 0, len(ids)
+		for i, id := range ids {
+			if uint(id) < 256 {
+				if n == len(scratch) {
+					pos = i
+					break
+				}
+				scratch[n] = byte(id)
+				n++
+			}
+		}
+		if pos == len(ids) {
+			return string(scratch[:n])
+		}
+		size := n
+		for _, id := range ids[pos:] {
+			if uint(id) < 256 {
+				size++
+			}
+		}
+		out := make([]byte, n, size)
+		copy(out, scratch[:n])
+		for _, id := range ids[pos:] {
+			if uint(id) < 256 {
+				out = append(out, byte(id))
+			}
+		}
+		return string(out)
+	}
 	pieces := t.Pieces()
 	var out []byte
 	for _, id := range ids {

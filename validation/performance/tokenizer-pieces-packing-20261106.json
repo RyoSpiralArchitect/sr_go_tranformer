@@ -1,0 +1,44 @@
+{
+  "format": "monolith-tokenizer-pieces-packing-v1",
+  "baseline": "2f3a8a14d6e81b17fad578e15817d6cf10f2c19f",
+  "candidate_runtime_sha256": "a6739f57bd04eff72837ddc818e5bdc2d9941ae8ac33753699e7184074ba78b1",
+  "environment": "Apple M4 / Darwin arm64 / Go 1.27.3 / GOMAXPROCS4",
+  "implementation": "One per-call [256]byte backing block. Each base piece uses a three-index slice with length and capacity one. Special pieces remain nil; merged pieces use the unchanged copying algorithm. No global cache or shared cross-call execution state.",
+  "regression": "TestTokenizerPiecesBaseAllocation failed at 257 allocations before the patch and passes at two after it. Exact tables/raw decode, BOS/EOS and invalid ID handling, nested merges, a valid 65536-byte piece, mutation and append isolation, independent calls and concurrent calls are tested.",
+  "microbenchmark": {
+    "command": "GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkTokenizerPiecesPacking$' -benchtime=1000x -count=3",
+    "repetitions": 3,
+    "iterations": 1000,
+    "fixtures": [
+      {"name": "base byte tokenizer", "before_allocs": [257, 257, 257], "after_allocs": [2, 2, 2], "before_bytes": [6784, 6784, 6784], "after_bytes": [6784, 6784, 6784], "before_ns": [2554, 1931, 1802], "after_ns": [642.2, 712.5, 621.0]},
+      {"name": "five nested/mixed merges", "before_allocs": [262, 262, 262], "after_allocs": [7, 7, 7], "before_bytes": [6824, 6824, 6824], "after_bytes": [6824, 6824, 6824], "before_ns": [1820, 1873, 1796], "after_ns": [654.1, 677.5, 662.8]},
+      {"name": "sixteen doubling merges, maximum piece length 65536", "before_allocs": [286, 286, 286], "after_allocs": [31, 31, 31], "before_bytes": [241792, 241792, 241793], "after_bytes": [241792, 241792, 241792], "before_ns": [19796, 17255, 14815], "after_ns": [16231, 15709, 14960]}
+    ],
+    "interpretation": "Every fixture removes 255 logical allocation operations. Allocated bytes are effectively unchanged: the old tiny allocator already packed one-byte allocations. Benchmarks execute before/after in separate blocks, not randomized paired timing; do not generalize their microsecond timings to generation latency."
+  },
+  "owned_generation_allocation_observation": {
+    "command": "GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkOwnedGenerate/tokens128/reversefalse/after$' -benchtime=8x -count=3",
+    "candidate_allocs": [60, 57, 59],
+    "candidate_bytes": [446187, 445212, 445394],
+    "candidate_ns": [46011338, 44505453, 44473021],
+    "prior_main_allocs": [313, 312, 312],
+    "prior_main_bytes": [445324, 445254, 445254],
+    "interpretation": "Descriptive whole-generation observation, not a same-binary allocation comparison. The prior-main run enabled memprofilerate=1, this candidate run did not. Startup/runtime variation is visible with eight iterations. The approximate 255-object reduction matches the deterministic standalone test; no byte, latency, GC-frequency or peak-RSS improvement is claimed."
+  },
+  "generation": {
+    "build_receipt": "tokenizer-pieces-build-20261106.json",
+    "receipts": ["tokenizer-pieces-generation-20261106-run1.json", "tokenizer-pieces-generation-20261106-run2.json", "tokenizer-pieces-generation-20261106-run3.json"],
+    "trials": 24,
+    "approximate_medians": {
+      "3/1": [1.002, 0.995, 1.007],
+      "129/1": [1.009, 1.006, 1.001],
+      "257/1": [1.002, 1.001, 1.001],
+      "33/8": [1.008, 1.003, 1.002],
+      "33/128": [1.001, 1.001, 1.000]
+    },
+    "interpretation": "Complete baseline/candidate runtimes share one binary. Every completion JSON matches outside timing in three processes, five shapes and 24 alternating pairs per shape. Medians range from approximately -0.5% to +0.9%, including slower candidate observations. Not proof of uniform latency improvement or non-regression."
+  },
+  "retention": "Keeping a single base-byte slice alive now retains the entire 256-byte block. Its visible length/capacity remain one and its bytes never overlap another piece, but memory lifetime is coupled within that call. Previously independent tiny allocations could be reclaimed in smaller packed units. The new retention is bounded to 256 bytes per Pieces call; no global or cross-request cache was introduced. HF tokenizer tables are unchanged.",
+  "verification": ["Go normal full suite", "Go race-enabled full suite", "go vet ./...", "Python script tests", "Five isolated probe builds", "CGO-disabled production build", "CLI smoke and deterministic resume"],
+  "decision": "Promising allocation-operation reduction with exact output and ownership behavior, subject to explicit bounded-retention acceptance and normal PR/CI review. No commit, push or merge is part of this prototype."
+}

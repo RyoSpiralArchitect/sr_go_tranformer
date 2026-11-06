@@ -266,6 +266,80 @@ latency gates or evidence of a uniform speedup. Historical draft/readiness notes
 above describe their measurement checkpoints, not a claim that those risks
 vanished. No worker-count, threshold or arithmetic-order tuning was adopted.
 
+### Post-integration exploration
+
+At merged baseline `2f3a8a1`, three eight-iteration runs of
+`BenchmarkOwnedGenerate/tokens128/reversefalse/after` report 313/312/312 logical
+allocations and approximately 445 KB allocated per operation. These runs enable
+allocation profiling at rate one, so their latency is not a speed baseline.
+A `generateInput`-focused profile excludes baseline-generator/model setup stacks;
+profile percentages still include warmup and are not per-operation shares.
+
+`Tokenizer.Pieces` builds 256 one-byte slices for every byte-token table, and
+`Tokenizer.Decode` rebuilds that table when completing output. The next bounded
+hypothesis is one per-call 256-byte backing block with one-byte, capacity-limited
+slices, not a global mutable tokenizer cache. Verify byte/BOS/EOS/merge identity,
+independent calls and mutation/append isolation before adoption. Retaining one
+piece could retain the full block; that bounded retention tradeoff must remain
+explicit. Tiny-allocation packing also means profile object counts need not equal
+benchmark logical allocation counts.
+
+Workspace resize and actual KV payload pages still dominate allocated bytes.
+Do not treat necessary request storage as avoidable, or introduce speculative
+pages/cross-request pools without separate retention and lifecycle evidence.
+
+### Byte-piece packing prototype
+
+The [prototype receipt](../validation/performance/tokenizer-pieces-packing-20261106.json)
+records one per-call 256-byte block and full slices of length/capacity one, with
+no global cache. Base-table construction falls from 257 to 2 logical allocation
+operations; mixed and maximum-length merge fixtures each remove the same 255
+operations. Exact piece/decode, special-token, concurrent-call and mutation/append
+isolation tests pass. The allocation regression failed before the production edit.
+
+Allocated bytes stay effectively unchanged because Go already packs tiny
+one-byte allocations. A single retained byte piece now keeps the whole 256-byte
+block alive; this is a bounded retention tradeoff, not a memory-footprint win.
+HF tokenizers and merge copying remain unchanged.
+
+The 128-token fixture reports 57–60 allocations versus the earlier main's
+312–313, but these are separate runs with different profiling settings; use the
+standalone frozen-reference test for the exact 255-operation reduction. Three
+fresh-process, complete-runtime paired comparisons preserve every completion;
+condition medians range approximately -0.5% to +0.9%. Slower observations remain
+in the receipt. No uniform generation speedup, byte/RSS reduction or GC-frequency
+improvement is claimed. These are the pre-PR prototype observations; the
+[PR-readiness assessment](../validation/performance/tokenizer-pr-readiness-20261106.json)
+records the subsequent verification and publication decision.
+
+### Scoped byte-only Decode fast path
+
+The [Decode receipt](../validation/performance/byte-decode-fastpath-20261106.json)
+compares against the preceding packed-table prototype, not against the original
+257-object table. Only a tokenizer with no merges bypasses table construction.
+It fills at most 256 local scratch bytes, counts remaining emitted bytes only
+when spilling, and returns an owned string. Large invalid-ID inputs do not cause
+input-length-based buffer reservation. Merged/BPE and HF decoding remain unchanged.
+
+For 128 valid byte IDs, separate microbenchmark blocks observed approximately
+0.7 microseconds / 8 allocations / 7,160 bytes before versus 0.08 microseconds /
+1 allocation / 128 bytes after. This multiplier is specific to that microfixture.
+The all-negative-ID 8192-entry case is slower despite eliminating allocations;
+retain that unfavorable result rather than claim universal Decode acceleration.
+A general exact-size strings.Builder reduced allocation but was slower on
+byte-heavy BPE input, so it was not adopted. Large merge expansions benefiting
+from that experiment are recorded without selecting only those results.
+
+A same-runtime tokenizer wrapper isolates Decode for generation. Three fresh
+processes compare byte and merged controls across five shapes and 24 balanced
+pairs per shape, checking every completion outside timing. Generation medians
+change direction; unchanged merged controls also vary. No established whole-model
+latency improvement, uniform non-regression, tail-latency or real-model throughput
+claim follows from the microbenchmark. The byte 128-output benchmark saves about
+seven logical allocations and 7 KB versus the packed Decode reference, separate
+from the preceding Pieces-only reduction. Output ownership, concurrency and
+255/256/257-byte spill boundaries with sparse/invalid IDs are covered by tests.
+
 ## FP32 invocation reuse (2026-11-06)
 
 The historical worker table above predates FP32 invocation reuse. A live executor

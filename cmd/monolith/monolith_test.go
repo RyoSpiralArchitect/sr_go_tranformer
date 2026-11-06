@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -118,6 +119,404 @@ func TestTokenizerRoundTripAndDeterminism(t *testing.T) {
 		}
 	}
 }
+func originalTokenizerPieces(t Tokenizer) [][]byte {
+	pieces := make([][]byte, t.Vocab())
+	for i := 0; i < 256; i++ {
+		pieces[i] = []byte{byte(i)}
+	}
+	for i, p := range t.Merges {
+		pieces[baseVocab+i] = append(append([]byte(nil), pieces[p.A]...), pieces[p.B]...)
+	}
+	return pieces
+}
+
+func tokenizerPiecesFixtures() []Tokenizer {
+	deep := Tokenizer{}
+	previous := 0
+	for i := 0; i < 16; i++ {
+		deep.Merges = append(deep.Merges, Pair{previous, previous})
+		previous = baseVocab + i
+	}
+	return []Tokenizer{{}, {Merges: []Pair{{0, 255}, {258, 258}, {259, 1}, {97, 98}, {261, 260}}}, deep}
+}
+
+func TestTokenizerPiecesExactAndDecode(t *testing.T) {
+	for _, tok := range tokenizerPiecesFixtures() {
+		if err := tok.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		want, got := originalTokenizerPieces(tok), tok.Pieces()
+		if !reflect.DeepEqual(got, want) {
+			t.Fatal("piece table changed")
+		}
+		if got[BOS] != nil || got[EOS] != nil {
+			t.Fatal("special pieces must remain nil")
+		}
+		ids := []int{-1, tok.Vocab(), BOS, EOS}
+		var decoded []byte
+		for i := range want {
+			ids = append(ids, i)
+			decoded = append(decoded, want[i]...)
+		}
+		if tok.Decode(ids) != string(decoded) || tok.Decode(nil) != "" {
+			t.Fatal("raw byte decode changed")
+		}
+		for i := 0; i < 256; i++ {
+			if len(got[i]) != 1 || cap(got[i]) != 1 {
+				t.Fatalf("byte %d: length/capacity changed", i)
+			}
+		}
+	}
+}
+
+func TestTokenizerPiecesMutationAndAppendIsolation(t *testing.T) {
+	for _, tok := range tokenizerPiecesFixtures() {
+		want, first, second := originalTokenizerPieces(tok), tok.Pieces(), tok.Pieces()
+		for i := 0; i < 256; i++ {
+			first[i][0] ^= 255
+			for j := range first {
+				if j != i && !bytes.Equal(first[j], want[j]) {
+					t.Fatalf("byte %d changed piece %d", i, j)
+				}
+			}
+			if !reflect.DeepEqual(second, want) {
+				t.Fatal("mutation crossed calls")
+			}
+			first[i][0] ^= 255
+			grown := append(first[i], 7)
+			grown[0] ^= 255
+			if !reflect.DeepEqual(first, want) {
+				t.Fatal("append modified a byte or merge piece")
+			}
+		}
+		for i := baseVocab; i < len(first); i++ {
+			first[i][0] ^= 255
+			if !reflect.DeepEqual(second, want) {
+				t.Fatal("merge mutation crossed calls")
+			}
+			for j := range first {
+				if j != i && !bytes.Equal(first[j], want[j]) {
+					t.Fatal("merge mutation crossed pieces")
+				}
+			}
+			first[i][0] ^= 255
+		}
+	}
+}
+
+func TestTokenizerPiecesConcurrentCalls(t *testing.T) {
+	for _, tok := range tokenizerPiecesFixtures() {
+		want := originalTokenizerPieces(tok)
+		var wg sync.WaitGroup
+		for worker := 0; worker < 4; worker++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for repeat := 0; repeat < 8; repeat++ {
+					pieces := tok.Pieces()
+					if !reflect.DeepEqual(pieces, want) {
+						t.Error("concurrent piece table changed")
+						return
+					}
+					for i := 0; i < 256; i++ {
+						pieces[i][0] ^= 255
+					}
+				}
+			}()
+		}
+		wg.Wait()
+	}
+}
+
+func TestTokenizerPiecesBaseAllocation(t *testing.T) {
+	var pieces [][]byte
+	allocs := testing.AllocsPerRun(20, func() { pieces = (Tokenizer{}).Pieces() })
+	runtime.KeepAlive(pieces)
+	if allocs > 2 {
+		t.Fatalf("base table: %.0f allocations, want at most 2", allocs)
+	}
+}
+
+func BenchmarkTokenizerPiecesPacking(b *testing.B) {
+	for fixture, tok := range tokenizerPiecesFixtures() {
+		for _, variant := range []string{"before", "after"} {
+			b.Run(fmt.Sprintf("fixture%d/%s", fixture, variant), func(b *testing.B) {
+				fn := func() [][]byte { return tok.Pieces() }
+				if variant == "before" {
+					fn = func() [][]byte { return originalTokenizerPieces(tok) }
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				var pieces [][]byte
+				for i := 0; i < b.N; i++ {
+					pieces = fn()
+				}
+				runtime.KeepAlive(pieces)
+			})
+		}
+	}
+}
+
+func packedTokenizerDecode(tok Tokenizer, ids []int) string {
+	pieces := tok.Pieces()
+	var out []byte
+	for _, id := range ids {
+		if id >= 0 && id < len(pieces) {
+			out = append(out, pieces[id]...)
+		}
+	}
+	return string(out)
+}
+
+func byteBufferDecodeExperiment(tok Tokenizer, ids []int) string {
+	if len(tok.Merges) != 0 {
+		return packedTokenizerDecode(tok, ids)
+	}
+	out := make([]byte, 0, len(ids))
+	for _, id := range ids {
+		if uint(id) < 256 {
+			out = append(out, byte(id))
+		}
+	}
+	return string(out)
+}
+
+func stackByteDecodeExperiment(tok Tokenizer, ids []int) string {
+	if len(tok.Merges) != 0 {
+		return packedTokenizerDecode(tok, ids)
+	}
+	var scratch [256]byte
+	n, pos := 0, len(ids)
+	for i, id := range ids {
+		if uint(id) < 256 {
+			if n == len(scratch) {
+				pos = i
+				break
+			}
+			scratch[n] = byte(id)
+			n++
+		}
+	}
+	if pos == len(ids) {
+		return string(scratch[:n])
+	}
+	size := n
+	for _, id := range ids[pos:] {
+		if uint(id) < 256 {
+			size++
+		}
+	}
+	out := make([]byte, n, size)
+	copy(out, scratch[:n])
+	for _, id := range ids[pos:] {
+		if uint(id) < 256 {
+			out = append(out, byte(id))
+		}
+	}
+	return string(out)
+}
+
+func builderDecodeExperiment(tok Tokenizer, ids []int) string {
+	var out strings.Builder
+	size := 0
+	if len(tok.Merges) == 0 {
+		for _, id := range ids {
+			if uint(id) < 256 {
+				size++
+			}
+		}
+		out.Grow(size)
+		for _, id := range ids {
+			if uint(id) < 256 {
+				out.WriteByte(byte(id))
+			}
+		}
+	} else {
+		pieces := tok.Pieces()
+		for _, id := range ids {
+			if id >= 0 && id < len(pieces) {
+				if len(pieces[id]) > int(^uint(0)>>1)-size {
+					panic("decoded text exceeds maximum string length")
+				}
+				size += len(pieces[id])
+			}
+		}
+		out.Grow(size)
+		for _, id := range ids {
+			if id >= 0 && id < len(pieces) {
+				out.Write(pieces[id])
+			}
+		}
+	}
+	return out.String()
+}
+
+func tokenizerDecodeInputs(tok Tokenizer) [][]int {
+	all := []int{-1, tok.Vocab(), BOS, EOS}
+	for id := 0; id < tok.Vocab(); id++ {
+		all = append(all, id)
+	}
+	long := make([]int, 8192)
+	for i := range long {
+		long[i] = i % 256
+	}
+	invalid := make([]int, 8192)
+	for i := range invalid {
+		invalid[i] = -1
+	}
+	return [][]int{nil, {-1, BOS, EOS, tok.Vocab()}, {0}, {BOS, 0, 255, EOS}, all, long, {tok.Vocab() - 1, tok.Vocab() - 1}, long[:128], invalid}
+}
+
+func TestTokenizerDecodeVariants(t *testing.T) {
+	for _, tok := range tokenizerPiecesFixtures() {
+		for _, ids := range tokenizerDecodeInputs(tok) {
+			want := packedTokenizerDecode(tok, ids)
+			for _, fn := range []func(Tokenizer, []int) string{byteBufferDecodeExperiment, stackByteDecodeExperiment, builderDecodeExperiment} {
+				if fn(tok, ids) != want {
+					t.Fatal("decode experiment changed raw bytes")
+				}
+			}
+		}
+	}
+}
+
+func TestTokenizerDecodeOutputAndOwnership(t *testing.T) {
+	for _, tok := range tokenizerPiecesFixtures() {
+		for _, ids := range tokenizerDecodeInputs(tok) {
+			want := packedTokenizerDecode(tok, ids)
+			if tok.Decode(ids) != want {
+				t.Fatal("decode changed raw bytes")
+			}
+		}
+		ids := []int{0, 255, 97, tok.Vocab() - 1}
+		want := packedTokenizerDecode(tok, ids)
+		held := tok.Decode(ids)
+		for i := range ids {
+			ids[i] = 98
+		}
+		for repeat := 0; repeat < 8; repeat++ {
+			_ = tok.Decode(ids)
+		}
+		if held != want {
+			t.Fatal("returned string changed after later calls/input mutation")
+		}
+		var wg sync.WaitGroup
+		for worker := 0; worker < 4; worker++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for _, ids := range tokenizerDecodeInputs(tok) {
+					if tok.Decode(ids) != packedTokenizerDecode(tok, ids) {
+						t.Error("concurrent decode changed bytes")
+					}
+				}
+			}()
+		}
+		wg.Wait()
+	}
+}
+
+func TestTokenizerDecodeByteAllocations(t *testing.T) {
+	for _, ids := range [][]int{nil, {-1, BOS, EOS, baseVocab}, make([]int, 128)} {
+		var result string
+		allocs := testing.AllocsPerRun(20, func() { result = (Tokenizer{}).Decode(ids) })
+		runtime.KeepAlive(result)
+		want := float64(1)
+		if len(result) == 0 {
+			want = 0
+		}
+		if allocs > want {
+			t.Fatalf("byte decode length %d: %.0f allocations, want at most %.0f", len(ids), allocs, want)
+		}
+	}
+}
+
+func TestTokenizerDecodeRandomizedAndExtremeIDs(t *testing.T) {
+	rng := rand.New(rand.NewSource(57))
+	trained, err := TrainTokenizer(strings.Repeat("rain and rivers, bytes and words.\n", 20), 300)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixtures := append(tokenizerPiecesFixtures(), trained)
+	maxInt := int(^uint(0) >> 1)
+	for _, tok := range fixtures {
+		for trial := 0; trial < 80; trial++ {
+			ids := make([]int, rng.Intn(1025))
+			for i := range ids {
+				switch rng.Intn(7) {
+				case 0:
+					ids[i] = maxInt
+				case 1:
+					ids[i] = -maxInt - 1
+				case 2:
+					ids[i] = -1
+				case 3:
+					ids[i] = tok.Vocab() + rng.Intn(100)
+				default:
+					ids[i] = rng.Intn(tok.Vocab())
+				}
+			}
+			if got, want := tok.Decode(ids), packedTokenizerDecode(tok, ids); got != want {
+				t.Fatalf("vocab%d/trial%d: randomized decode changed", tok.Vocab(), trial)
+			}
+		}
+	}
+}
+
+func TestTokenizerDecodeByteBoundaries(t *testing.T) {
+	for _, length := range []int{0, 1, 255, 256, 257, 512, 8192} {
+		for _, sparse := range []bool{false, true} {
+			ids := make([]int, length)
+			for i := range ids {
+				ids[i] = i % 256
+				if sparse && i%17 != 0 {
+					ids[i] = -1
+				}
+			}
+			want := packedTokenizerDecode(Tokenizer{}, ids)
+			var result string
+			allocs := testing.AllocsPerRun(5, func() { result = (Tokenizer{}).Decode(ids) })
+			if result != want {
+				t.Fatal("byte spill changed output")
+			}
+			limit := float64(1)
+			if len(want) == 0 {
+				limit = 0
+			} else if len(want) > 256 {
+				limit = 2
+			}
+			if allocs > limit {
+				t.Fatalf("length%d/sparse%t: %.0f allocations, limit %.0f", length, sparse, allocs, limit)
+			}
+		}
+	}
+}
+
+func BenchmarkTokenizerDecodePaths(b *testing.B) {
+	for fixture, tok := range tokenizerPiecesFixtures() {
+		inputs := tokenizerDecodeInputs(tok)
+		for _, input := range []int{0, 1, 4, 5, 6, 7, 8} {
+			for _, variant := range []struct {
+				name string
+				fn   func(Tokenizer, []int) string
+			}{
+				{"packed-before", packedTokenizerDecode}, {"byte-buffer", byteBufferDecodeExperiment}, {"stack-buffer", stackByteDecodeExperiment},
+				{"builder", builderDecodeExperiment}, {"production", func(tok Tokenizer, ids []int) string { return tok.Decode(ids) }},
+			} {
+				b.Run(fmt.Sprintf("fixture%d/input%d/%s", fixture, input, variant.name), func(b *testing.B) {
+					b.ReportAllocs()
+					b.ResetTimer()
+					var out string
+					for i := 0; i < b.N; i++ {
+						out = variant.fn(tok, inputs[input])
+					}
+					runtime.KeepAlive(out)
+				})
+			}
+		}
+	}
+}
+
 func TestCrossEntropyExtremeAndDerivative(t *testing.T) {
 	logits := []float32{10000, -10000, 9999, -10000, 10000, 0}
 	targets := []int{1, 1}
