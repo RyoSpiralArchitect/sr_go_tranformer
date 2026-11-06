@@ -1,0 +1,20 @@
+{
+  "format": "tokenizer-pr-readiness-v1",
+  "candidate_runtime_sha256": "c8503a2e85cef21d3f5fee2e35ec64558c4fdb8681dcbb29a725a80ea7c79f0b",
+  "decision": "Publish the packed Pieces and byte-only Decode candidate for review, not merge. Preserve the bounded 256-byte retained-piece tradeoff and the slower all-negative-ID Decode observation. Do not claim whole-model acceleration.",
+  "deeper_correctness": "320 deterministic randomized comparisons against packed Decode across byte-only, nested merges, maximum-length pieces and a trained tokenizer, including machine-int minimum/maximum, negative and out-of-vocabulary IDs. Existing mutation, ownership, concurrency and spill-boundary coverage remains.",
+  "repeated_benchmark": {
+    "command": "GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkTokenizerDecodePaths/fixture0/input[578]/(packed-before|production)$' -benchtime=10000x -count=3",
+    "iterations": 10000,
+    "valid128_before_ns": [964.9, 921.2, 793.7],
+    "valid128_after_ns": [75.43, 77.42, 77.40],
+    "valid8192_before_ns": [20074, 18098, 18049],
+    "valid8192_after_ns": [6398, 6574, 6572],
+    "negative8192_before_ns": [2313, 2277, 2269],
+    "negative8192_after_ns": [3721, 3735, 3764],
+    "interpretation": "Longer repeated blocks confirm both scoped gains and the unfavorable input. These are separate benchmark blocks, not statistical latency guarantees. The production algorithm was retained unchanged rather than tuned solely to these fixtures."
+  },
+  "verification": ["normal Go suite", "race-enabled Go suite", "go vet", "Python 44 tests", "five isolated probe builds", "CGO-disabled production build", "CLI smoke including deterministic resume"],
+  "evidence": ["tokenizer-pieces-packing-20261106.json", "byte-decode-fastpath-20261106.json"],
+  "pending": "PR CI matrix and review; no merge requested in this phase."
+}

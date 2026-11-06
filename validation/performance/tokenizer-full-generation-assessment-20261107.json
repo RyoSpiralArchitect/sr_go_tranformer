@@ -1,0 +1,37 @@
+{
+  "format": "tokenizer-full-generation-assessment-v1",
+  "baseline": "2f3a8a14d6e81b17fad578e15817d6cf10f2c19f",
+  "candidate": "5ff7a8cd833960fcbddeca8ec2b3f3e27f184c3b",
+  "candidate_runtime_sha256": "c8503a2e85cef21d3f5fee2e35ec64558c4fdb8681dcbb29a725a80ea7c79f0b",
+  "environment": "Apple M4, Darwin arm64, Go 1.27.3, four Go threads. Load average at start 2.52 / 1.61 / 1.43. Other workloads were not stopped. Local receipt date 20261107; stage files also contain UTC timestamps.",
+  "scope": "Synthetic FP32 model: vocab258, dim256, hidden704, one layer, heads4, KVheads2, context512. Model initialization is outside timing; generateInput, prompt preparation, model work, KV/workspace allocation, sampling and final Decode are inside. Fixed no-EOS tokenizer, greedy seed19. Not serving/network/disk/model-loading or real-weight throughput.",
+  "protocol": "Full runtime and self/self comparisons: same executable with two package-renamed runtimes, alternating AB/BA order, three warmup pairs, explicit GC before each condition, 64 timed pairs per condition, three independent processes. Complete JSON equality checked outside timing. Self/self runs use identical production source, still in separate package namespaces; they estimate variability rather than serving as an exact causal noise correction. Build receipts pin sources, driver and executable hashes. Stage comparisons share one runtime and swap only Decode: 24 alternating pairs per condition in three processes, byte and merged controls.",
+  "execution_order": ["self1", "full1", "stage1", "stage2", "full2", "self2", "self3", "full3", "stage3"],
+  "ratio_definition": "Candidate elapsed / baseline elapsed; below one is faster. Report each process's median of paired ratios, then the median of those three process medians. This is not a ratio of independently pooled elapsed medians and is not a confidence interval.",
+  "build_receipts": ["tokenizer-full-generation-build-20261107.json", "tokenizer-self-generation-build-20261107.json"],
+  "full_receipts": ["tokenizer-full-generation-20261107-run1.json", "tokenizer-full-generation-20261107-run2.json", "tokenizer-full-generation-20261107-run3.json"],
+  "self_receipts": ["tokenizer-self-generation-20261107-run1.json", "tokenizer-self-generation-20261107-run2.json", "tokenizer-self-generation-20261107-run3.json"],
+  "stage_receipts": ["tokenizer-stage-generation-20261107-run1.json", "tokenizer-stage-generation-20261107-run2.json", "tokenizer-stage-generation-20261107-run3.json"],
+  "timed_pairs": {"full": 960, "self": 960, "stage": 720},
+  "completion_checks": "All timed and warmup completion comparisons passed; shell pipeline completed successfully. No mismatching or failed runs were discarded.",
+  "full_process_median_ratios": {
+    "prefix3/outputs1": [0.9975001417994112, 1.0001260962442065, 0.997260785127369],
+    "prefix129/outputs1": [0.9993172780681915, 1.0026000753264448, 0.9963319400655429],
+    "prefix257/outputs1": [0.9974270106139556, 0.9939092758845907, 0.9996708791345509],
+    "prefix33/outputs8": [0.9996275112292671, 0.9984089294677014, 1.0005929074767796],
+    "prefix33/outputs128": [1.0009588608035562, 0.9966753719700108, 0.9997726823319848]
+  },
+  "self_process_median_ratios": {
+    "prefix3/outputs1": [0.998238544134388, 1.0010557441076826, 0.9941691196179405],
+    "prefix129/outputs1": [1.0061313908227603, 0.9939348956228449, 0.9946564945035699],
+    "prefix257/outputs1": [0.9967076400497996, 0.9992485942393883, 1.0011722725173269],
+    "prefix33/outputs8": [1.0106328135651315, 1.0037017151570726, 0.9987742081944903],
+    "prefix33/outputs128": [0.999947105568985, 0.9993157104925766, 1.0007628672279132]
+  },
+  "full_median_delta_percent": {"prefix3/outputs1": -0.24998582005888448, "prefix129/outputs1": -0.06827219318085165, "prefix257/outputs1": -0.2572989386044444, "prefix33/outputs8": -0.03724887707329261, "prefix33/outputs128": -0.022731766801520337},
+  "full_128_elapsed_process_medians_ms": {"before": [42.8987505, 50.36075, 42.849042], "after": [43.0003545, 50.2684585, 42.799292]},
+  "stage_128_process_median_ratios": {"byte": [1.0007256968601022, 1.0028488670910427, 1.000108877075514], "unchanged_merged_control": [1.0019293910970606, 1.0016218147661626, 0.9998668643516934]},
+  "observations": "Full 128-token process medians vary from +0.096% to -0.332%, with aggregate -0.023%. The byte-only Decode stage itself has aggregate +0.073%, not a demonstrated whole-generation win. Unchanged merged controls have aggregate +0.162%. Identical-runtime controls also show nonzero differences. Absolute latencies rose together during process2, e.g. roughly 43ms to 50ms for full128; do not attribute this to the code change or claim a specific external cause.",
+  "decision": "No defensible end-to-end speedup established. Keep the allocation reduction and scoped Decode microbenchmark gains separate from whole-model latency. Neither a uniform no-regression guarantee nor GC-frequency/RSS/real-model throughput benefit follows. Production code, thresholds and worker counts were not changed to chase these observations.",
+  "analysis": "python3 -S -m unittest discover -s scripts -p tokenizer_pieces_receipts_test.py validates finite durations, trial counts, paired ratios, reported and aggregated medians, elapsed process medians, stage source hashes and full/self build bindings. The initial local analysis was promoted into these tracked receipt tests before PR integration. All comparisons completed before analysis."
+}

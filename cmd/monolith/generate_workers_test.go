@@ -5,13 +5,19 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Frozen direct-generation path from a459cb4, before request-owned execution.
@@ -222,6 +228,158 @@ func (c *generatedCancelContext) Err() error {
 		}
 	}
 	return nil
+}
+
+type decodePathGenerateTokenizer struct {
+	fixedStepGenerateTokenizer
+	packedBefore bool
+}
+
+func (t decodePathGenerateTokenizer) Decode(ids []int) string {
+	if t.packedBefore {
+		return packedTokenizerDecode(t.Tokenizer, ids)
+	}
+	return t.Tokenizer.Decode(ids)
+}
+
+func decodeComparisonModel(t testing.TB, tok Tokenizer) *Model {
+	t.Helper()
+	c := Config{Vocab: tok.Vocab(), Dim: 256, Hidden: 704, Layers: 1, Heads: 4, KVHeads: 2, Context: 512, RopeTheta: 10000, NormEps: 1e-5}
+	m, err := NewModel(c, 19)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.DropOptimizer()
+	return m
+}
+
+func decodeComparisonRun(t testing.TB, m *Model, tok Tokenizer, before bool, prefix, outputs int) Completion {
+	t.Helper()
+	s := defaultSampling()
+	s.MaxTokens, s.Temperature, s.RepeatPenalty, s.Seed = outputs, 0, 1, 19
+	result, err := generateInput(context.Background(), m, decodePathGenerateTokenizer{fixedStepGenerateTokenizer{tok}, before}, strings.Repeat("a", prefix-1), s, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func TestDecodeOnlyGenerationParity(t *testing.T) {
+	for _, tok := range tokenizerPiecesFixtures()[:2] {
+		m := decodeComparisonModel(t, tok)
+		for _, shape := range [][2]int{{3, 1}, {129, 1}, {257, 1}, {33, 8}, {33, 128}} {
+			before := decodeComparisonRun(t, m, tok, true, shape[0], shape[1])
+			after := decodeComparisonRun(t, m, tok, false, shape[0], shape[1])
+			if !reflect.DeepEqual(before, after) || after.CompletionTokens != shape[1] {
+				t.Fatal("decode-only generation changed completion")
+			}
+		}
+	}
+}
+
+func BenchmarkDecodeOnlyGenerate(b *testing.B) {
+	for fixture, tok := range tokenizerPiecesFixtures()[:2] {
+		m := decodeComparisonModel(b, tok)
+		for _, outputs := range []int{8, 128} {
+			want := decodeComparisonRun(b, m, tok, true, 33, outputs)
+			for _, before := range []bool{true, false} {
+				b.Run(fmt.Sprintf("fixture%d/tokens%d/before%t", fixture, outputs, before), func(b *testing.B) {
+					if !reflect.DeepEqual(decodeComparisonRun(b, m, tok, before, 33, outputs), want) {
+						b.Fatal("completion changed")
+					}
+					b.ReportAllocs()
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						decodeComparisonRun(b, m, tok, before, 33, outputs)
+					}
+				})
+			}
+		}
+	}
+}
+
+type decodeGenerationTimingResult struct {
+	Name                      string
+	BeforeNS, AfterNS, Ratios []float64
+	MedianRatio               float64
+}
+
+func TestDecodeOnlyGenerationTiming(t *testing.T) {
+	output := os.Getenv("MONOLITH_DECODE_ONLY_OUTPUT")
+	if output == "" {
+		t.Skip("opt-in decode-only generation comparison")
+	}
+	previous := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(previous)
+	artifact := struct {
+		Protocol, GoVersion, GOOS, GOARCH, StartedUTC, FinishedUTC string
+		Trials, Procs                                              int
+		Hashes                                                     map[string]string
+		Results                                                    []decodeGenerationTimingResult
+	}{Protocol: "decode-only-generation-v1", GoVersion: runtime.Version(), GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Trials: 24, Procs: 4, Hashes: make(map[string]string)}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{executable, "cmd/monolith/monolith.go", "cmd/monolith/monolith_test.go", "cmd/monolith/generate_workers_test.go"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		artifact.Hashes[filepath.Base(path)] = fmt.Sprintf("%x", sha256.Sum256(data))
+	}
+	artifact.StartedUTC = time.Now().UTC().Format(time.RFC3339Nano)
+	for fixture, tok := range tokenizerPiecesFixtures()[:2] {
+		m := decodeComparisonModel(t, tok)
+		for _, shape := range [][2]int{{3, 1}, {129, 1}, {257, 1}, {33, 8}, {33, 128}} {
+			for warm := 0; warm < 3; warm++ {
+				before := decodeComparisonRun(t, m, tok, true, shape[0], shape[1])
+				after := decodeComparisonRun(t, m, tok, false, shape[0], shape[1])
+				if !reflect.DeepEqual(before, after) {
+					t.Fatal("warm completion changed")
+				}
+			}
+			result := decodeGenerationTimingResult{Name: fmt.Sprintf("fixture%d/prefix%d/outputs%d", fixture, shape[0], shape[1])}
+			for trial := 0; trial < artifact.Trials; trial++ {
+				var ns [2]float64
+				var completions [2]Completion
+				for leg := 0; leg < 2; leg++ {
+					variant := (trial + leg) % 2
+					start := time.Now()
+					completions[variant] = decodeComparisonRun(t, m, tok, variant == 0, shape[0], shape[1])
+					ns[variant] = float64(time.Since(start).Nanoseconds())
+				}
+				if !reflect.DeepEqual(completions[0], completions[1]) {
+					t.Fatal("timed completion changed")
+				}
+				result.BeforeNS = append(result.BeforeNS, ns[0])
+				result.AfterNS = append(result.AfterNS, ns[1])
+				result.Ratios = append(result.Ratios, ns[1]/ns[0])
+			}
+			ratios := append([]float64(nil), result.Ratios...)
+			sort.Float64s(ratios)
+			result.MedianRatio = (ratios[(len(ratios)-1)/2] + ratios[len(ratios)/2]) / 2
+			artifact.Results = append(artifact.Results, result)
+			t.Logf("%s: median %.4f", result.Name, result.MedianRatio)
+		}
+	}
+	artifact.FinishedUTC = time.Now().UTC().Format(time.RFC3339Nano)
+	encoded, err := json.MarshalIndent(artifact, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, writeErr := file.Write(append(encoded, '\n'))
+	closeErr := file.Close()
+	if writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	if closeErr != nil {
+		t.Fatal(closeErr)
+	}
 }
 
 func BenchmarkOwnedGenerate(b *testing.B) {

@@ -1,0 +1,57 @@
+{
+  "format": "monolith-byte-decode-fastpath-v1",
+  "packed_baseline_runtime_sha256": "a6739f57bd04eff72837ddc818e5bdc2d9941ae8ac33753699e7184074ba78b1",
+  "candidate_runtime_sha256": "c8503a2e85cef21d3f5fee2e35ec64558c4fdb8681dcbb29a725a80ea7c79f0b",
+  "environment": "Apple M4 / Darwin arm64 / Go 1.27.3 / GOMAXPROCS4",
+  "implementation": "Only len(Merges)==0 bypasses Pieces. Fill a bounded 256-byte local scratch buffer, then count and allocate exactly the remaining emitted bytes only if a 257th valid byte occurs. Negative/out-of-vocabulary IDs and BOS/EOS still emit nothing. Returned strings own their data. No unsafe conversion, mutable global cache or executor policy change. Merged/BPE Decode remains the existing packed-table plus append implementation.",
+  "reference": "packedTokenizerDecode is the frozen Decode loop using the prior packed Pieces implementation, not the original 257-allocation table. Decode-only generation uses the same model, generateInput, tokenizer wrapper type and sampler on both sides; only its Decode method chooses this reference or production.",
+  "selected_microbenchmark": {
+    "command": "GOMAXPROCS=4 ./scripts/go.sh test ./cmd/monolith -run '^$' -bench '^BenchmarkTokenizerDecodePaths/fixture0/input[578]/(packed-before|production)$' -benchtime=2000x -count=3",
+    "iterations": 2000,
+    "repetitions": 3,
+    "cases": [
+      {"name": "128 valid byte IDs", "before_ns": [667.6, 747.0, 734.7], "after_ns": [81.44, 80.96, 79.56], "before_bytes": [7160, 7160, 7160], "after_bytes": [128, 128, 128], "before_allocs": [8, 8, 8], "after_allocs": [1, 1, 1]},
+      {"name": "8192 valid byte IDs", "before_ns": [27958, 19897, 17997], "after_ns": [6405, 6493, 6275], "before_bytes": [49272, 49274, 49272], "after_bytes": [16384, 16384, 16384], "before_allocs": [18, 18, 18], "after_allocs": [2, 2, 2]},
+      {"name": "8192 negative IDs (unfavorable CPU result)", "before_ns": [2275, 2249, 2238], "after_ns": [3718, 3737, 3742], "before_bytes": [6784, 6784, 6784], "after_bytes": [0, 0, 0], "before_allocs": [2, 2, 2], "after_allocs": [0, 0, 0]}
+    ],
+    "interpretation": "Short valid-byte decode is much faster in this microfixture and allocated bytes fall, unlike the preceding Pieces-only change. Benchmark blocks are not randomized paired trials. The all-invalid case is slower despite eliminating allocation. Do not claim a universal Decode speedup or extrapolate the microfixture multiplier to generation."
+  },
+  "rejected_experiments": [
+    {"name": "single preallocated heap byte buffer", "valid128_ns": [111.1, 97.46, 118.2], "valid128_allocs": [2, 2, 2], "valid8192_ns": [4703, 4703, 4783], "reason": "Fast for dense long IDs but allocates by input length even when almost all IDs are invalid. The selected scratch/spill path prioritizes bounded small-output storage and exact spill allocation; it is not fastest in every case."},
+    {"name": "exact strings.Builder output", "valid128_ns": [300.1, 307.2, 302.5], "valid128_allocs": [1, 1, 1], "valid8192_ns": [15187, 15235, 15233], "reason": "One allocation alone did not imply faster CPU execution. Rejected as the general solution."},
+    {"name": "exact builder for all BPE outputs", "long_byte_ids_with_five_merges_before_ns": [18171, 18033, 17749], "long_byte_ids_with_five_merges_builder_ns": [22390, 21773, 22327], "maximum_expansion_before_ns": [28741, 29709, 29546], "maximum_expansion_builder_ns": [20181, 20074, 22156], "reason": "Reduced output allocation and helped large expansions, but regressed byte-heavy BPE input. Keep the merged/BPE production path unchanged rather than infer a universal benefit or tune a threshold from these fixtures."}
+  ],
+  "decode_only_generation_bench": {
+    "iterations": 8,
+    "repetitions": 3,
+    "byte_before_allocs": [61, 61, 61],
+    "byte_after_allocs": [54, 54, 54],
+    "byte_before_bytes": [445648, 445662, 445690],
+    "byte_after_bytes": [438658, 438658, 438604],
+    "byte_before_ns": [42758151, 42661844, 43999307],
+    "byte_after_ns": [42472088, 42639203, 42518708],
+    "merged_before_allocs": [64, 65, 65],
+    "merged_after_allocs": [64, 65, 64],
+    "interpretation": "Same-runtime decode-only wrapper comparison for 128 generated tokens. Wrapper/helper overhead differs from prior BenchmarkOwnedGenerate receipts, so compare these rows only to each other. Roughly seven logical objects and 7 KB disappear in the byte fixture; do not assign the previous 255-object Pieces reduction to this change."
+  },
+  "generation": {
+    "protocol": "decode-only-generation-v1",
+    "receipts": ["decode-only-generation-20261106-run1.json", "decode-only-generation-20261106-run2.json", "decode-only-generation-20261106-run3.json"],
+    "trials": 24,
+    "approximate_medians": {
+      "fixture0/prefix3/outputs1": [0.9979, 0.9957, 1.0038],
+      "fixture0/prefix129/outputs1": [0.9884, 0.9961, 1.0114],
+      "fixture0/prefix257/outputs1": [1.0029, 0.9925, 1.0081],
+      "fixture0/prefix33/outputs8": [0.9933, 0.9990, 0.9964],
+      "fixture0/prefix33/outputs128": [1.0032, 0.9997, 0.9991],
+      "fixture1/prefix3/outputs1": [1.0042, 0.9943, 1.0004],
+      "fixture1/prefix129/outputs1": [1.0267, 0.9861, 1.0158],
+      "fixture1/prefix257/outputs1": [0.9982, 1.0078, 0.9961],
+      "fixture1/prefix33/outputs8": [1.0000, 1.0005, 1.0024],
+      "fixture1/prefix33/outputs128": [0.9980, 1.0012, 1.0010]
+    },
+    "interpretation": "Three independent processes, byte and merged controls, five shapes each, balanced alternating order and 24 paired trials. Every completion matches outside timing. These are synthetic greedy-sampling fixtures; no self/self temporal controls or real-model throughput study. Byte-process medians change direction. Merged controls include approximately +2.7% despite unchanged merged arithmetic. No established end-to-end latency win or uniform no-regression claim."
+  },
+  "verification": ["Allocation regression fails before Decode modification and passes afterward", "Raw bytes, empty/special/invalid IDs, nested and maximum-length merges match the packed reference", "Output ownership, concurrent calls and 255/256/257 spill boundaries with sparse IDs", "Complete normal and race-enabled Go suites", "go vet, isolated offline probe builds, CGO-disabled production build and CLI smoke", "Python receipt tests"],
+  "decision": "Keep the byte-only fast path as the next promising scoped speed/allocation candidate. Preserve generic BPE behavior and all rejected/unfavorable data. Production runtime stays monolithic. No commit, push, PR or merge performed for this local prototype."
+}
