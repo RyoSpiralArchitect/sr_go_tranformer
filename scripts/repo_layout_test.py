@@ -8,6 +8,14 @@ from unittest.mock import patch
 from quant_quality import git_source, source_path
 
 
+def documentation_files(root):
+    return sorted(root.glob('*.md')) + [
+        document
+        for folder in ('docs', 'tools', 'examples', 'testdata')
+        for document in sorted((root / folder).rglob('*.md'))
+    ]
+
+
 class RepositoryLayoutTests(unittest.TestCase):
     def test_current_sources_resolve(self):
         root = Path(__file__).resolve().parents[1]
@@ -46,15 +54,20 @@ class RepositoryLayoutTests(unittest.TestCase):
 
     def test_documentation_links_resolve(self):
         root = Path(__file__).resolve().parents[1]
-        documents = [root / 'README.md', *sorted((root / 'docs').glob('*.md')),
-                     *sorted((root / 'tools').glob('*/README.md'))]
-        for document in documents:
+        for document in documentation_files(root):
             for target in re.findall(r'\]\(([^)]+)\)', document.read_text()):
                 if '://' in target or target.startswith('#'):
                     continue
                 path = target.split('#', 1)[0]
                 with self.subTest(document=str(document.relative_to(root)), target=target):
                     self.assertTrue((document.parent / path).exists())
+
+    def test_documented_builds_use_command_package(self):
+        root = Path(__file__).resolve().parents[1]
+        pattern = r'(?:go|go\.sh)\s+(?:build[^\n`]*-o\s+monolith|run)\s+\.(?=[`\s]|$)'
+        for document in (root / 'docs').glob('*.md'):
+            with self.subTest(document=document.name):
+                self.assertIsNone(re.search(pattern, document.read_text()))
 
 
 if __name__ == '__main__':

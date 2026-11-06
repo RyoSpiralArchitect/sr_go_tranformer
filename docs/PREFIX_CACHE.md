@@ -18,7 +18,7 @@ HF_HUB_OFFLINE=1 ./monolith infer local \
   serve -kv-mib 512 -prefix-cache-mib 128 -max-batch 2 -threads 4
 ```
 
-Build first with `./scripts/go.sh build -trimpath -o monolith .`. Prefix caching
+Build first with `./scripts/go.sh build -trimpath -o monolith ./cmd/monolith`. Prefix caching
 applies to the engine paths; one-shot `generate` does not retain requests.
 Model weights and the tokenizer must remain immutable during engine use.
 

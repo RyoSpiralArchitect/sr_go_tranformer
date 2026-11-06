@@ -276,6 +276,7 @@ go vet ./...
 ./scripts/smoke.sh
 go test -run '^$' -bench . -benchmem -cpu 4 ./cmd/monolith
 python3 -S -m unittest discover -s scripts -p '*_test.py' -v
+python3 -S scripts/check_probe_builds.py
 ```
 
 `make build`, `make test`, `make race`, `make vet` and `make bench` use

@@ -215,7 +215,7 @@ HF_HUB_OFFLINE=1 ./monolith infer local \
   -max-tokens 256 -temperature 0 -threads 4
 ```
 
-Build `monolith` first with `./scripts/go.sh build -trimpath -o monolith .`.
+Build `monolith` first with `./scripts/go.sh build -trimpath -o monolith ./cmd/monolith`.
 Prompt tokens plus the output budget must fit the selected context. The
 existing model/KV guards still apply; these changes do not admit arbitrary
 context lengths or add GPU execution.

@@ -47,6 +47,8 @@ jobs:
         run: go vet ./...
       - name: Check per-process memory measurement and timeout cleanup
         run: python3 -S -m unittest discover -s scripts -p '*_test.py' -v
+      - name: Compile isolated offline probes without model weights
+        run: python3 -S scripts/check_probe_builds.py
       - name: Build without cgo
         run: CGO_ENABLED=0 go build -trimpath -o monolith ./cmd/monolith
       - name: Exercise CLI and deterministic resume
