@@ -1,0 +1,30 @@
+{
+  "format": "monolith-attention-control-index-v1",
+  "disposition": "Inconclusive latency measurement: same-implementation controls are unstable. Keep PR #56 draft; do not merge or attribute these differences to the candidate.",
+  "runtime_sha256": "a71ff9dacdd4a2884dfd4155ee52719b3a385d484d31f942053a81f71bcb8a7c",
+  "timing_test_sha256": "281b68d337397b7fbda417071fad5282b2da0593677efe4f293bdcbe2c8541c8",
+  "binary_sha256": "874c010dd1040bebe659dacf065d80efb5b32f5b8fba453a04deffc32dec7ee2",
+  "host": "Apple M4, Mac16,13, 10 logical CPUs, Darwin arm64, Go 1.27.3, CGO_ENABLED=0, GOMAXPROCS=4",
+  "observed_load": {
+    "before": [107.70, 101.11, 62.73],
+    "after": [101.24, 91.66, 65.66],
+    "meaning": "Uptime 1/5/15-minute load averages. This is not an idle-host experiment. These snapshots do not establish the cause of individual timing differences. Other workloads were not stopped or modified."
+  },
+  "protocol": {
+    "shape": "Dim4096 / Heads32 / KVHeads8 / Layers1 / Context8192 / workers4 / rows1 / prefix128",
+    "fresh_processes": 3,
+    "trials_per_kind": 16,
+    "calls_per_timed_block": 4,
+    "kinds": ["reference/reference", "candidate/candidate", "reference/candidate"],
+    "ordering": "Locally seeded RNG (42) shuffles the three comparison kinds each trial. The first labeled variant alternates across trials, giving eight starts per label per kind. All kinds share one fixture and executor per process.",
+    "correctness": "After eight warmup pairs, exact finite float bits are checked against the original invocation. Each timed block is followed by another exact bit check outside timing. Passing the Go test is not a latency acceptance result.",
+    "limits": "Short blocks diagnose measurement stability, not steady-state or serving throughput. The protocol cannot identify whether instability arises from host contention, scheduling, instrumentation or another cause. Repeated independent low-load sessions are still required."
+  },
+  "receipts": ["attention-control-mac-20261106-run1.json", "attention-control-mac-20261106-run2.json", "attention-control-mac-20261106-run3.json"],
+  "approximate_median_ratios": {
+    "reference/reference": [1.3346, 1.3200, 1.3411],
+    "candidate/candidate": [1.3306, 0.9313, 0.9398],
+    "reference/candidate": [1.0648, 0.9194, 0.9107]
+  },
+  "decision": "Same-reference medians are approximately +32% to +34%, and individual controls vary much more. Candidate/reference direction also reverses across processes. No speedup, regression or equivalence inference is justified; the earlier Mac question remains open. No production code changed for this measurement."
+}
