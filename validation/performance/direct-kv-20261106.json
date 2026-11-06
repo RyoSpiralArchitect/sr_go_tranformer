@@ -1,0 +1,17 @@
+{
+  "format": "monolith-direct-kv-experiment-v1",
+  "baseline_commit": "2ccc47ac04d71793d4dbdfd214d66acc7a19dd7d",
+  "candidate_runtime_sha256": "9962c20d68a8fbb66f75047688c5ab4765475b1b7a32145e172f4f73277160b6",
+  "build_receipt": "direct-kv-build-20261106.json",
+  "host": "Linux amd64, Intel Core Ultra 9 285K, Go 1.27.3, CGO disabled, GOMAXPROCS=4, taskset CPUs 0-3",
+  "paired_generation_receipts": ["direct-kv-generation-run1.json", "direct-kv-generation-run2.json", "direct-kv-generation-run3.json"],
+  "protocol": "Three fresh processes; five synthetic FP32 generation cases; 24 alternating-order pairs per case; complete baseline and candidate runtimes are package-renamed into one executable. Every completion JSON is compared outside timing. Common interface boxing remains inside timing.",
+  "observations": {
+    "bulk_directory": "Fresh 32-page allocation: 70 objects before, 65 after, measured with AllocsPerRun(10). Data buffers and individual page objects remain separately allocated. Only the page-pointer directory grows in one operation.",
+    "workspace": "A fresh single direct session leaves both validation maps nil. Multiple sessions still create/reuse the duplicate-cache map; pooled sessions still create/reuse the reservation aggregate map.",
+    "latency": "Across-process medians of paired ratios are approximately -1.7% to +0.7% across the five conditions. Individual process medians span approximately -2.5% to +2.0%. This does not establish a uniform speedup."
+  },
+  "validation": ["Regression tests fail on baseline for unnecessary maps and repeated directory growth.", "Single/batch/single transitions, rejected duplicate batch without position/page/capacity changes, and subsequent retry pass.", "Page boundaries, non-growing calls, existing page identities and contents are preserved.", "Normal complete Go suite, targeted race tests, vet, build, CLI smoke, five isolated probe builds and Python tests pass."],
+  "retention": ["No cross-request workspace or KV pool added.", "No speculative KV payload pages allocated for possible future tokens.", "Existing KV and activation admission checks remain in place.", "Page-directory capacity follows standard Go slice growth and may differ; page payload count/size and activation-array capacities are unchanged by these edits."],
+  "scope": "Small bookkeeping allocation reduction, not a real-model quality, peak RSS, GC-frequency or serving-throughput claim. Attention callback reuse is deliberately excluded and reviewed separately."
+}
