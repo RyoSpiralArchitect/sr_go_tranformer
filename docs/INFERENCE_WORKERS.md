@@ -399,6 +399,25 @@ byte-identical completions. A q8 control stays near 1.00 because quantized
 weights use dedicated kernels the candidate does not touch. These remain
 single-model, single-host observations.
 
+### Quad-output FP32 and the rejected Q8 analogue
+
+A [selection receipt](../validation/performance/fp32-outputs4-selection-20261107.json)
+followed up the merged paired-output kernel with two further experiments.
+
+Sharing each remainder-row input load across four output accumulators
+(keeping two-column and scalar tails) measures ~0.62-0.65x the paired
+baseline at workers1 on decode shapes, ~0.78x for the 128-token synthetic
+generation fixture and ~0.73x on a real Llama-3.2-3B f32 128-token run,
+all with bit-identical outputs. The paired production loop was extended to
+a four-column group plus two-column and scalar tails; accumulation order
+per output is unchanged.
+
+The same column-pairing applied to `linearQ8Into`'s single remainder row
+is consistently ~2-5% slower at workers1: the Q8 inner loop already unrolls
+four elements per group with per-group scale application, so pairing adds
+register pressure without removing dominant work. The hypothesis is rejected
+and recorded with bit-exact coverage in `cmd/monolith/q8_outputs_test.go`.
+
 ## FP32 invocation reuse (2026-11-06)
 
 The historical worker table above predates FP32 invocation reuse. A live executor

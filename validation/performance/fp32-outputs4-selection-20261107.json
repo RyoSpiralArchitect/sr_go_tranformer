@@ -1,0 +1,58 @@
+{
+  "schema": "sr_go_transformer/performance-receipt/v1",
+  "receipt": "fp32-outputs4-selection-20261107",
+  "purpose": "Selection record for quad-output FP32 remainder-row sharing versus the merged paired-output kernel, including the rejected Q8 analogue",
+  "date": "2026-11-07",
+  "environment": {
+    "platform": "darwin/arm64",
+    "cpu": "Apple M4",
+    "go": "go1.27.3 darwin/arm64"
+  },
+  "baseline": {
+    "commit": "95380b7",
+    "description": "Merged paired-output (two-column) FP32 remainder-row kernel from PR #58"
+  },
+  "candidate": {
+    "description": "Remainder-row loop shares each input load across four output accumulators; two-column and scalar loops handle column tails. Per-output ascending-index accumulation order unchanged.",
+    "runtime_sha256": "80924af7ddf853d09b5079110ec627be4dc043f35a1ca5ee5682196744b23bcc"
+  },
+  "kernel_results": {
+    "receipts": [
+      "fp32-outputs4-kernel-20261107-run1.json",
+      "fp32-outputs4-kernel-20261107-run2.json",
+      "fp32-outputs4-kernel-20261107-run3.json"
+    ],
+    "median_ratio_summary": "Quad vs paired baseline across three fresh processes: workers1 decode shapes ~0.62-0.65, workers4 ~0.63-0.76; five-row mixed ~0.90-1.01. Identical outputs required at every step.",
+    "controls": "Unchanged four-row and mixed-row conditions stay near 1.0; slower observations retained in the raw receipts."
+  },
+  "generation_results": {
+    "receipts": [
+      "fp32-outputs4-generation-20261107-run1.json",
+      "fp32-outputs4-generation-20261107-run2.json",
+      "fp32-outputs4-generation-20261107-run3.json"
+    ],
+    "median_ratio_summary": "Synthetic FP32 fixture, 64 paired trials per process, three processes: prefix33/outputs128 ~0.775-0.778, prefix33/outputs8 ~0.87, prefix3/outputs1 ~0.74-0.76, long-prefill one-token ~0.99. Every completion matched."
+  },
+  "real_model": {
+    "model": "Llama-3.2-3B-Instruct, f32 weights, greedy, threads=4, 128 tokens",
+    "reference_binary": {"commit": "5a5f87f", "sha256": "e34c2714089e91c14431effe98a01d488b8ffc2ccb8db10a40226ee9a6a3d4f9"},
+    "candidate_binary": {"sha256": "156b2c5189ede3dcf484ec5ae039b2d5fa3e69d62413e40bc0513835cb848961"},
+    "reference_seconds": [59.09, 59.62],
+    "candidate_seconds": [42.75, 44.25],
+    "candidate_over_reference": 0.73,
+    "outputs_identical": true
+  },
+  "rejected_hypothesis": {
+    "name": "Q8 remainder-row column pairing",
+    "receipts": [
+      "q8-outputs-kernel-20261107-run1.json",
+      "q8-outputs-kernel-20261107-run2.json",
+      "q8-outputs-kernel-20261107-run3.json"
+    ],
+    "finding": "Pairing output columns in linearQ8Into's single remainder row is consistently ~2-5% slower at workers1 on decode shapes and neutral at workers4. The kernel already unrolls four elements per group with scale application, so pairing adds register pressure without removing dominant work. Rejected; the test-side implementation and bit-exact coverage remain in cmd/monolith/q8_outputs_test.go."
+  },
+  "limitations": [
+    "Synthetic FP32 fixture and a single real model on one Apple M4 host",
+    "No claim for quantized kernels, other platforms/toolchains, prefill-heavy loads, tail latency or memory footprint"
+  ]
+}
