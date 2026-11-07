@@ -47,6 +47,26 @@
       "candidate_seconds": [34.91],
       "candidate_over_reference": 0.636,
       "output_sha256": "dba16039a79f2526f0dd5dc649f637314c03ba221c8bc75d5d9cf78854d47230"
+    },
+    "tokens_256_long_decode": {
+      "prompt": "Write a detailed history of the city of Tokyo.",
+      "reference_seconds": [191.75, 190.74],
+      "candidate_seconds": [113.16, 122.02],
+      "reference_median_seconds": 191.25,
+      "candidate_median_seconds": 117.59,
+      "candidate_over_reference_median": 0.615,
+      "output_sha256": "69096f20d7b760802f1e68d780ee387f"
+    },
+    "q8_control_tokens_32": {
+      "note": "Q8 weights use linearQ8Into/linearQ8WideInto/dotQ8PairBlock64, not linearFP32Range; included as a no-regression control",
+      "weight_format": "q8",
+      "weight_mib_budget": 7000,
+      "reference_seconds": [24.19, 24.26, 24.43],
+      "candidate_seconds": [24.24, 24.43, 24.35],
+      "reference_median_seconds": 24.26,
+      "candidate_median_seconds": 24.35,
+      "candidate_over_reference_median": 1.004,
+      "output_sha256": "47bedffb2789b758f436616424c7df34de77dd002eb387c20617cae51a315983"
     }
   },
   "decode_estimate": {
@@ -56,10 +76,11 @@
     "candidate_over_reference": 0.593
   },
   "limitations": [
-    "Single model, single prompt, greedy sampling, threads=4, f32 weight format on one Apple M4 host",
+    "Single model, greedy sampling, threads=4, on one Apple M4 host; f32 timing claims do not extend to q8/q4 kernels which the candidate does not touch",
     "Wall-clock includes weight load and dequantization; not a serving-throughput measurement",
-    "No claim for q8/q4 weight formats, other models, other platforms, prefill-heavy workloads or tail latency",
-    "Single 64-token observation per binary; 32-token medians use three runs each"
+    "The q8 comparison is a no-regression control (ratio ~1.00), not an improvement claim",
+    "No claim for other models, other platforms, prefill-heavy workloads or tail latency",
+    "Single 64-token observation per binary; 256-token comparison uses two runs each"
   ],
   "raw_outputs": "runs/realmodel-llama3b/"
 }
