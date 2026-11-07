@@ -1,0 +1,50 @@
+{
+  "schema": "sr_go_transformer/performance-receipt/v1",
+  "receipt": "attend-scores-selection-20261108",
+  "purpose": "Selection record for four-position paired scoring in attend, plus the rejected sixteen-output FP32 analogue",
+  "date": "2026-11-08",
+  "environment": {
+    "platform": "darwin/arm64",
+    "cpu": "Apple M4",
+    "go": "go1.27.3 darwin/arm64"
+  },
+  "baseline": {
+    "commit": "56ed6aa",
+    "description": "Merged oct-output FP32 remainder-row kernel from PR #61 with scalar attend score pass"
+  },
+  "candidate": {
+    "description": "attend's score pass processes four positions per iteration, sharing each query load; each position keeps its ascending-index dot accumulation order and in-order max updates. The exp/value passes are unchanged."
+  },
+  "kernel_results": {
+    "receipts": [
+      "attend-scores-kernel-20261108-run1.json",
+      "attend-scores-kernel-20261108-run2.json",
+      "attend-scores-kernel-20261108-run3.json"
+    ],
+    "median_ratio_summary": "Whole-attend timing across three fresh processes: ~0.79-0.84x at head-dim 64, ~0.66-0.78x at head-dim 128, lengths 33-2048. Zero allocations both paths."
+  },
+  "generation_results": {
+    "receipts": [
+      "attend-scores-generation-20261108-run1.json",
+      "attend-scores-generation-20261108-run2.json",
+      "attend-scores-generation-20261108-run3.json"
+    ],
+    "median_ratio_summary": "Synthetic FP32 fixture, 64 paired trials x 3 processes: ~0.96-0.97x for 128-token decode, ~0.97-0.98x for 129/257-length prefill one-token, ~0.98-0.99x elsewhere. Every completion matched. Effect grows with context length; this fixture keeps positions short."
+  },
+  "real_model": {
+    "model": "Llama-3.2-3B-Instruct, f32, greedy, threads=4, 128 tokens",
+    "reference_seconds": [35.20, 35.22],
+    "candidate_seconds": [35.30, 35.96],
+    "note": "~1.00x at ~130 positions: attention is a small share here; adopted as a bit-exact no-regression step that scales with context length.",
+    "outputs_identical": true
+  },
+  "rejected_hypothesis": {
+    "name": "Sixteen-output FP32 remainder-row sharing",
+    "receipt": "fp32-outputs16-kernel-20261108-run1.json",
+    "finding": "~1.0-1.58x (slower) across decode shapes in one process; register pressure defeats the sharing win past eight accumulators. Oct stays the ceiling. Rejected; experiment kept in cmd/monolith/fp32_outputs16_test.go."
+  },
+  "limitations": [
+    "Single host; attention share grows with context so longer contexts should benefit more, but this is not yet measured on real models",
+    "Prefill path shares the same attend function and is covered by identical-output tests"
+  ]
+}
