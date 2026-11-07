@@ -418,6 +418,17 @@ four elements per group with per-group scale application, so pairing adds
 register pressure without removing dominant work. The hypothesis is rejected
 and recorded with bit-exact coverage in `cmd/monolith/q8_outputs_test.go`.
 
+### Oct-output FP32 remainder rows
+
+An [oct-output selection receipt](../validation/performance/fp32-outputs8-selection-20261108.json)
+extends the same sharing to eight accumulators (with four-, two- and
+one-column tails). Versus the merged quad baseline it measures ~0.61-0.75x
+at workers1 on kernel decode shapes across three fresh processes, ~0.83x on
+the 128-token synthetic generation fixture and ~0.89x on a real
+Llama-3.2-3B f32 128-token run, all bit-identical. The production loop now
+leads with an eight-column group; accumulation order per output is
+unchanged.
+
 ## FP32 invocation reuse (2026-11-06)
 
 The historical worker table above predates FP32 invocation reuse. A live executor
