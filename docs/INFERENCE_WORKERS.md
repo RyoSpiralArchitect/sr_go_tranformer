@@ -429,6 +429,21 @@ Llama-3.2-3B f32 128-token run, all bit-identical. The production loop now
 leads with an eight-column group; accumulation order per output is
 unchanged.
 
+### Four-position attend scoring and the rejected sixteen-output step
+
+An [attend selection receipt](../validation/performance/attend-scores-selection-20261108.json)
+pairs four positions per score-pass iteration, sharing each query load while
+every position keeps its ascending-index dot order and in-order max updates.
+Whole-attend timing measures ~0.66-0.84x across head dims and lengths;
+generation timing improves ~2-4% on the short-context synthetic fixture and
+is neutral (~1.00x) on a 128-token real-model run, adopted as a bit-exact
+step that scales with context length.
+
+Pushing the FP32 remainder-row sharing to sixteen accumulators measures
+~1.0-1.58x slower across decode shapes — register pressure defeats the win
+past eight — so oct remains the ceiling. The rejected experiment stays in
+`cmd/monolith/fp32_outputs16_test.go`.
+
 ## FP32 invocation reuse (2026-11-06)
 
 The historical worker table above predates FP32 invocation reuse. A live executor

@@ -5276,7 +5276,37 @@ func attend(q, out, scores []float32, length int, kv func(int) ([]float32, []flo
 	scale := float32(1 / math.Sqrt(float64(hd)))
 	maxScore := float32(-math.MaxFloat32)
 	clear(out)
-	for s := 0; s < length; s++ {
+	s := 0
+	for ; s+3 < length; s += 4 {
+		k0, _ := kv(s)
+		k1, _ := kv(s + 1)
+		k2, _ := kv(s + 2)
+		k3, _ := kv(s + 3)
+		var d0, d1, d2, d3 float32
+		for j, v := range q {
+			d0 += v * k0[j]
+			d1 += v * k1[j]
+			d2 += v * k2[j]
+			d3 += v * k3[j]
+		}
+		scores[s] = d0 * scale
+		scores[s+1] = d1 * scale
+		scores[s+2] = d2 * scale
+		scores[s+3] = d3 * scale
+		if scores[s] > maxScore {
+			maxScore = scores[s]
+		}
+		if scores[s+1] > maxScore {
+			maxScore = scores[s+1]
+		}
+		if scores[s+2] > maxScore {
+			maxScore = scores[s+2]
+		}
+		if scores[s+3] > maxScore {
+			maxScore = scores[s+3]
+		}
+	}
+	for ; s < length; s++ {
 		k, _ := kv(s)
 		var dot float32
 		for j, v := range q {
