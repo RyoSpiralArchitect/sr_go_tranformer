@@ -3997,6 +3997,18 @@ func linearFP32Range(job *fp32Kernel, lo, hi int) {
 			for row := r; row < n; row++ {
 				xr := x[row*in : (row+1)*in]
 				o := o0
+				for ; o+3 < o1; o += 4 {
+					w0, w1 := w.Data[o*in:(o+1)*in], w.Data[(o+1)*in:(o+2)*in]
+					w2, w3 := w.Data[(o+2)*in:(o+3)*in], w.Data[(o+3)*in:(o+4)*in]
+					var a, b, c, d float32
+					for j, v := range xr {
+						a += v * w0[j]
+						b += v * w1[j]
+						c += v * w2[j]
+						d += v * w3[j]
+					}
+					y[row*out+o], y[row*out+o+1], y[row*out+o+2], y[row*out+o+3] = a, b, c, d
+				}
 				for ; o+1 < o1; o += 2 {
 					w0, w1 := w.Data[o*in:(o+1)*in], w.Data[(o+1)*in:(o+2)*in]
 					var a, b float32
