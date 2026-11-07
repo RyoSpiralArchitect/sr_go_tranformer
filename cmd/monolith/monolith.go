@@ -3997,6 +3997,25 @@ func linearFP32Range(job *fp32Kernel, lo, hi int) {
 			for row := r; row < n; row++ {
 				xr := x[row*in : (row+1)*in]
 				o := o0
+				for ; o+7 < o1; o += 8 {
+					w0, w1 := w.Data[o*in:(o+1)*in], w.Data[(o+1)*in:(o+2)*in]
+					w2, w3 := w.Data[(o+2)*in:(o+3)*in], w.Data[(o+3)*in:(o+4)*in]
+					w4, w5 := w.Data[(o+4)*in:(o+5)*in], w.Data[(o+5)*in:(o+6)*in]
+					w6, w7 := w.Data[(o+6)*in:(o+7)*in], w.Data[(o+7)*in:(o+8)*in]
+					var a, b, c, d, e, f, g, h float32
+					for j, v := range xr {
+						a += v * w0[j]
+						b += v * w1[j]
+						c += v * w2[j]
+						d += v * w3[j]
+						e += v * w4[j]
+						f += v * w5[j]
+						g += v * w6[j]
+						h += v * w7[j]
+					}
+					y[row*out+o], y[row*out+o+1], y[row*out+o+2], y[row*out+o+3] = a, b, c, d
+					y[row*out+o+4], y[row*out+o+5], y[row*out+o+6], y[row*out+o+7] = e, f, g, h
+				}
 				for ; o+3 < o1; o += 4 {
 					w0, w1 := w.Data[o*in:(o+1)*in], w.Data[(o+1)*in:(o+2)*in]
 					w2, w3 := w.Data[(o+2)*in:(o+3)*in], w.Data[(o+3)*in:(o+4)*in]
