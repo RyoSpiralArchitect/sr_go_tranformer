@@ -1,0 +1,37 @@
+{
+  "format": "post-tokenizer-cpu-exploration-v1",
+  "baseline": "05410f94bab77ef3f9d632582ed647322c8b2349",
+  "runtime_sha256": "c8503a2e85cef21d3f5fee2e35ec64558c4fdb8681dcbb29a725a80ea7c79f0b",
+  "branch": "perf/post-tokenizer-cpu",
+  "environment": "Apple M4, Darwin arm64, Go 1.27.3, CGO_ENABLED=0; profiles are local synthetic FP32 fixture exploration, not real-model serving throughput.",
+  "benchmark": "BenchmarkOwnedGenerate/tokens128/reversefalse/after",
+  "build": "CGO_ENABLED=0 ./scripts/go.sh test -c -trimpath -o runs/post-tokenizer-cpu-05410f9-20261107.test ./cmd/monolith",
+  "binary_sha256": "29e4a84fdd3064cf154b32084168e9f45ec62193a836458edbbbbd0f105b9d39",
+  "profiles": [
+    {"path": "runs/post-tokenizer-cpu4-05410f9-20261107-run1.out", "sha256": "b5d6056f48d05b4b7ff89db6b2e016578ebb5100d8f68d12657f305a1d263ae7", "gomaxprocs": 4, "benchtime": "5s", "ns_op": 43237412, "bytes_op": 438245, "allocs_op": 50, "top_flat_percent": {"pthread_cond_signal": 64.79, "pthread_cond_wait": 26.10, "usleep": 7.65, "linearFP32Range": 1.02}},
+    {"path": "runs/post-tokenizer-cpu1-05410f9-20261107-run1.out", "sha256": "42f9a5610ee428f87517b70062aa757ee5f318183d69a762e5e8697118ebe1ff", "gomaxprocs": 1, "benchtime": "5s", "ns_op": 65004022, "bytes_op": 438421, "allocs_op": 44, "top_flat_percent": {"linearFP32Range": 90.49, "attend": 3.74}},
+    {"path": "runs/post-tokenizer-cpu4-05410f9-20261107-run2.out", "sha256": "159364e670aeab9e6775aa4af83aa0285b1007c8aaaceb89f4d2cf24eddd555a", "gomaxprocs": 4, "benchtime": "5s", "ns_op": 42821842, "bytes_op": 438185, "allocs_op": 50, "top_flat_percent": {"pthread_cond_signal": 63.75, "pthread_cond_wait": 27.55, "usleep": 8.11}}
+  ],
+  "fixed64_process_counter_check": {
+    "command": "GOMAXPROCS=4 /usr/bin/time -l runs/post-tokenizer-cpu-05410f9-20261107.test -test.run '^$' -test.bench '^BenchmarkOwnedGenerate/tokens128/reversefalse/after$' -test.benchtime=64x -test.benchmem [with and without -test.cpuprofile=FRESH_PATH]",
+    "unprofiled": {"ns_op": 42475025, "real_s": 2.97, "user_s": 5.59, "sys_s": 0.24},
+    "profiled": {"ns_op": 42797522, "real_s": 3.11, "user_s": 5.65, "sys_s": 0.26},
+    "cpu_profile": "runs/post-tokenizer-cpu4-05410f9-20261107-fixed64.out",
+    "cpu_profile_sha256": "e41f808002c4fd5d89bbcb954dc39f937894451ec20696b0361e342728bd46c0",
+    "interpretation": "Native-frame attribution remains strongly skewed even though process counters are mostly user time. One paired observational check does not establish profiler overhead or its cause; do not equate native wait/signal sample percentages with removable wall-clock overhead."
+  },
+  "block_profile": {
+    "path": "runs/post-tokenizer-block4-05410f9-20261107-fixed64.out",
+    "sha256": "136a42550722d2906d6aee4c8befa609381899ca9b117f98ca7c82c39a3d5d34",
+    "ns_op_under_instrumentation": 42998368,
+    "total_delay_s": 13.95,
+    "executor_parallel_cumulative_delay_s": 1.29,
+    "executor_idle_run_cumulative_delay_s": 6.77,
+    "interpretation": "Delay sums include concurrent goroutines, idle worker receives and testing harness waits; they are not CPU time or additive removable generation latency. Dispatch/completion boundaries remain an investigation target, not a proven bottleneck percentage."
+  },
+  "next_hypotheses": [
+    "Primary: FP32 decode currently accumulates one output dot product at a time. Test sharing each input value across two output accumulators, preserving ascending input-index accumulation order independently for each output. Keep the existing four-sequence-row prefill path, worker count, task partition and thresholds unchanged. Require bit-exact tests for odd output tails, remainder rows and serial/parallel calls before timing.",
+    "Secondary: distinguish actual executor dispatch/completion cost from necessary math/idle waits using matched same-process kernel controls and independent profiling methods. Do not repeat earlier caller-participation/threshold ideas without new evidence."
+  ],
+  "limitations": "CPU sampling includes benchmark setup and calibration outside benchmark timers. Profiles change scheduling and are not per-op latency breakdowns. Four-thread and one-thread measurements are different execution configurations, not before/after optimized code. No production change or speedup claim is made in this exploration. Raw binary/profiles stay in ignored runs/; SHA-256 bindings and observations are recorded here."
+}

@@ -1,0 +1,86 @@
+{
+  "schema": "sr_go_transformer/performance-receipt/v1",
+  "receipt": "fp32-outputs-realmodel-20261107",
+  "purpose": "Real-model whole-process generation comparison for the paired-output FP32 remainder-row candidate",
+  "date": "2026-11-07",
+  "environment": {
+    "platform": "darwin/arm64",
+    "cpu": "Apple M4",
+    "physical_cpus": 10,
+    "memory_bytes": 25769803776,
+    "go": "go1.27.3 darwin/arm64",
+    "threads": 4
+  },
+  "model": {
+    "path": "~/SpiralReality/models/Llama-3.2-3B-Instruct",
+    "architecture": "llama",
+    "tokenizer": "llama3-bytelevel",
+    "weight_format": "f32",
+    "resident_weight_mib": 12255.7,
+    "weight_mib_budget": 14000,
+    "context": 2048,
+    "kv_mib": 512
+  },
+  "binaries": {
+    "reference": {
+      "commit": "05410f94bab77ef3f9d632582ed647322c8b2349",
+      "sha256": "46311a973cf1163924cc9dc584afcf912271ce8ade5bb503c827603a0042e210"
+    },
+    "candidate": {
+      "commit": "5a5f87f3e99eb243538c04dec600207ba4cb3079",
+      "sha256": "e34c2714089e91c14431effe98a01d488b8ffc2ccb8db10a40226ee9a6a3d4f9"
+    }
+  },
+  "method": "Fresh-process wall-clock `/usr/bin/time -p` for `generate -temperature 0` (greedy); alternating reference/candidate order within the same session. Includes weight load, dequantization, tokenizer, prompt prefill and decode. Identical completion text verified by SHA-256 of stdout.",
+  "runs": {
+    "prompt": "The capital of Japan is",
+    "tokens_32": {
+      "reference_seconds": [34.53, 32.45, 31.94],
+      "candidate_seconds": [20.96, 21.60, 21.62],
+      "reference_median_seconds": 32.45,
+      "candidate_median_seconds": 21.60,
+      "candidate_over_reference_median": 0.666,
+      "output_sha256": "47bedffb2789b758f436616424c7df34de77dd002eb387c20617cae51a315983"
+    },
+    "tokens_64": {
+      "reference_seconds": [54.89],
+      "candidate_seconds": [34.91],
+      "candidate_over_reference": 0.636,
+      "output_sha256": "dba16039a79f2526f0dd5dc649f637314c03ba221c8bc75d5d9cf78854d47230"
+    },
+    "tokens_256_long_decode": {
+      "prompt": "Write a detailed history of the city of Tokyo.",
+      "reference_seconds": [191.75, 190.74],
+      "candidate_seconds": [113.16, 122.02],
+      "reference_median_seconds": 191.25,
+      "candidate_median_seconds": 117.59,
+      "candidate_over_reference_median": 0.615,
+      "output_sha256": "69096f20d7b760802f1e68d780ee387f"
+    },
+    "q8_control_tokens_32": {
+      "note": "Q8 weights use linearQ8Into/linearQ8WideInto/dotQ8PairBlock64, not linearFP32Range; included as a no-regression control",
+      "weight_format": "q8",
+      "weight_mib_budget": 7000,
+      "reference_seconds": [24.19, 24.26, 24.43],
+      "candidate_seconds": [24.24, 24.43, 24.35],
+      "reference_median_seconds": 24.26,
+      "candidate_median_seconds": 24.35,
+      "candidate_over_reference_median": 1.004,
+      "output_sha256": "47bedffb2789b758f436616424c7df34de77dd002eb387c20617cae51a315983"
+    }
+  },
+  "decode_estimate": {
+    "note": "32 vs 64 token wall-clock deltas approximate per-token decode cost including fixed load/prefill",
+    "reference_seconds_per_extra_token": 0.701,
+    "candidate_seconds_per_extra_token": 0.416,
+    "candidate_over_reference": 0.593
+  },
+  "limitations": [
+    "Single model, greedy sampling, threads=4, on one Apple M4 host; f32 timing claims do not extend to q8/q4 kernels which the candidate does not touch",
+    "Wall-clock includes weight load and dequantization; not a serving-throughput measurement",
+    "The q8 comparison is a no-regression control (ratio ~1.00), not an improvement claim",
+    "No claim for other models, other platforms, prefill-heavy workloads or tail latency",
+    "Single 64-token observation per binary; 256-token comparison uses two runs each"
+  ],
+  "raw_outputs": "runs/realmodel-llama3b/"
+}
