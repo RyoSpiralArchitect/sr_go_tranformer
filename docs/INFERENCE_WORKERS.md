@@ -444,6 +444,17 @@ Pushing the FP32 remainder-row sharing to sixteen accumulators measures
 past eight — so oct remains the ceiling. The rejected experiment stays in
 `cmd/monolith/fp32_outputs16_test.go`.
 
+### Two-column pairing in the four-row (prefill) path
+
+A [four-row selection receipt](../validation/performance/fp32-rows4-selection-20261108.json)
+pairs two output columns per iteration in the four-row path, so each
+four-row input bundle serves eight accumulators. Kernel timing measures
+~0.54-0.62x at workers1 on rows>=4 shapes; long-prefill synthetic cases
+drop to ~0.75x and a ~330-token real-model prompt measures ~0.64x
+end-to-end with identical completions. Per-output accumulation order is
+unchanged; a 4-column x 4-row variant was skipped because sixteen
+accumulators are already measured slower.
+
 ## FP32 invocation reuse (2026-11-06)
 
 The historical worker table above predates FP32 invocation reuse. A live executor
