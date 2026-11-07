@@ -1,0 +1,59 @@
+{
+  "format": "fp32-paired-output-selection-v1",
+  "baseline": "05410f94bab77ef3f9d632582ed647322c8b2349",
+  "baseline_runtime_sha256": "c8503a2e85cef21d3f5fee2e35ec64558c4fdb8681dcbb29a725a80ea7c79f0b",
+  "candidate_runtime_sha256": "0eab50da346ed99bce03ee633e1df36838013c627e10ff1e35309ef564caea71",
+  "environment": "Apple M4 / Darwin arm64 / Go 1.27.3 / GOMAXPROCS4, unprofiled latency experiments. Local start load average 2.57 / 1.58 / 1.34; other workloads were not stopped.",
+  "implementation": "Only the FP32 remainder-row path changes: reuse each input element for two distinct output accumulators, keeping ascending input-index accumulation order for each output, and use the original scalar tail for odd output counts. Four-row prefill arithmetic, output tiles, work threshold, workers, executor borrowing/join rules and quantized kernels remain unchanged. No new unsafe code, dependencies, invocation state or allocations.",
+  "correctness": "630 row/column/output combinations cover zero dimensions, rows 1/2/3/4/5/7/8/9/17 and 31/32/33/63/65 output boundaries, comparing frozen, experimental and production ranges. Ten larger serial/parallel invocation cases check bit identity, zero warm allocations and post-join state cleanup. Signed zero, subnormal, infinities and NaN payload patterns match reference bits. Existing normal and race full suites and complete generation equality pass. Call sites use distinct input/output buffers; no in-place matmul support is introduced.",
+  "kernel": {
+    "protocol": "fp32-paired-outputs-v1",
+    "receipts": ["fp32-outputs-kernel-20261107-run1.json", "fp32-outputs-kernel-20261107-run2.json", "fp32-outputs-kernel-20261107-run3.json"],
+    "trials": 32,
+    "conditions": 14,
+    "description": "Frozen single-output range versus paired-output experiment, with matched reusable runner/callback dispatch on both sides. Balanced AB/BA blocks; calls per block max(1, 2^22/(rows*columns*outputs)). Three fresh processes; all warm allocation counts zero. Test/prototype and executable hashes pinned in each receipt. These were measured before production integration, against baseline runtime c8503a2e.",
+    "approximate_process_medians": {
+      "workers1/rows1/704x256": [0.5369, 0.5330, 0.5366],
+      "workers1/rows1/256x704": [0.5211, 0.5226, 0.5241],
+      "workers1/rows1/258x256": [0.5372, 0.5360, 0.5366],
+      "workers1/rows3/705x257": [0.5288, 0.5300, 0.5310],
+      "workers1/rows4/704x256": [1.0098, 1.0111, 1.0061],
+      "workers1/rows5/704x256": [0.8016, 0.8141, 0.8108],
+      "workers1/rows1/8960x1536": [0.5138, 0.5130, 0.5202],
+      "workers4/rows1/704x256": [0.7850, 0.8041, 0.8061],
+      "workers4/rows1/256x704": [0.6396, 0.6468, 0.6402],
+      "workers4/rows1/258x256": [0.5382, 0.5363, 0.5340],
+      "workers4/rows3/705x257": [0.6353, 0.6429, 0.6437],
+      "workers4/rows4/704x256": [1.0038, 1.0020, 1.0144],
+      "workers4/rows5/704x256": [0.9596, 1.0035, 1.0147],
+      "workers4/rows1/8960x1536": [0.5198, 0.5172, 0.5163]
+    },
+    "interpretation": "Decode/remainder-row cases show substantial reductions, but four-row controls and mixed 5-row parallel cases retain slower observations. Do not claim universal kernel improvement or prefill non-regression."
+  },
+  "generation": {
+    "build_receipt": "fp32-outputs-generation-build-20261107.json",
+    "control_build_receipt": "tokenizer-self-generation-build-20261107.json",
+    "receipts": ["fp32-outputs-generation-20261107-run1.json", "fp32-outputs-generation-20261107-run2.json", "fp32-outputs-generation-20261107-run3.json"],
+    "control_receipts": ["fp32-outputs-generation-control-20261107-run1.json", "fp32-outputs-generation-control-20261107-run2.json", "fp32-outputs-generation-control-20261107-run3.json"],
+    "trials": 48,
+    "execution_order": ["control1", "candidate1", "candidate2", "control2", "control3", "candidate3"],
+    "approximate_process_medians": {
+      "prefix3/outputs1": [0.65698587, 0.65860047, 0.65289256],
+      "prefix129/outputs1": [0.98405610, 0.98403260, 0.97498337],
+      "prefix257/outputs1": [0.99264897, 0.99308527, 0.99409390],
+      "prefix33/outputs8": [0.79071569, 0.79402223, 0.79106028],
+      "prefix33/outputs128": [0.68571243, 0.67945479, 0.67678920]
+    },
+    "approximate_control_medians": {
+      "prefix3/outputs1": [0.99873772, 0.99546208, 1.00825932],
+      "prefix129/outputs1": [1.01203347, 1.00916600, 1.00651807],
+      "prefix257/outputs1": [0.99385468, 1.00001027, 0.99845611],
+      "prefix33/outputs8": [0.99886794, 1.00537609, 0.99651634],
+      "prefix33/outputs128": [1.00103246, 1.00039070, 1.00061311]
+    },
+    "outputs128_process_elapsed_medians_ms": {"before": [42.4058335, 42.676729, 42.6049585], "after": [29.034604, 28.9436045, 28.8571455]},
+    "interpretation": "Complete before/after runtimes share a binary, three processes and 48 alternating pairs per shape. All warm and timed completion JSONs match outside timing. The old c8503a2e identical-runtime control binary was freshly rerun, not rebuilt as candidate self/self: its build receipt predates this experiment and records source/driver/binary bindings. Both experiments use Go1.27.3 and the same generation driver. Synthetic model dimensions256/hidden704/layer1, greedy no-EOS sampling. Observed 128-output latency falls around31-32%, with old-self control around1.000-1.001. Short prompt/one-output and eight-output cases also improve. Long-prefill/one-output differences are much smaller and should not be generalized. No real-model, other-OS/toolchain, quantized throughput, tail-latency, RSS or universal no-regression claim."
+  },
+  "verification": ["normal full Go suite", "race-enabled full Go suite", "go vet", "isolated probes and CGO-disabled build", "CLI smoke and deterministic resume", "Python receipt validation"],
+  "decision": "Retain the paired-output path as a promising local FP32 compute candidate; substantially larger complete-generation differences than measured self controls support further review. Not merged, committed or pushed as part of this experiment. Require broader platform/toolchain/model validation before universal claims."
+}

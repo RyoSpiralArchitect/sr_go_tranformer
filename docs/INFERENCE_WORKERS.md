@@ -352,6 +352,46 @@ Linux/macOS. The invalid-ID-heavy slowdown remains accepted and documented; its
 all-negative case exits after one scan, so a second scan is not its established
 cause. No additional production tuning was adopted based on these timings.
 
+### Post-tokenizer CPU exploration
+
+After PR #57 merged, [CPU/block exploration](../validation/performance/post-tokenizer-cpu-exploration-20261107.json)
+on `05410f9` isolates the next hypotheses without changing production code.
+The one-thread 128-token fixture attributes about 90% of sampled CPU to
+`linearFP32Range`. Four-thread Darwin profiles instead skew heavily toward native
+wait/signal frames; process counters and a separate block profile were collected
+as checks, not as proof that those percentages are removable wall-clock overhead.
+Block delay includes idle workers, parallel waits and the benchmark harness.
+
+The next bounded compute hypothesis is sharing an input value across two output
+accumulators in the FP32 decode/remainder-row path while preserving each output's
+ascending input-index accumulation order. Four-row prefill arithmetic, task
+partitioning, workers and thresholds should remain unchanged for the first
+experiment. Exact bits, odd output tails, remainder rows, serial/parallel use and
+whole-generation parity are prerequisites to evaluating latency. Dispatch and
+completion joins remain a secondary hypothesis requiring matched controls;
+profile percentages alone do not select a scheduling rewrite.
+
+### Paired-output FP32 prototype
+
+The [paired-output selection receipt](../validation/performance/fp32-outputs-selection-20261107.json)
+records the first compute experiment against merged `05410f9`. Only the
+remainder-row loop changes: two output accumulators share each input load while
+each output retains its original ascending-index reduction order. Odd output
+tails use the scalar loop; the four-row path, workers and thresholds are unchanged.
+Frozen-reference tests cover 630 small shape combinations, larger serial/parallel
+calls, special FP32 bit patterns, zero warm allocations and post-join cleanup.
+
+Three fresh-process matched kernel comparisons show large decode reductions,
+but preserve roughly 1% slower four-row and some mixed-row parallel observations.
+Complete-runtime alternating comparisons also preserve every completion: the
+128-token synthetic FP32 fixture has candidate/reference ratios 0.686/0.679/0.677,
+with elapsed process medians around 42.4–42.7 ms versus 28.9–29.0 ms. Fresh runs of
+the prior identical-runtime control binary stay near 1.000–1.001 for that shape.
+Long-prefill/one-token differences are much smaller. This is a substantial local
+fixture result, not a universal prefill, other-platform/toolchain, real-model,
+quantized, tail-latency or memory improvement claim. The production candidate
+remains local and requires further review before integration.
+
 ## FP32 invocation reuse (2026-11-06)
 
 The historical worker table above predates FP32 invocation reuse. A live executor
