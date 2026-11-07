@@ -117,20 +117,37 @@ func pairedCols4RowFP32Range(job *fp32Kernel, lo, hi int) {
 }
 
 func TestPairedCols4RowFP32Exact(t *testing.T) {
-	for _, rows := range []int{4, 5, 7, 8, 9, 12, 17} {
+	for _, rows := range []int{4, 5, 6, 7, 8, 9, 10, 12, 17} {
 		for _, cols := range []int{1, 3, 31, 32, 33, 255} {
-			for _, outputs := range []int{1, 2, 3, 31, 32, 33, 63, 65} {
+			for _, outputs := range []int{1, 2, 3, 31, 32, 33, 63, 64, 65} {
 				x, w, _ := linearFixture(rows, cols, outputs)
-				want, got := make([]float32, rows*outputs), make([]float32, rows*outputs)
+				want := make([]float32, rows*outputs)
+				got := make([]float32, rows*outputs+2)
+				for i := range got {
+					got[i] = -777
+				}
 				tasks := ((rows + 3) / 4) * ((outputs + 31) / 32)
 				octOutputFP32Range(&fp32Kernel{x: x, y: want, w: w, n: rows}, 0, tasks)
-				job := fp32Kernel{x: x, y: got, w: w, n: rows}
+				job := fp32Kernel{x: x, y: got[1 : len(got)-1], w: w, n: rows}
 				for task := 0; task < tasks; task++ {
 					pairedCols4RowFP32Range(&job, task, task+1)
 				}
+				if got[0] != -777 || got[len(got)-1] != -777 {
+					t.Fatalf("sentinel changed rows%d cols%d outputs%d", rows, cols, outputs)
+				}
 				for i := range want {
-					if math.Float32bits(want[i]) != math.Float32bits(got[i]) {
+					if math.Float32bits(want[i]) != math.Float32bits(got[i+1]) {
 						t.Fatalf("rows%d cols%d outputs%d index%d", rows, cols, outputs, i)
+					}
+				}
+				poison := make([]float32, rows*outputs)
+				for i := range poison {
+					poison[i] = -777
+				}
+				linearFP32Range(&fp32Kernel{x: x, y: poison, w: w, n: rows}, 0, tasks)
+				for i := range want {
+					if math.Float32bits(want[i]) != math.Float32bits(poison[i]) {
+						t.Fatalf("production rows%d cols%d outputs%d index%d", rows, cols, outputs, i)
 					}
 				}
 			}
