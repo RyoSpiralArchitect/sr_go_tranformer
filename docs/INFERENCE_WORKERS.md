@@ -389,8 +389,15 @@ with elapsed process medians around 42.4–42.7 ms versus 28.9–29.0 ms. Fresh 
 the prior identical-runtime control binary stay near 1.000–1.001 for that shape.
 Long-prefill/one-token differences are much smaller. This is a substantial local
 fixture result, not a universal prefill, other-platform/toolchain, real-model,
-quantized, tail-latency or memory improvement claim. The production candidate
-remains local and requires further review before integration.
+quantized, tail-latency or memory improvement claim.
+
+A [real-model receipt](../validation/performance/fp32-outputs-realmodel-20261107.json)
+extends the check to Llama-3.2-3B-Instruct (f32, greedy, threads=4, Apple M4):
+alternating fresh-process runs measure 0.666x reference for 32-token medians,
+0.636x for a 64-token pair and about 0.615x for 256-token decode, with
+byte-identical completions. A q8 control stays near 1.00 because quantized
+weights use dedicated kernels the candidate does not touch. These remain
+single-model, single-host observations.
 
 ## FP32 invocation reuse (2026-11-06)
 
